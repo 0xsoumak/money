@@ -203,18 +203,20 @@ Web goes first, so there is something usable on a real URL (and on the phone bro
 
 ---
 
-### Phase 4: Android app (later, 1–2 weeks)
+### Phase 4: Android app (in progress)
 
 Starts after the web app has been used for a while. Reuses the API, shared package, tokens and design guide.
 
-- [ ] Expo app with Expo Router, NativeWind wired to the shared tokens (dark only), development build on my phone (not Expo Go)
-- [ ] Typed API client (`hc`) + TanStack Query; bearer token kept in `expo-secure-store`
-- [ ] Login, Overview (month view), Budgets
-- [ ] **Quick add**: opens to a number pad and category pills. Amount → category → save in three taps. Haptic on every key and on save.
-- [ ] Edit, delete with Undo toast, Categories screen
-- [ ] Failed saves are kept and retried (safe because of the client ULIDs)
-- [ ] App icon, splash screen, name; `runtimeVersion` policy and EAS Update channel
-- [ ] Build a release APK (EAS cloud build or local Gradle) and install it
+- [x] Expo app (SDK 58) with Expo Router in `apps/mobile`, dark only. **Plain StyleSheet with the shared tokens instead of NativeWind** (fewer moving parts, nothing to configure)
+- [x] Run in **Expo Go** during development (no development build needed: every library used works in Expo Go)
+- [x] Typed API client (`hc`) + TanStack Query; bearer token kept in the Android keystore (`expo-secure-store`)
+- [x] Login, Overview, Budgets
+- [x] **Quick add**: number pad, swipeable category pills, last-used category, haptics on every key and on save. The Add button sits in the centre of the tab bar.
+- [x] Edit, delete with Undo toast, Categories screen (under Settings)
+- [x] A failed save shows an error toast with Retry (safe because of the client ULIDs). _Not yet:_ keep unsent entries across an app restart
+- [ ] App icon and splash artwork (currently Expo's placeholders)
+- [ ] `runtimeVersion` policy and EAS Update channel
+- [ ] Build a release APK (EAS cloud build) and install it
 
 **Done when:** I've used it for a full week to log every expense, and adding one takes under 5 seconds.
 
