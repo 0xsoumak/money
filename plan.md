@@ -186,7 +186,7 @@ Web goes first, so there is something usable on a real URL (and on the phone bro
 - [x] Settings page: currency, locale; sign out
 - [x] Keyboard: `N` new, `←`/`→` change month
 - [x] Usable at phone width (stacked layout), since it doubles as a phone fallback
-- [x] Serve the build from the same Worker (`assets` in `wrangler.jsonc`); one command deploys everything (`pnpm deploy`)
+- [x] Serve the build from the same Worker (`assets` in `wrangler.jsonc`); one command deploys everything (`pnpm ship`)
 
 **Done when:** the web app is live at the Worker URL, I can log in and log, edit and delete an expense, and the numbers match the API.
 
