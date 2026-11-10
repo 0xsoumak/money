@@ -1,0 +1,25 @@
+{
+  "name": "money-tracker",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @money/api dev",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "db:generate": "pnpm --filter @money/api db:generate",
+    "db:migrate:local": "pnpm --filter @money/api db:migrate:local",
+    "db:migrate:remote": "pnpm --filter @money/api db:migrate:remote",
+    "create-user": "pnpm --filter @money/api create-user",
+    "deploy": "pnpm --filter @money/api run deploy"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "typescript": "7.0.2"
+  }
+}

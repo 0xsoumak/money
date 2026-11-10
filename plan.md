@@ -8,22 +8,23 @@ A personal monthly expense tracker and budgeting app for one user, with a web ap
 
 ## Decisions
 
-| Area | Choice |
-|---|---|
-| Repo | pnpm workspaces monorepo |
-| Backend | **Hono** on a single Cloudflare Worker |
-| Database | **Cloudflare D1** (SQLite) + **Drizzle ORM**, migrations through Drizzle Kit and `wrangler d1 migrations apply` |
-| Auth | **Better Auth**, email/password, sign-ups disabled after the first account. Cookies on web, bearer token on mobile. |
-| Web | **Vite + React + TanStack Router + TanStack Query**, a pure SPA with no SSR |
-| Web hosting | Static build served by the **same Worker** (Workers static assets), so one origin and no CORS |
-| Mobile | **Expo** (React Native), Android only, installed locally from an APK. **EAS Update** for over-the-air JS updates. |
-| API client | Hono RPC (`hc<AppType>`), typed end to end in both clients |
-| Validation | Zod schemas shared in `packages/shared` |
-| Styling | Our own small component kit. Tailwind on web (headless behavior from **Base UI** or **React Aria**), **NativeWind** on mobile. Design tokens shared. |
-| Motion and feel | Motion on web, Reanimated on mobile, `expo-haptics`, `@gorhom/bottom-sheet` |
-| Cost | ₹0. Everything fits in the Cloudflare and Expo free tiers. |
+| Area            | Choice                                                                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo            | pnpm workspaces monorepo                                                                                                                             |
+| Backend         | **Hono** on a single Cloudflare Worker                                                                                                               |
+| Database        | **Cloudflare D1** (SQLite) + **Drizzle ORM**, migrations through Drizzle Kit and `wrangler d1 migrations apply`                                      |
+| Auth            | **Better Auth**, email/password, sign-ups disabled after the first account. Cookies on web, bearer token on mobile.                                  |
+| Web             | **Vite + React + TanStack Router + TanStack Query**, a pure SPA with no SSR                                                                          |
+| Web hosting     | Static build served by the **same Worker** (Workers static assets), so one origin and no CORS                                                        |
+| Mobile          | **Expo** (React Native), Android only, installed locally from an APK. **EAS Update** for over-the-air JS updates.                                    |
+| API client      | Hono RPC (`hc<AppType>`), typed end to end in both clients                                                                                           |
+| Validation      | Zod schemas shared in `packages/shared`                                                                                                              |
+| Styling         | Our own small component kit. Tailwind on web (headless behavior from **Base UI** or **React Aria**), **NativeWind** on mobile. Design tokens shared. |
+| Motion and feel | Motion on web, Reanimated on mobile, `expo-haptics`, `@gorhom/bottom-sheet`                                                                          |
+| Cost            | ₹0. Everything fits in the Cloudflare and Expo free tiers.                                                                                           |
 
 ### Data rules (set from day one)
+
 - **Money is stored as integers** in minor units (paise): `12550` = ₹125.50. Never floats.
 - **Transaction dates are plain local dates** (`'2026-11-10'`), not UTC timestamps, so monthly grouping is never off by a timezone. `created_at` and `updated_at` are timestamps used only for sorting and auditing.
 - **The client generates IDs** (ULID), which makes creates idempotent and leaves room for offline support later.
@@ -48,6 +49,7 @@ money-tracker/
 ```
 
 `apps/api/wrangler.jsonc`, in brief:
+
 ```jsonc
 {
   "assets": {
@@ -138,6 +140,7 @@ GET    /api/export?format=csv|json
 ## Phases
 
 ### Phase 0: Design direction (1–2 days)
+
 Choose the look before writing UI code.
 
 - [ ] Mock up 2–3 visual directions (for example soft and playful, bold and high-contrast, calm and minimal) as a comparison page: home/month view, quick add, budgets
@@ -149,14 +152,15 @@ Choose the look before writing UI code.
 ---
 
 ### Phase 1: Foundation and API (3–5 days)
+
 A deployed, secured API on a real URL.
 
 - [ ] Set up the monorepo: pnpm workspaces, TypeScript base config, Biome or ESLint + Prettier, `.gitignore`, `git init`
 - [ ] `packages/shared`: zod schemas, money helpers (`toMinor`, `fromMinor`, `formatMoney`), date helpers (`monthOf`, `monthRange`, `today()` in local time), default categories, tokens
 - [ ] `apps/api`: Hono app, Drizzle schema, first migration, create the D1 database (local and remote)
 - [ ] Better Auth: email/password, D1 adapter, bearer plugin for mobile, **rate limiting on**, session ~90 days with rolling renewal
-- [ ] Create my account, then **turn off sign-ups**
-- [ ] Seed default categories on first login
+- [ ] Sign-ups are disabled in the API; the account is created with `pnpm create-user --remote` (writes straight to D1, password never leaves the machine)
+- [ ] Seed default categories and settings in a migration (`0001_seed_defaults.sql`)
 - [ ] Endpoints: categories, transactions, summary, settings (budgets and export come later)
 - [ ] Auth middleware on all `/api/*` except `/api/auth/*`
 - [ ] Secrets set with `wrangler secret put` (`BETTER_AUTH_SECRET`, …)
@@ -168,6 +172,7 @@ A deployed, secured API on a real URL.
 ---
 
 ### Phase 2: Mobile MVP (1–2 weeks)
+
 The app I'll use every day. Most of the effort goes into making quick add feel great.
 
 - [ ] Expo app with Expo Router, NativeWind wired to the shared tokens, light and dark mode
@@ -189,6 +194,7 @@ The app I'll use every day. Most of the effort goes into making quick add feel g
 ---
 
 ### Phase 3: Budgets (3–5 days)
+
 - [ ] API: budget endpoints, budget progress in `/api/summary`
 - [ ] Mobile: **Budgets** screen to set a monthly limit per category plus an optional overall limit
 - [ ] Animated progress bars on budget cards, with color moving from calm → warning (>80%) → over (>100%)
@@ -200,6 +206,7 @@ The app I'll use every day. Most of the effort goes into making quick add feel g
 ---
 
 ### Phase 4: Web app (1 week)
+
 For reviewing, bulk editing and exporting on a bigger screen.
 
 - [ ] `apps/web`: Vite + React + TanStack Router (file routes) + TanStack Query, Tailwind with the shared tokens, our own components built on Base UI or React Aria
@@ -218,6 +225,7 @@ For reviewing, bulk editing and exporting on a bigger screen.
 ---
 
 ### Phase 5: Polish and reliability (ongoing, ~3–5 days)
+
 - [ ] Motion pass: springy sheets, count-up amounts, list item enter/exit, bar fills
 - [ ] Empty states and first-run experience (friendly, not blank)
 - [ ] Accessibility check: contrast in both themes, touch targets ≥ 44px, screen reader labels on amounts
@@ -230,6 +238,7 @@ For reviewing, bulk editing and exporting on a bigger screen.
 ---
 
 ### Phase 6+: Later (only after v1 is a habit)
+
 Rough priority order:
 
 1. **Recurring transactions**: rent and subscriptions added automatically each month (Cron Trigger or created when the app opens)
@@ -243,6 +252,7 @@ Rough priority order:
 ---
 
 ## Working agreements
+
 - Each phase ends deployed and usable. No long-running branches.
 - Don't add a feature until I've felt its absence in real use.
 - Migrations are committed and always applied through Wrangler. Never edit the remote DB by hand.
