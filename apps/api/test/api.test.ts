@@ -59,6 +59,24 @@ describe("categories", () => {
     expect((await unarchived.json<Json>()).category.archivedAt).toBeNull();
   });
 
+  it("puts a new category at the end of its kind unless an order is given", async () => {
+    const make = async (extra: Json = {}) =>
+      (
+        await (
+          await api("/api/categories", {
+            method: "POST",
+            json: { name: "Order check", emoji: "x", color: "teal", kind: "income", ...extra },
+          })
+        ).json<Json>()
+      ).category;
+    const first = await make();
+    const second = await make();
+    expect(second.sortOrder).toBe(first.sortOrder + 1);
+    expect(first.sortOrder).toBeGreaterThanOrEqual(2); // after the two seeded income categories
+    const pinned = await make({ sortOrder: 0 });
+    expect(pinned.sortOrder).toBe(0);
+  });
+
   it("validates input", async () => {
     const res = await api("/api/categories", {
       method: "POST",

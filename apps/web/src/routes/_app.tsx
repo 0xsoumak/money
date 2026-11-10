@@ -48,7 +48,7 @@ function Shell() {
           </p>
           <nav
             aria-label="Main"
-            className="order-3 -mx-2 flex w-full flex-wrap gap-1 sm:order-none sm:mx-0 sm:w-auto sm:flex-1"
+            className="order-3 -mx-2 flex w-full gap-0.5 overflow-x-auto sm:order-none sm:mx-0 sm:w-auto sm:flex-1 sm:gap-1 sm:overflow-visible"
           >
             {NAV.map((item) => (
               <Link
@@ -56,7 +56,7 @@ function Shell() {
                 to={item.to}
                 search={(prev: { month?: string }) => ({ month: prev.month })}
                 activeOptions={{ exact: item.to === "/" }}
-                className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold uppercase tracking-[0.08em] text-muted transition hover:text-ink"
+                className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-muted transition hover:text-ink sm:px-3 sm:text-sm sm:tracking-[0.08em]"
                 activeProps={{ className: "bg-ink !text-bg" }}
               >
                 {item.label}

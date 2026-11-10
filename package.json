@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --filter @money/api dev",
+    "dev": "pnpm --parallel --filter @money/api --filter @money/web dev",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
@@ -16,7 +16,8 @@
     "db:migrate:local": "pnpm --filter @money/api db:migrate:local",
     "db:migrate:remote": "pnpm --filter @money/api db:migrate:remote",
     "create-user": "pnpm --filter @money/api create-user",
-    "deploy": "pnpm --filter @money/api run deploy"
+    "build": "pnpm --filter @money/web build",
+    "ship": "pnpm --filter @money/web build && pnpm --filter @money/api run deploy"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",

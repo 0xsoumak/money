@@ -1,5 +1,5 @@
 import { categoryCreateSchema, categoryUpdateSchema, idSchema, newId } from "@money/shared";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, max } from "drizzle-orm";
 import { Hono } from "hono";
 import { categories } from "../db/schema";
 import { idParam, validate } from "../lib/validate";
@@ -18,10 +18,19 @@ export const categoriesRoute = new Hono<AppEnv>()
 
   .post("/", validate("json", categoryCreateSchema), async (c) => {
     const input = c.req.valid("json");
-    const [row] = await c
-      .get("db")
+    const db = c.get("db");
+    // Without an explicit order, a new category goes to the end of its kind.
+    let sortOrder = input.sortOrder;
+    if (sortOrder === undefined) {
+      const [top] = await db
+        .select({ value: max(categories.sortOrder) })
+        .from(categories)
+        .where(eq(categories.kind, input.kind));
+      sortOrder = (top?.value ?? -1) + 1;
+    }
+    const [row] = await db
       .insert(categories)
-      .values({ id: newId(), ...input, sortOrder: input.sortOrder ?? 0 })
+      .values({ id: newId(), ...input, sortOrder })
       .returning();
     return c.json({ category: row }, 201);
   })

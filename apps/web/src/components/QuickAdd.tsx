@@ -8,6 +8,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { pressKey } from "../lib/amount";
@@ -65,6 +66,9 @@ function yesterday(): string {
 
 export function QuickAddProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<Draft | null>(null);
+  // Focus lands on the amount, not a button, so Enter saves instead of pressing Close.
+  const amountRef = useRef<HTMLParagraphElement>(null);
+  const refocusAmount = () => amountRef.current?.focus();
   const { data: categories = [] } = useQuery(categoriesQuery);
   const save = useSaveTransaction();
   const remove = useDeleteTransaction();
@@ -187,7 +191,10 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
       <Dialog.Root open={open} onOpenChange={(o) => !o && close()}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/75 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-          <Dialog.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[100dvh] flex-col overflow-y-auto rounded-t-xl border-2 border-line-strong/25 bg-bg p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] outline-none transition duration-200 data-[ending-style]:translate-y-6 data-[starting-style]:translate-y-6 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[28rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:data-[ending-style]:translate-y-[-45%] sm:data-[starting-style]:translate-y-[-45%]">
+          <Dialog.Popup
+            initialFocus={amountRef}
+            className="fixed inset-x-0 bottom-0 z-50 flex max-h-[100dvh] flex-col overflow-y-auto rounded-t-xl border-2 border-line-strong/25 bg-bg p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] outline-none transition duration-200 data-[ending-style]:translate-y-6 data-[starting-style]:translate-y-6 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[28rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:data-[ending-style]:translate-y-[-45%] sm:data-[starting-style]:translate-y-[-45%]"
+          >
             {draft && (
               <>
                 <div className="flex items-center justify-between gap-3">
@@ -207,7 +214,10 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                         key={t}
                         type="button"
                         aria-pressed={draft.type === t}
-                        onClick={() => setType(t)}
+                        onClick={() => {
+                          setType(t);
+                          refocusAmount();
+                        }}
                         className={cx(
                           "min-h-11 cursor-pointer rounded-lg px-4 text-sm font-bold uppercase tracking-wider",
                           draft.type === t
@@ -221,14 +231,16 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                   </div>
                 </div>
 
-                <div className="pt-8">
+                <div className="pt-4 sm:pt-8">
                   <p className="text-sm font-bold uppercase tracking-[0.12em] text-muted">
                     {draft.editing ? "Editing" : "New"} · {draft.type}
                   </p>
                   <p
+                    ref={amountRef}
+                    tabIndex={-1}
                     aria-live="polite"
                     className={cx(
-                      "mt-2 break-all text-[72px] font-bold leading-[0.95] tracking-[-0.06em] sm:text-[88px]",
+                      "mt-1 break-all text-[64px] font-bold leading-[0.95] tracking-[-0.06em] outline-none sm:mt-2 sm:text-[88px]",
                       draft.amount ? "text-accent" : "text-faint",
                     )}
                   >
@@ -236,7 +248,12 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                   </p>
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Category">
+                {/* One swipeable row on phones so the keypad stays on screen; wraps on desktop. */}
+                <div
+                  className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:mt-5 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
+                  role="group"
+                  aria-label="Category"
+                >
                   {visibleCategories.map((c) => {
                     const selected = c.id === draft.categoryId;
                     return (
@@ -244,9 +261,12 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                         key={c.id}
                         type="button"
                         aria-pressed={selected}
-                        onClick={() => setDraft({ ...draft, categoryId: c.id })}
+                        onClick={() => {
+                          setDraft({ ...draft, categoryId: c.id });
+                          refocusAmount();
+                        }}
                         className={cx(
-                          "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border-2 px-3.5 text-[15px] font-semibold",
+                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 px-3.5 text-[15px] font-semibold",
                           selected ? "text-on-accent" : "border-line-strong/25",
                         )}
                         style={
@@ -265,8 +285,33 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                   })}
                 </div>
 
-                <div className="mt-5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-3">
-                  <div className="flex gap-1.5">
+                <div className="mt-3 flex flex-col gap-2 sm:mt-5 sm:gap-3">
+                  <input
+                    type="text"
+                    aria-label="Note"
+                    placeholder="Add a note"
+                    value={draft.note}
+                    maxLength={500}
+                    onChange={(e) => setDraft({ ...draft, note: e.target.value })}
+                    className={cx(fieldClass, "min-h-11")}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <DatePill
+                      label="Today"
+                      active={draft.date === today()}
+                      onClick={() => {
+                        setDraft({ ...draft, date: today() });
+                        refocusAmount();
+                      }}
+                    />
+                    <DatePill
+                      label="Yesterday"
+                      active={draft.date === yesterday()}
+                      onClick={() => {
+                        setDraft({ ...draft, date: yesterday() });
+                        refocusAmount();
+                      }}
+                    />
                     <input
                       type="date"
                       aria-label="Date"
@@ -275,34 +320,13 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       onChange={(e) =>
                         e.target.value && setDraft({ ...draft, date: e.target.value })
                       }
-                      className={cx(fieldClass, "w-auto")}
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    aria-label="Note"
-                    placeholder="Add a note"
-                    value={draft.note}
-                    maxLength={500}
-                    onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-                    className={fieldClass}
-                  />
-                  <div className="col-span-2 flex gap-2">
-                    <DatePill
-                      label="Today"
-                      active={draft.date === today()}
-                      onClick={() => setDraft({ ...draft, date: today() })}
-                    />
-                    <DatePill
-                      label="Yesterday"
-                      active={draft.date === yesterday()}
-                      onClick={() => setDraft({ ...draft, date: yesterday() })}
+                      className={cx(fieldClass, "ml-auto min-h-11 w-auto")}
                     />
                   </div>
                 </div>
 
                 {/* On-screen keypad for touch. Desktop uses the keyboard. */}
-                <div className="mt-5 hidden max-sm:grid [@media(pointer:coarse)]:grid grid-cols-3 gap-1.5">
+                <div className="mt-3 hidden max-sm:grid [@media(pointer:coarse)]:grid grid-cols-3 gap-1.5">
                   {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "Backspace"].map((k) => (
                     <button
                       key={k}
@@ -311,14 +335,18 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       onClick={() =>
                         setDraft((d) => (d ? { ...d, amount: pressKey(d.amount, k) } : d))
                       }
-                      className="flex h-16 cursor-pointer items-center justify-center rounded-[14px] bg-surface text-[28px] font-semibold active:bg-surface-strong"
+                      className="flex h-14 cursor-pointer items-center justify-center rounded-[14px] bg-surface text-[26px] font-semibold active:bg-surface-strong"
                     >
                       {k === "Backspace" ? <BackspaceIcon /> : k}
                     </button>
                   ))}
                 </div>
 
-                <Button onClick={submit} disabled={!canSave} className="mt-5 h-16 w-full text-lg">
+                <Button
+                  onClick={submit}
+                  disabled={!canSave}
+                  className="mt-3 h-14 w-full text-lg sm:mt-5 sm:h-16"
+                >
                   {canSave && minor ? `Save ${money(minor)}` : "Enter an amount"}
                 </Button>
                 <p className="mt-3 hidden text-center text-[13px] text-faint sm:block">
