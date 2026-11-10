@@ -1,8 +1,18 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
-    "includes": ["**", "!**/worker-configuration.d.ts", "!**/migrations/meta"]
+    "includes": [
+      "**",
+      "!**/worker-configuration.d.ts",
+      "!**/migrations/meta",
+      "!**/routeTree.gen.ts",
+      "!**/dist-types"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -11,11 +21,24 @@
     "lineWidth": 100
   },
   "javascript": {
-    "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
   },
   "linter": {
     "enabled": true,
-    "rules": { "preset": "none" }
+    "rules": {
+      "preset": "none"
+    }
   },
-  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
 }

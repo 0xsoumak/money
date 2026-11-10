@@ -5,8 +5,6 @@ import { categories, transactions } from "../db/schema";
 import { idParam, validate } from "../lib/validate";
 import type { AppEnv } from "../types";
 
-const byId = validate("param", idParam(idSchema));
-
 export const transactionsRoute = new Hono<AppEnv>()
   .get("/", validate("query", monthQuerySchema), async (c) => {
     const { start, end } = monthRange(c.req.valid("query").month);
@@ -30,36 +28,41 @@ export const transactionsRoute = new Hono<AppEnv>()
    * safe, which is what lets the mobile app retry failed saves blindly.
    * Updating a soft-deleted transaction does not restore it.
    */
-  .put("/:id", byId, validate("json", transactionInputSchema), async (c) => {
-    const { id } = c.req.valid("param");
-    const input = c.req.valid("json");
-    const db = c.get("db");
+  .put(
+    "/:id",
+    validate("param", idParam(idSchema)),
+    validate("json", transactionInputSchema),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const input = c.req.valid("json");
+      const db = c.get("db");
 
-    const category = await db.query.categories.findFirst({
-      where: eq(categories.id, input.categoryId),
-    });
-    if (!category) return c.json({ error: "Category not found" }, 400);
-    if (category.kind !== input.type) {
-      return c.json({ error: `Category is for ${category.kind}, not ${input.type}` }, 400);
-    }
+      const category = await db.query.categories.findFirst({
+        where: eq(categories.id, input.categoryId),
+      });
+      if (!category) return c.json({ error: "Category not found" }, 400);
+      if (category.kind !== input.type) {
+        return c.json({ error: `Category is for ${category.kind}, not ${input.type}` }, 400);
+      }
 
-    const values = {
-      type: input.type,
-      amount: input.amount,
-      categoryId: input.categoryId,
-      date: input.date,
-      note: input.note || null,
-    };
-    const [row] = await db
-      .insert(transactions)
-      .values({ id, ...values })
-      .onConflictDoUpdate({ target: transactions.id, set: { ...values, updatedAt: new Date() } })
-      .returning();
-    return c.json({ transaction: row });
-  })
+      const values = {
+        type: input.type,
+        amount: input.amount,
+        categoryId: input.categoryId,
+        date: input.date,
+        note: input.note || null,
+      };
+      const [row] = await db
+        .insert(transactions)
+        .values({ id, ...values })
+        .onConflictDoUpdate({ target: transactions.id, set: { ...values, updatedAt: new Date() } })
+        .returning();
+      return c.json({ transaction: row });
+    },
+  )
 
   /** Soft delete; the client shows an Undo toast that calls /restore. */
-  .delete("/:id", byId, async (c) => {
+  .delete("/:id", validate("param", idParam(idSchema)), async (c) => {
     const { id } = c.req.valid("param");
     const db = c.get("db");
     const [row] = await db
@@ -75,7 +78,7 @@ export const transactionsRoute = new Hono<AppEnv>()
     return c.body(null, 204);
   })
 
-  .post("/:id/restore", byId, async (c) => {
+  .post("/:id/restore", validate("param", idParam(idSchema)), async (c) => {
     const { id } = c.req.valid("param");
     const db = c.get("db");
     const [row] = await db

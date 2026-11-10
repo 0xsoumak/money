@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply money --local",
     "db:migrate:remote": "wrangler d1 migrations apply money --remote",
-    "create-user": "tsx scripts/create-user.ts"
+    "create-user": "tsx scripts/create-user.ts",
+    "build:types": "tsc -p tsconfig.types.json"
   },
   "dependencies": {
     "@hono/zod-validator": "0.9.1",
@@ -29,5 +30,10 @@
     "tsx": "4.23.15",
     "vitest": "5.1.0",
     "wrangler": "4.159.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist-types/index.d.ts"
+    }
   }
 }
