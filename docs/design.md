@@ -1,6 +1,6 @@
 # Design guide
 
-Direction: **Bold & high-contrast**. Dark first, with a light theme of the same design.
+Direction: **Bold & high-contrast**. **Dark only for now** (decided Nov 2026). The light tokens exist in the package but no light UI is built or tested.
 Approved mockups (mobile home, quick add, web dashboard): https://claude.ai/artifact/HTDvnM3CTop7ARDJCDAM2X (rows B)
 
 Tokens live in [packages/shared/src/tokens.ts](../packages/shared/src/tokens.ts) and are tested for contrast in `tokens.test.ts`. Never hardcode a color, size or radius in an app; use a token.

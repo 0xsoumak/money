@@ -171,56 +171,52 @@ A deployed, secured API on a real URL.
 
 ---
 
-### Phase 2: Mobile MVP (1–2 weeks)
+### Phase 2: Web app (1–2 weeks)
 
-The app I'll use every day. Most of the effort goes into making quick add feel great.
+Web goes first, so there is something usable on a real URL (and on the phone browser) while mobile waits. **Dark theme only for now**; the light tokens exist but no light UI is built.
 
-- [ ] Expo app with Expo Router, NativeWind wired to the shared tokens, light and dark mode
-- [ ] Development build on my phone (not Expo Go)
-- [ ] Typed API client (`hc`) + TanStack Query; token kept in `expo-secure-store`
-- [ ] **Login** screen
-- [ ] **Home / month view**: big "spent this month" figure, income, remaining (once budgets exist), list grouped by day, month switcher (swipe or arrows)
-- [ ] **Quick add**: opens straight to a number pad and category chips. Amount → category → save in three taps. Date defaults to today, note optional. Haptic on every key and on save.
-- [ ] Edit a transaction (tap a row → same sheet, prefilled)
-- [ ] Delete with an **Undo toast** (soft delete + restore)
-- [ ] **Categories** screen: add, edit, reorder, archive; emoji and color picker
-- [ ] Failed saves are kept and retried (safe because of the client ULIDs). The user is never left with a lost entry.
-- [ ] App icon, splash screen, name
-- [ ] `runtimeVersion` policy set; EAS Update channel configured
-- [ ] Build a release APK (EAS cloud build or local Gradle) and install it
+- [ ] `apps/web`: Vite + React + TanStack Router (file routes) + TanStack Query, Tailwind v4 wired to the shared tokens, our own components on Base UI, Space Grotesk
+- [ ] Vite dev server proxies `/api` to `wrangler dev`; typed API client (`hc<AppType>`)
+- [ ] Login (cookie session, same origin); redirect to login on 401
+- [ ] Overview: big month total, income, month switcher, share bar by category, grouped transaction list
+- [ ] **Quick add** (dialog): amount, category pills, date, note. `N` opens it, `Enter` saves. Client-generated ID, optimistic update.
+- [ ] Edit a transaction; delete with an **Undo toast** (soft delete + restore)
+- [ ] Transactions page: filter by month, type, category and text
+- [ ] Categories page: add, edit, archive; emoji and color picker
+- [ ] Settings page: currency, locale; sign out
+- [ ] Keyboard: `N` new, `←`/`→` change month
+- [ ] Usable at phone width (stacked layout), since it doubles as a phone fallback
+- [ ] Serve the build from the same Worker (`assets` in `wrangler.jsonc`); one command deploys everything (`pnpm deploy`)
 
-**Done when:** I've used it for a full week to log every expense, and adding one takes under 5 seconds.
+**Done when:** the web app is live at the Worker URL, I can log in and log, edit and delete an expense, and the numbers match the API.
 
 ---
 
 ### Phase 3: Budgets (3–5 days)
 
 - [ ] API: budget endpoints, budget progress in `/api/summary`
-- [ ] Mobile: **Budgets** screen to set a monthly limit per category plus an optional overall limit
-- [ ] Animated progress bars on budget cards, with color moving from calm → warning (>80%) → over (>100%)
-- [ ] Home screen shows "left to spend this month" against the overall budget
-- [ ] Category breakdown on the month view (simple bars or a donut)
+- [ ] Web: **Budgets** page to set a monthly limit per category plus an optional overall limit
+- [ ] Block meters (calm → warning at 80% → danger over 100%, always with words like "₹60 over")
+- [ ] Overview shows "left to spend" against the overall budget, and the dashed "left" segment on the share bar
 
 **Done when:** at a glance I can see how much I have left this month, overall and per category.
 
 ---
 
-### Phase 4: Web app (1 week)
+### Phase 4: Android app (later, 1–2 weeks)
 
-For reviewing, bulk editing and exporting on a bigger screen.
+Starts after the web app has been used for a while. Reuses the API, shared package, tokens and design guide.
 
-- [ ] `apps/web`: Vite + React + TanStack Router (file routes) + TanStack Query, Tailwind with the shared tokens, our own components built on Base UI or React Aria
-- [ ] Vite dev server proxies `/api` to `wrangler dev`
-- [ ] Login (cookie session, same origin)
-- [ ] Dashboard: month summary, budget cards, category breakdown
-- [ ] Transactions table: filter by month, category and text, then edit or delete inline
-- [ ] Manage categories and budgets
-- [ ] Settings: currency, export (CSV/JSON)
-- [ ] Keyboard shortcuts: `n` for a new transaction, `←`/`→` to change month
-- [ ] Responsive enough to use on the phone browser in a pinch
-- [ ] Deploy script: `pnpm build:web && wrangler deploy` (one command from the root)
+- [ ] Expo app with Expo Router, NativeWind wired to the shared tokens (dark only), development build on my phone (not Expo Go)
+- [ ] Typed API client (`hc`) + TanStack Query; bearer token kept in `expo-secure-store`
+- [ ] Login, Overview (month view), Budgets
+- [ ] **Quick add**: opens to a number pad and category pills. Amount → category → save in three taps. Haptic on every key and on save.
+- [ ] Edit, delete with Undo toast, Categories screen
+- [ ] Failed saves are kept and retried (safe because of the client ULIDs)
+- [ ] App icon, splash screen, name; `runtimeVersion` policy and EAS Update channel
+- [ ] Build a release APK (EAS cloud build or local Gradle) and install it
 
-**Done when:** the web app is live at the same Worker URL and shows the same data as mobile.
+**Done when:** I've used it for a full week to log every expense, and adding one takes under 5 seconds.
 
 ---
 
