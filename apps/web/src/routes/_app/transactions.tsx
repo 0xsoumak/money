@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { SearchIcon } from "../../components/icons";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
+import { Select } from "../../components/Select";
 import { TransactionList } from "../../components/TransactionList";
 import { cx, EmptyState, fieldClass, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/_app/transactions")({
 });
 
 type TypeFilter = "all" | "expense" | "income";
+const ALL = "all";
 const TYPES: { value: TypeFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "expense", label: "Expenses" },
@@ -68,21 +70,18 @@ function Transactions() {
             </button>
           ))}
         </div>
-        <select
-          aria-label="Category"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          className={cx(fieldClass, "w-auto min-w-44")}
-        >
-          <option value="">All categories</option>
-          {categories
-            .filter((c) => !c.archivedAt)
-            .map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.emoji} {c.name}
-              </option>
-            ))}
-        </select>
+        <Select
+          label="Category"
+          value={categoryId || ALL}
+          onValueChange={(v) => setCategoryId(v === ALL ? "" : v)}
+          options={[
+            { value: ALL, label: "All categories" },
+            ...categories
+              .filter((c) => !c.archivedAt)
+              .map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })),
+          ]}
+          className="w-auto min-w-52"
+        />
         <label className="relative min-w-52 flex-1">
           <span className="sr-only">Search notes and categories</span>
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">

@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Select } from "../../components/Select";
 import { useToast } from "../../components/Toast";
-import { Button, fieldClass, Label, SectionHeader } from "../../components/ui";
+import { Button, Label, SectionHeader } from "../../components/ui";
 import { authClient, queryClient } from "../../lib/api";
 import { useSettings, useUpdateSettings } from "../../lib/queries";
 
@@ -41,34 +42,24 @@ function SettingsPage() {
 
       <section className="flex flex-col gap-5">
         <SectionHeader title="Money" />
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label>Currency</Label>
-          <select
+          <Select
+            label="Currency"
             value={settings.currency}
-            onChange={(e) => save({ currency: e.target.value })}
-            className={fieldClass}
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5">
+            onValueChange={(currency) => save({ currency })}
+            options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
           <Label>Number format</Label>
-          <select
+          <Select
+            label="Number format"
             value={settings.locale}
-            onChange={(e) => save({ locale: e.target.value })}
-            className={fieldClass}
-          >
-            {LOCALES.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            onValueChange={(locale) => save({ locale })}
+            options={LOCALES}
+          />
+        </div>
         <p className="text-sm text-muted">
           Changing the currency only changes how amounts are shown. It does not convert anything.
         </p>
