@@ -1,4 +1,4 @@
-import { today } from "@money/shared";
+import { today } from "./dates";
 
 export interface DayTx {
   date: string;

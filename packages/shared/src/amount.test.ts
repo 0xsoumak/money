@@ -1,6 +1,6 @@
-import { parseAmount } from "@money/shared";
 import { describe, expect, it } from "vitest";
 import { pressKey } from "./amount";
+import { parseAmount } from "./money";
 
 const type = (keys: string) => [...keys].reduce(pressKey, "");
 

@@ -1,5 +1,12 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { newId, parseAmount, type TransactionType, toDecimalString, today } from "@money/shared";
+import {
+  newId,
+  parseAmount,
+  pressKey,
+  type TransactionType,
+  toDecimalString,
+  today,
+} from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
 import {
   createContext,
@@ -11,7 +18,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { pressKey } from "../lib/amount";
 import { isTyping, useMoney } from "../lib/hooks";
 import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
 import { BackspaceIcon, CloseIcon } from "./icons";

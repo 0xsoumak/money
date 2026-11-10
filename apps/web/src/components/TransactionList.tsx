@@ -1,4 +1,4 @@
-import { groupByDay } from "../lib/group";
+import { groupByDay } from "@money/shared";
 import { useMoney } from "../lib/hooks";
 import type { Category, Tx } from "../lib/queries";
 import { TrashIcon } from "./icons";

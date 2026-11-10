@@ -1,6 +1,5 @@
-import { addMonths, currentMonth } from "@money/shared";
+import { addMonths, currentMonth, monthTitle } from "@money/shared";
 import { useEffect } from "react";
-import { monthTitle } from "../lib/group";
 import { isTyping, useMonth } from "../lib/hooks";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 import { IconButton } from "./ui";
