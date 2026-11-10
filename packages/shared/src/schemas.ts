@@ -63,6 +63,15 @@ export type TransactionInput = z.infer<typeof transactionInputSchema>;
 
 export const monthQuerySchema = z.object({ month: monthSchema });
 
+// ── Budgets ─────────────────────────────────────────────────────────────────
+
+/** A budget is addressed by "overall" or by the category id it limits. */
+export const budgetKeySchema = z.union([z.literal("overall"), idSchema]);
+
+/** Monthly limit in minor units. Applies to every month until changed; no rollover. */
+export const budgetInputSchema = z.object({ amount: amountSchema });
+export type BudgetInput = z.infer<typeof budgetInputSchema>;
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 export const settingsSchema = z.object({

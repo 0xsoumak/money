@@ -231,3 +231,58 @@ describe("settings", () => {
     expect(bad.status).toBe(400);
   });
 });
+
+describe("budgets", () => {
+  const put = (key: string, body: Json) =>
+    api(`/api/budgets/${key}`, { method: "PUT", json: body });
+
+  it("starts with none, and the summary says so", async () => {
+    expect((await (await api("/api/budgets")).json<Json>()).budgets).toEqual([]);
+    const summary = await (await api("/api/summary?month=2026-11")).json<Json>();
+    expect(summary.budget).toEqual({ overall: null, categories: {} });
+  });
+
+  it("sets an overall budget and changes it by repeating the request", async () => {
+    expect((await put("overall", { amount: 4000000 })).status).toBe(200);
+    const again = await put("overall", { amount: 4500000 });
+    expect((await again.json<Json>()).budget).toMatchObject({
+      key: "overall",
+      categoryId: null,
+      amount: 4500000,
+    });
+    const { budgets } = await (await api("/api/budgets")).json<Json>();
+    expect(budgets.filter((b: Json) => b.key === "overall")).toHaveLength(1);
+  });
+
+  it("sets a category budget and reports both in the summary", async () => {
+    await put(FOOD, { amount: 600000 });
+    const summary = await (await api("/api/summary?month=2026-11")).json<Json>();
+    expect(summary.budget).toEqual({ overall: 4500000, categories: { [FOOD]: 600000 } });
+  });
+
+  it("budgets apply to every month", async () => {
+    const other = await (await api("/api/summary?month=2030-01")).json<Json>();
+    expect(other.budget.overall).toBe(4500000);
+  });
+
+  it("only allows expense categories that exist", async () => {
+    expect((await put(SALARY, { amount: 100000 })).status).toBe(400);
+    expect((await put(newId(), { amount: 100000 })).status).toBe(404);
+  });
+
+  it("rejects bad amounts and bad keys", async () => {
+    for (const amount of [0, -1, 1.5, "100"]) {
+      expect((await put(FOOD, { amount })).status, `amount ${amount}`).toBe(400);
+    }
+    expect((await put("everything", { amount: 100 })).status).toBe(400);
+  });
+
+  it("removes a budget, and removing a missing one is fine", async () => {
+    expect((await api(`/api/budgets/${FOOD}`, { method: "DELETE" })).status).toBe(204);
+    expect((await api(`/api/budgets/${FOOD}`, { method: "DELETE" })).status).toBe(204);
+    const summary = await (await api("/api/summary?month=2026-11")).json<Json>();
+    expect(summary.budget.categories).toEqual({});
+    await api("/api/budgets/overall", { method: "DELETE" });
+    expect((await (await api("/api/budgets")).json<Json>()).budgets).toEqual([]);
+  });
+});

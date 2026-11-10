@@ -17,7 +17,7 @@
     "db:migrate:remote": "pnpm --filter @money/api db:migrate:remote",
     "create-user": "pnpm --filter @money/api create-user",
     "build": "pnpm --filter @money/web build",
-    "ship": "pnpm --filter @money/web build && pnpm --filter @money/api run deploy"
+    "ship": "pnpm --filter @money/api db:migrate:remote && pnpm --filter @money/web build && pnpm --filter @money/api run deploy"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",

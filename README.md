@@ -15,7 +15,7 @@ Personal expense tracker and budget app. See [plan.md](plan.md) for the roadmap.
 | `pnpm build`                                       | Build the web app                                                    |
 | `pnpm test`                                        | Run all tests                                                        |
 | `pnpm typecheck` / `pnpm lint` / `pnpm format`     | Checks and formatting                                                |
-| `pnpm ship`                                        | Build the web app and deploy API + web in one go                     |
+| `pnpm ship`                                        | Apply new migrations, build the web app, deploy API + web            |
 | `pnpm db:generate`                                 | Generate a migration after changing `apps/api/src/db/schema.ts`      |
 | `pnpm db:migrate:local` / `pnpm db:migrate:remote` | Apply migrations                                                     |
 | `pnpm create-user --local` / `--remote`            | Create the user, or reset its password (also signs out all sessions) |

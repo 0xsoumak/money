@@ -120,6 +120,16 @@ export const transactions = sqliteTable(
   ],
 );
 
+/** Monthly spending limits. `key` is "overall" or a category id; applies to every month, no rollover. */
+export const budgets = sqliteTable("budgets", {
+  key: text("key").primaryKey(),
+  /** Null for the overall budget. */
+  categoryId: text("category_id").references(() => categories.id),
+  /** Minor units, always positive. */
+  amount: integer("amount").notNull(),
+  ...timestamps,
+});
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   /** JSON-encoded value. */
@@ -129,3 +139,4 @@ export const settings = sqliteTable("settings", {
 
 export type Category = typeof categories.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
+export type Budget = typeof budgets.$inferSelect;

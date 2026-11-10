@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createAuth } from "./auth";
 import { createDb } from "./db";
+import { budgetsRoute } from "./routes/budgets";
 import { categoriesRoute } from "./routes/categories";
 import { settingsRoute } from "./routes/settings";
 import { summaryRoute } from "./routes/summary";
@@ -11,6 +12,7 @@ import type { AppEnv } from "./types";
 const protectedApi = new Hono<AppEnv>()
   .route("/categories", categoriesRoute)
   .route("/transactions", transactionsRoute)
+  .route("/budgets", budgetsRoute)
   .route("/summary", summaryRoute)
   .route("/settings", settingsRoute);
 
