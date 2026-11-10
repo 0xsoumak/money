@@ -171,22 +171,22 @@ A deployed, secured API on a real URL.
 
 ---
 
-### Phase 2: Web app (1–2 weeks)
+### Phase 2: Web app ✅ (built and deployed; use it for a week before moving on)
 
 Web goes first, so there is something usable on a real URL (and on the phone browser) while mobile waits. **Dark theme only for now**; the light tokens exist but no light UI is built.
 
-- [ ] `apps/web`: Vite + React + TanStack Router (file routes) + TanStack Query, Tailwind v4 wired to the shared tokens, our own components on Base UI, Space Grotesk
-- [ ] Vite dev server proxies `/api` to `wrangler dev`; typed API client (`hc<AppType>`)
-- [ ] Login (cookie session, same origin); redirect to login on 401
-- [ ] Overview: big month total, income, month switcher, share bar by category, grouped transaction list
-- [ ] **Quick add** (dialog): amount, category pills, date, note. `N` opens it, `Enter` saves. Client-generated ID, optimistic update.
-- [ ] Edit a transaction; delete with an **Undo toast** (soft delete + restore)
-- [ ] Transactions page: filter by month, type, category and text
-- [ ] Categories page: add, edit, archive; emoji and color picker
-- [ ] Settings page: currency, locale; sign out
-- [ ] Keyboard: `N` new, `←`/`→` change month
-- [ ] Usable at phone width (stacked layout), since it doubles as a phone fallback
-- [ ] Serve the build from the same Worker (`assets` in `wrangler.jsonc`); one command deploys everything (`pnpm deploy`)
+- [x] `apps/web`: Vite + React + TanStack Router (file routes) + TanStack Query, Tailwind v4 wired to the shared tokens, our own components on Base UI, Space Grotesk
+- [x] Vite dev server proxies `/api` to `wrangler dev`; typed API client (`hc<AppType>`)
+- [x] Login (cookie session, same origin); redirect to login on 401
+- [x] Overview: big month total, income, month switcher, share bar by category, grouped transaction list
+- [x] **Quick add** (dialog): amount, category pills, date, note. `N` opens it, `Enter` saves. Client-generated ID, optimistic update.
+- [x] Edit a transaction; delete with an **Undo toast** (soft delete + restore)
+- [x] Transactions page: filter by month, type, category and text
+- [x] Categories page: add, edit, archive; emoji and color picker
+- [x] Settings page: currency, locale; sign out
+- [x] Keyboard: `N` new, `←`/`→` change month
+- [x] Usable at phone width (stacked layout), since it doubles as a phone fallback
+- [x] Serve the build from the same Worker (`assets` in `wrangler.jsonc`); one command deploys everything (`pnpm deploy`)
 
 **Done when:** the web app is live at the Worker URL, I can log in and log, edit and delete an expense, and the numbers match the API.
 
