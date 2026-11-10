@@ -12,6 +12,17 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+/** Say what actually went wrong, so a server or network problem isn't reported as a bad password. */
+function describeSignInError(error: { status?: number; code?: string }): string {
+  if (error.status === 429) return "Too many attempts. Wait a minute and try again.";
+  if (error.code === "INVALID_EMAIL_OR_PASSWORD" || error.status === 401) {
+    return "Wrong email or password.";
+  }
+  if (error.status === 403)
+    return "Sign-in was blocked for this address. Open the app from its usual URL.";
+  return `Something went wrong on the server (${error.status ?? "no response"}). Try again in a moment.`;
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const { queryClient } = Route.useRouteContext();
@@ -23,17 +34,19 @@ function LoginPage() {
     const form = new FormData(e.currentTarget);
     setBusy(true);
     setError(null);
-    const { error } = await authClient.signIn.email({
-      email: String(form.get("email") ?? ""),
-      password: String(form.get("password") ?? ""),
-    });
+    let failure: string | null = null;
+    try {
+      const { error } = await authClient.signIn.email({
+        email: String(form.get("email") ?? "").trim(),
+        password: String(form.get("password") ?? ""),
+      });
+      if (error) failure = describeSignInError(error);
+    } catch {
+      failure = "Can't reach the server. Check your connection and try again.";
+    }
     setBusy(false);
-    if (error) {
-      setError(
-        error.status === 429
-          ? "Too many attempts. Wait a minute and try again."
-          : "Wrong email or password.",
-      );
+    if (failure) {
+      setError(failure);
       return;
     }
     await queryClient.invalidateQueries({ queryKey: ["session"] });

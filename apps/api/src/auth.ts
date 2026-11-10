@@ -7,13 +7,22 @@ import { authSchema } from "./db/schema";
 import { hashPassword, verifyPassword } from "./lib/password";
 
 const DAY = 60 * 60 * 24;
+const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
 
 /** Built per request because Workers only expose bindings/secrets inside a request. */
 export function createAuth(env: Env, db: DB) {
+  // Local dev only. Vite moves to the next free port when 5173 is busy, and the browser origin
+  // must match. In production BETTER_AUTH_URL is https, so this never applies there.
+  const isLocalDev = env.BETTER_AUTH_URL.startsWith("http://localhost");
+
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     basePath: "/api/auth",
+    trustedOrigins: async (request) => {
+      const origin = request?.headers.get("origin");
+      return isLocalDev && origin && LOCAL_ORIGIN.test(origin) ? [origin] : [];
+    },
     database: drizzleAdapter(db, { provider: "sqlite", schema: authSchema }),
     emailAndPassword: {
       enabled: true,

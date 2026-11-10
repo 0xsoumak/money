@@ -46,6 +46,33 @@ describe("auth", () => {
     expect(res.headers.get("set-auth-token")).toBeTruthy();
   });
 
+  it("accepts any localhost port in local dev (Vite may not get 5173)", async () => {
+    const res = await SELF.fetch("http://localhost/api/auth/sign-in/email", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost:5174",
+        "cf-connecting-ip": "10.0.0.50",
+      },
+      body: JSON.stringify({ email: TEST_USER.email, password: TEST_USER.password }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a foreign origin", async () => {
+    const res = await SELF.fetch("http://localhost/api/auth/sign-in/email", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://evil.example.com",
+        "cf-connecting-ip": "10.0.0.51",
+      },
+      body: JSON.stringify({ email: TEST_USER.email, password: TEST_USER.password }),
+    });
+    expect(res.status).toBe(403);
+    expect((await res.json<{ code: string }>()).code).toBe("INVALID_ORIGIN");
+  });
+
   it("rejects a wrong password", async () => {
     const res = await signIn(TEST_USER.email, "definitely-wrong-password", "10.0.0.2");
     expect(res.status).toBe(401);
