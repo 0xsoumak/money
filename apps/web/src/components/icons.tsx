@@ -54,3 +54,31 @@ export const SearchIcon = () => (
     <path d="M20 20l-3.5-3.5" />
   </Icon>
 );
+
+export const HomeIcon = () => (
+  <Icon size={22}>
+    <path d="M3 11l9-8 9 8v9H3zM9 20v-6h6v6" />
+  </Icon>
+);
+export const ListIcon = () => (
+  <Icon size={22}>
+    <path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1" />
+  </Icon>
+);
+export const MeterIcon = () => (
+  <Icon size={22}>
+    <path d="M3 17h3V9H3zM9 17h3V5H9zM15 17h3v-6h-3z" />
+    <path d="M3 21h18" />
+  </Icon>
+);
+export const GridIcon = () => (
+  <Icon size={22}>
+    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+  </Icon>
+);
+export const SlidersIcon = () => (
+  <Icon size={22}>
+    <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+    <path d="M16 4v6M8 14v6" />
+  </Icon>
+);

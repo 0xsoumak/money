@@ -192,12 +192,12 @@ Web goes first, so there is something usable on a real URL (and on the phone bro
 
 ---
 
-### Phase 3: Budgets (3–5 days)
+### Phase 3: Budgets ✅
 
-- [ ] API: budget endpoints, budget progress in `/api/summary`
-- [ ] Web: **Budgets** page to set a monthly limit per category plus an optional overall limit
-- [ ] Block meters (calm → warning at 80% → danger over 100%, always with words like "₹60 over")
-- [ ] Overview shows "left to spend" against the overall budget, and the dashed "left" segment on the share bar
+- [x] API: budget endpoints, budget progress in `/api/summary`
+- [x] Web: **Budgets** page (plus a phone bottom tab bar, since five destinations don't fit a top row) to set a monthly limit per category plus an optional overall limit
+- [x] Block meters (calm → warning at 80% → danger over 100%, always with words like "₹60 over")
+- [x] Overview shows "left to spend" against the overall budget, and the dashed "left" segment on the share bar
 
 **Done when:** at a glance I can see how much I have left this month, overall and per category.
 

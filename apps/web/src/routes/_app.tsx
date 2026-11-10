@@ -1,7 +1,14 @@
 import { monthSchema } from "@money/shared";
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { z } from "zod";
-import { PlusIcon } from "../components/icons";
+import {
+  GridIcon,
+  HomeIcon,
+  ListIcon,
+  MeterIcon,
+  PlusIcon,
+  SlidersIcon,
+} from "../components/icons";
 import { QuickAddProvider, useQuickAdd } from "../components/QuickAdd";
 import { Button } from "../components/ui";
 import { categoriesQuery, sessionQuery, settingsQuery } from "../lib/queries";
@@ -23,10 +30,11 @@ export const Route = createFileRoute("/_app")({
 });
 
 const NAV = [
-  { to: "/", label: "Overview" },
-  { to: "/transactions", label: "Transactions" },
-  { to: "/categories", label: "Categories" },
-  { to: "/settings", label: "Settings" },
+  { to: "/", label: "Overview", tab: "Overview", Icon: HomeIcon },
+  { to: "/transactions", label: "Transactions", tab: "Activity", Icon: ListIcon },
+  { to: "/budgets", label: "Budgets", tab: "Budgets", Icon: MeterIcon },
+  { to: "/categories", label: "Categories", tab: "Categories", Icon: GridIcon },
+  { to: "/settings", label: "Settings", tab: "Settings", Icon: SlidersIcon },
 ] as const;
 
 function AppLayout() {
@@ -42,21 +50,19 @@ function Shell() {
   return (
     <div className="min-h-dvh">
       <header className="border-b-2 border-line-strong">
-        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-x-7 gap-y-1 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1200px] items-center gap-x-7 px-4 py-3 sm:px-6">
           <p className="text-xl font-bold uppercase tracking-wide">
             Money<span className="text-accent">.</span>
           </p>
-          <nav
-            aria-label="Main"
-            className="order-3 -mx-2 flex w-full gap-0.5 overflow-x-auto sm:order-none sm:mx-0 sm:w-auto sm:flex-1 sm:gap-1 sm:overflow-visible"
-          >
+          {/* Desktop: top navigation. Phones use the bottom tab bar below. */}
+          <nav aria-label="Main" className="hidden flex-1 gap-1 sm:flex">
             {NAV.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
                 search={(prev: { month?: string }) => ({ month: prev.month })}
                 activeOptions={{ exact: item.to === "/" }}
-                className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2.5 text-[13px] font-bold uppercase tracking-[0.06em] text-muted transition hover:text-ink sm:px-3 sm:text-sm sm:tracking-[0.08em]"
+                className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold uppercase tracking-[0.08em] text-muted transition hover:text-ink"
                 activeProps={{ className: "bg-ink !text-bg" }}
               >
                 {item.label}
@@ -72,9 +78,28 @@ function Shell() {
           </Button>
         </div>
       </header>
-      <main className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6">
+      <main className="mx-auto max-w-[1200px] px-4 pb-32 pt-6 sm:px-6 sm:pb-24">
         <Outlet />
       </main>
+
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t-2 border-line-strong bg-bg pb-[env(safe-area-inset-bottom)] sm:hidden"
+      >
+        {NAV.map(({ to, tab, Icon }) => (
+          <Link
+            key={to}
+            to={to}
+            search={(prev: { month?: string }) => ({ month: prev.month })}
+            activeOptions={{ exact: to === "/" }}
+            className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10.5px] font-bold uppercase tracking-[0.04em] text-muted"
+            activeProps={{ className: "!text-accent" }}
+          >
+            <Icon />
+            {tab}
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }
