@@ -139,15 +139,15 @@ GET    /api/export?format=csv|json
 
 ## Phases
 
-### Phase 0: Design direction (1–2 days)
+### Phase 0: Design direction ✅
 
 Choose the look before writing UI code.
 
-- [ ] Mock up 2–3 visual directions (for example soft and playful, bold and high-contrast, calm and minimal) as a comparison page: home/month view, quick add, budgets
-- [ ] Pick one and define the **design tokens**: color palette (light and dark), category color set, radii, spacing, shadows, font (with tabular figures for numbers)
-- [ ] List the core components and their states: Button, AmountDisplay, NumberPad, CategoryChip, BottomSheet/Dialog, ListRow, ProgressBar, Tabs, Toast, TextField, MonthSwitcher
+- [x] Mock up 3 visual directions (home, quick add, web dashboard each) and compare. **Picked B: Bold & high-contrast.**
+- [x] Define the **design tokens**: light and dark palettes, category colors, radii, spacing, type scale, motion, meter rules (`packages/shared/src/tokens.ts`, contrast-tested)
+- [x] List the core components and states, plus the visualization rules (`docs/design.md`)
 
-**Done when:** tokens are in `packages/shared/tokens.ts` and there is a reference mockup to build against.
+**Done when:** tokens are in `packages/shared/src/tokens.ts` and there is a reference mockup to build against.
 
 ---
 
@@ -156,7 +156,7 @@ Choose the look before writing UI code.
 A deployed, secured API on a real URL.
 
 - [x] Set up the monorepo: pnpm workspaces, TypeScript base config, Biome or ESLint + Prettier, `.gitignore`, `git init`
-- [x] `packages/shared`: zod schemas, money helpers (`parseAmount`, `fromMinor`, `formatMoney`), date helpers (`monthOf`, `monthRange`, `today()` in local time) (tokens come with Phase 0)
+- [x] `packages/shared`: zod schemas, money helpers (`parseAmount`, `fromMinor`, `formatMoney`), date helpers (`monthOf`, `monthRange`, `today()` in local time) (tokens added in Phase 0)
 - [x] `apps/api`: Hono app, Drizzle schema, first migration, create the D1 database (local and remote)
 - [x] Better Auth: email/password, D1 adapter, bearer plugin for mobile, **rate limiting on**, session ~90 days with rolling renewal
 - [ ] Sign-ups are disabled in the API; the account is created with `pnpm create-user --remote` (writes straight to D1, password never leaves the machine) ← **you: run this once**
