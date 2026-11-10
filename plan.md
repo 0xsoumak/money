@@ -155,17 +155,17 @@ Choose the look before writing UI code.
 
 A deployed, secured API on a real URL.
 
-- [ ] Set up the monorepo: pnpm workspaces, TypeScript base config, Biome or ESLint + Prettier, `.gitignore`, `git init`
-- [ ] `packages/shared`: zod schemas, money helpers (`toMinor`, `fromMinor`, `formatMoney`), date helpers (`monthOf`, `monthRange`, `today()` in local time), default categories, tokens
-- [ ] `apps/api`: Hono app, Drizzle schema, first migration, create the D1 database (local and remote)
-- [ ] Better Auth: email/password, D1 adapter, bearer plugin for mobile, **rate limiting on**, session ~90 days with rolling renewal
-- [ ] Sign-ups are disabled in the API; the account is created with `pnpm create-user --remote` (writes straight to D1, password never leaves the machine)
-- [ ] Seed default categories and settings in a migration (`0001_seed_defaults.sql`)
-- [ ] Endpoints: categories, transactions, summary, settings (budgets and export come later)
-- [ ] Auth middleware on all `/api/*` except `/api/auth/*`
-- [ ] Secrets set with `wrangler secret put` (`BETTER_AUTH_SECRET`, …)
-- [ ] Tests for the API with Vitest + `@cloudflare/vitest-pool-workers` (money math, month boundaries, auth guard, idempotent PUT)
-- [ ] `wrangler deploy` to `money-tracker.<me>.workers.dev`
+- [x] Set up the monorepo: pnpm workspaces, TypeScript base config, Biome or ESLint + Prettier, `.gitignore`, `git init`
+- [x] `packages/shared`: zod schemas, money helpers (`parseAmount`, `fromMinor`, `formatMoney`), date helpers (`monthOf`, `monthRange`, `today()` in local time) (tokens come with Phase 0)
+- [x] `apps/api`: Hono app, Drizzle schema, first migration, create the D1 database (local and remote)
+- [x] Better Auth: email/password, D1 adapter, bearer plugin for mobile, **rate limiting on**, session ~90 days with rolling renewal
+- [ ] Sign-ups are disabled in the API; the account is created with `pnpm create-user --remote` (writes straight to D1, password never leaves the machine) ← **you: run this once**
+- [x] Seed default categories and settings in a migration (`0001_seed_defaults.sql`)
+- [x] Endpoints: categories, transactions, summary, settings (budgets and export come later)
+- [x] Auth middleware on all `/api/*` except `/api/auth/*`
+- [x] Secrets set with `wrangler secret put` (`BETTER_AUTH_SECRET`, …)
+- [x] Tests for the API with Vitest + `@cloudflare/vitest-plugin` (money math, month boundaries, auth guard, idempotent PUT)
+- [x] `wrangler deploy` to `money-tracker.soumakkdutta.workers.dev`
 
 **Done when:** I can log in and create and list transactions on the deployed API with curl or a REST client, and an unauthenticated request gets a 401.
 
