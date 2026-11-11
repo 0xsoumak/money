@@ -253,6 +253,31 @@ describe("settings", () => {
   });
 });
 
+describe("export", () => {
+  it("downloads everything as one JSON file", async () => {
+    const id = newId();
+    await api(`/api/transactions/${id}`, {
+      method: "PUT",
+      json: {
+        type: "expense",
+        amount: 4200,
+        categoryId: FOOD,
+        date: "2019-05-05",
+        note: "export me",
+      },
+    });
+    const res = await api("/api/export");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="money-.+\.json"/);
+    const body = await res.json<Json>();
+    expect(body.version).toBe(1);
+    expect(body.categories.length).toBeGreaterThan(0);
+    expect(body.transactions.some((t: Json) => t.id === id && t.amount === 4200)).toBe(true);
+    expect(body.settings).toBeTypeOf("object");
+    expect(body).not.toHaveProperty("user");
+  });
+});
+
 describe("budgets", () => {
   const put = (key: string, body: Json) =>
     api(`/api/budgets/${key}`, { method: "PUT", json: body });

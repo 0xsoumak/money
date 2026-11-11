@@ -16,6 +16,7 @@
     "db:migrate:local": "pnpm --filter @money/api db:migrate:local",
     "db:migrate:remote": "pnpm --filter @money/api db:migrate:remote",
     "create-user": "pnpm --filter @money/api create-user",
+    "backup": "pnpm --filter @money/api backup",
     "build": "pnpm --filter @money/web build",
     "ship": "pnpm --filter @money/api db:migrate:remote && pnpm --filter @money/web build && pnpm --filter @money/api run deploy"
   },

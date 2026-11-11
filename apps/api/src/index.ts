@@ -3,6 +3,7 @@ import { createAuth } from "./auth";
 import { createDb } from "./db";
 import { budgetsRoute } from "./routes/budgets";
 import { categoriesRoute } from "./routes/categories";
+import { exportRoute } from "./routes/export";
 import { settingsRoute } from "./routes/settings";
 import { summaryRoute } from "./routes/summary";
 import { transactionsRoute } from "./routes/transactions";
@@ -14,7 +15,8 @@ const protectedApi = new Hono<AppEnv>()
   .route("/transactions", transactionsRoute)
   .route("/budgets", budgetsRoute)
   .route("/summary", summaryRoute)
-  .route("/settings", settingsRoute);
+  .route("/settings", settingsRoute)
+  .route("/export", exportRoute);
 
 const app = new Hono<AppEnv>()
   .use("/api/*", async (c, next) => {

@@ -50,6 +50,23 @@ function SettingsPage() {
       </section>
 
       <section className="flex flex-col gap-4">
+        <SectionHeader title="Your data" />
+        <p className="text-muted">
+          Everything you've logged (categories, transactions, budgets and settings) as one JSON
+          file. Worth keeping a copy each month.
+        </p>
+        <div>
+          <a
+            href="/api/export"
+            download
+            className="inline-flex min-h-12 items-center justify-center rounded-lg border-2 border-line-strong/30 px-5 text-[15px] font-bold uppercase tracking-wider text-ink transition hover:border-line-strong/70"
+          >
+            Download my data
+          </a>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4">
         <SectionHeader title="Account" />
         <div>
           <Button variant="outline" onClick={signOut}>
