@@ -23,6 +23,7 @@ import {
 } from "react";
 import { isTyping, useMoney } from "../lib/hooks";
 import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
+import { DatePicker } from "./DatePicker";
 import { BackspaceIcon, CloseIcon } from "./icons";
 import { spring } from "./motion";
 import { useToast } from "./Toast";
@@ -343,15 +344,14 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                         refocusAmount();
                       }}
                     />
-                    <input
-                      type="date"
-                      aria-label="Date"
+                    <DatePicker
+                      label="Date"
                       value={draft.date}
-                      max="9999-12-31"
-                      onChange={(e) =>
-                        e.target.value && setDraft({ ...draft, date: e.target.value })
-                      }
-                      className={cx(fieldClass, "ml-auto min-h-11 w-auto")}
+                      onChange={(date) => {
+                        setDraft({ ...draft, date });
+                        refocusAmount();
+                      }}
+                      className="ml-auto min-h-11"
                     />
                   </div>
                 </div>
