@@ -44,3 +44,22 @@ pnpm --filter @money/mobile start
 
 Scan the QR code with Expo Go. The app signs in to the live API by default; set `EXPO_PUBLIC_API_URL` (for example in `apps/mobile/.env.local`) to use another server.
 If the phone can't connect, add `--tunnel`, and allow Node through Windows Firewall on private networks.
+
+### Installing it for real (APK and over-the-air updates)
+
+Builds run in the cloud on EAS (free tier), so no Android SDK is needed. One-time setup, from `apps/mobile`:
+
+```
+pnpm eas login                 # your Expo account
+pnpm eas init                  # creates the EAS project, writes its id into app.json
+pnpm eas update:configure      # adds the update URL to app.json
+```
+
+Then:
+
+| Command          | What it does                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| `pnpm build:apk` | Builds a release APK (about 15 min). Open the link it prints on your phone and install it.                      |
+| `pnpm update`    | Ships JS and design changes to installed apps in seconds, no rebuild. The app picks them up on its next launch. |
+
+`runtimeVersion` uses the **fingerprint** policy: an update only reaches APKs whose native code matches. After adding a native library (like Reanimated), run `pnpm build:apk` again; `pnpm update` alone won't reach older APKs, so it can never crash them.

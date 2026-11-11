@@ -214,9 +214,9 @@ Starts after the web app has been used for a while. Reuses the API, shared packa
 - [x] **Quick add**: number pad, swipeable category pills, last-used category, haptics on every key and on save. The Add button sits in the centre of the tab bar.
 - [x] Edit, delete with Undo toast, Categories screen (under Settings)
 - [x] A failed save shows an error toast with Retry (safe because of the client ULIDs). _Not yet:_ keep unsent entries across an app restart
-- [ ] App icon and splash artwork (currently Expo's placeholders)
-- [ ] `runtimeVersion` policy and EAS Update channel
-- [ ] Build a release APK (EAS cloud build) and install it
+- [x] App icon and splash artwork: lime "M." mark from the wordmark, adaptive and monochrome Android icons, web favicon
+- [x] `runtimeVersion` (fingerprint policy), `expo-updates`, `eas.json` with `preview` / `production` APK profiles and channels, `pnpm build:apk` and `pnpm update`
+- [ ] Build a release APK (EAS cloud build) and install it ← **you: `pnpm eas login`, `eas init`, `eas update:configure`, then `pnpm build:apk`** (see README)
 
 **Done when:** I've used it for a full week to log every expense, and adding one takes under 5 seconds.
 

@@ -11,7 +11,7 @@
     "android": {
       "package": "dev.soumak.moneytracker",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0B0C",
+        "backgroundColor": "#C6F432",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -36,6 +36,9 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    }
   }
 }
