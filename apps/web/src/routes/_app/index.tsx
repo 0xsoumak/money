@@ -1,7 +1,7 @@
 import { addMonths, budgetProgress, daysInMonth, today } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BudgetRow } from "../../components/BlockMeter";
+import { BudgetRing } from "../../components/BudgetRing";
 import { DailyBars, MonthTrend, type Stat, StatStrip } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { useQuickAdd } from "../../components/QuickAdd";
@@ -250,12 +250,12 @@ function Overview() {
             }
           />
           {hasBudgets ? (
-            <>
-              {overall !== null && <BudgetRow name="Overall" spent={spent} limit={overall} />}
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {overall !== null && <BudgetRing name="Overall" spent={spent} limit={overall} />}
               {categoryBudgets.map(({ c, limit, spent: s }) => (
-                <BudgetRow key={c.id} name={`${c.emoji} ${c.name}`} spent={s} limit={limit} />
+                <BudgetRing key={c.id} name={`${c.emoji} ${c.name}`} spent={s} limit={limit} />
               ))}
-            </>
+            </div>
           ) : (
             <p className="border-b border-line py-5 text-muted">
               Set a monthly budget to see how much you have left to spend.
