@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { groupByDay } from "@money/shared";
 import { Pressable, View } from "react-native";
+import Animated, { FadeInLeft, FadeOutRight, LinearTransition } from "react-native-reanimated";
 import { useMoney } from "../lib/hooks";
 import type { Category, Tx } from "../lib/queries";
 import { c, cat } from "../lib/theme";
@@ -41,8 +42,11 @@ export function TransactionList({
             const category = byId.get(tx.categoryId);
             const title = tx.note || category?.name || "Transaction";
             return (
-              <View
+              <Animated.View
                 key={tx.id}
+                entering={FadeInLeft.springify().damping(18)}
+                exiting={FadeOutRight.duration(180)}
+                layout={LinearTransition.springify().damping(20)}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
@@ -88,7 +92,7 @@ export function TransactionList({
                 <IconButton label={`Delete ${title}`} onPress={() => onDelete(tx)}>
                   <Feather name="trash-2" size={18} color={c.textMuted} />
                 </IconButton>
-              </View>
+              </Animated.View>
             );
           })}
         </View>

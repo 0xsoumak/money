@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { tap } from "../lib/haptics";
 import { c, radius, TARGET } from "../lib/theme";
+import { PressableScale } from "./motion";
 import { T } from "./T";
 
 type Variant = "primary" | "outline" | "ghost" | "danger";
@@ -43,22 +44,23 @@ export function Button({
   const p = PALETTE[variant];
   const off = disabled || busy;
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityState={{ disabled: !!off, busy: !!busy }}
       disabled={off}
+      scaleTo={0.96}
       onPress={() => {
         tap();
         onPress();
       }}
-      style={({ pressed }) => [
+      style={[
         styles.button,
         {
           height,
           backgroundColor: p.bg,
           borderColor: p.border,
-          opacity: off ? 0.4 : pressed ? 0.85 : 1,
+          opacity: off ? 0.4 : 1,
         },
         style,
       ]}
@@ -70,7 +72,7 @@ export function Button({
           {title}
         </T>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -89,23 +91,19 @@ export function IconButton({
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={4}
+      scaleTo={0.86}
       onPress={() => {
         tap();
         onPress();
       }}
-      style={({ pressed }) => [
-        styles.iconButton,
-        bordered && styles.bordered,
-        { opacity: pressed ? 0.6 : 1 },
-        style,
-      ]}
+      style={[styles.iconButton, bordered && styles.bordered, style]}
     >
       {children}
-    </Pressable>
+    </PressableScale>
   );
 }
 

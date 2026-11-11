@@ -10,8 +10,16 @@ import {
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { PressableScale } from "../components/motion";
 import { NumberPad } from "../components/NumberPad";
 import { ModalScreen } from "../components/Screen";
 import { Label, T } from "../components/T";
@@ -187,17 +195,19 @@ export default function Add() {
           <Label>
             {editing ? "Editing" : "New"} · {type}
           </Label>
-          <T
-            variant="amount"
-            size={72}
-            fit
-            color={amount ? c.accent : c.textFaint}
-            accessibilityLiveRegion="polite"
-            accessibilityLabel={`Amount ${amount || "zero"}`}
-            style={{ marginTop: 4 }}
-          >
-            {amount || "0"}
-          </T>
+          <AmountPop value={amount}>
+            <T
+              variant="amount"
+              size={72}
+              fit
+              color={amount ? c.accent : c.textFaint}
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={`Amount ${amount || "zero"}`}
+              style={{ marginTop: 4 }}
+            >
+              {amount || "0"}
+            </T>
+          </AmountPop>
         </View>
 
         <ScrollView
@@ -209,8 +219,9 @@ export default function Add() {
           {usable.map((x) => {
             const selected = x.id === categoryId;
             return (
-              <Pressable
+              <PressableScale
                 key={x.id}
+                scaleTo={0.92}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 accessibilityLabel={x.name}
@@ -236,7 +247,7 @@ export default function Add() {
                 <T variant="body" size={15} color={selected ? c.onAccent : c.text}>
                   {x.name}
                 </T>
-              </Pressable>
+              </PressableScale>
             );
           })}
         </ScrollView>
@@ -332,5 +343,25 @@ function DateChip({
         {label}
       </T>
     </Pressable>
+  );
+}
+
+/** Gives the amount a small springy bump each time a key changes it. */
+function AmountPop({ value, children }: { value: string; children: React.ReactNode }) {
+  const scale = useSharedValue(1);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    scale.value = withSequence(
+      withTiming(1.06, { duration: 60 }),
+      withSpring(1, { damping: 10, stiffness: 400 }),
+    );
+  }, [value, scale]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Animated.View style={[{ transformOrigin: "left center" }, style]}>{children}</Animated.View>
   );
 }

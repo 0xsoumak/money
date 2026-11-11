@@ -8,7 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { c, radius } from "../lib/theme";
 import { T } from "./T";
@@ -79,15 +80,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }).start();
-  }, [opacity]);
-
   const error = toast.tone === "error";
   return (
     <Animated.View
-      style={[styles.toast, { opacity, borderColor: error ? c.danger : c.borderStrong }]}
+      entering={FadeInDown.springify().damping(15).stiffness(260)}
+      exiting={FadeOut.duration(150)}
+      layout={LinearTransition.springify()}
+      style={[styles.toast, { borderColor: error ? c.danger : c.borderStrong }]}
     >
       <T variant="small" size={15} color={error ? c.danger : c.text} style={{ flex: 1 }}>
         {toast.message}

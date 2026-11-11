@@ -1,9 +1,10 @@
-import { budgetProgress } from "@money/shared";
+import { addMonths, budgetProgress, monthInsights, overviewStats, today } from "@money/shared";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
-import { BudgetRow } from "../../components/BlockMeter";
+import { BudgetRing, DailyBars, MonthTrend, StatGrid } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
+import { Reveal, useCountUp } from "../../components/motion";
 import { Screen } from "../../components/Screen";
 import { ShareBar } from "../../components/ShareBar";
 import { Label, T } from "../../components/T";
@@ -11,7 +12,7 @@ import { TransactionList } from "../../components/TransactionList";
 import { Button, EmptyState, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney } from "../../lib/hooks";
 import { useMonth } from "../../lib/month";
-import { categoriesQuery, summaryQuery, transactionsQuery } from "../../lib/queries";
+import { categoriesQuery, summaryQuery, transactionsQuery, trendQuery } from "../../lib/queries";
 import { c } from "../../lib/theme";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
@@ -20,13 +21,14 @@ const RECENT = 6;
 export default function Overview() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { month } = useMonth();
+  const { month, setMonth } = useMonth();
   const money = useMoney();
   const deleteWithUndo = useDeleteWithUndo();
 
   const { data: categories = [] } = useQuery(categoriesQuery);
   const summary = useQuery({ ...summaryQuery(month), placeholderData: keepPreviousData });
   const txs = useQuery({ ...transactionsQuery(month), placeholderData: keepPreviousData });
+  const trend = useQuery({ ...trendQuery(month), placeholderData: keepPreviousData });
 
   const loading = summary.isPending || txs.isPending;
   const expenses = (summary.data?.byCategory ?? []).filter((r) => r.type === "expense");
@@ -49,6 +51,30 @@ export default function Overview() {
     );
   const hasBudgets = overall !== null || categoryBudgets.length > 0;
 
+  const todayDate = today();
+  const ins = monthInsights({
+    month,
+    todayDate,
+    spent,
+    transactions: txs.data ?? [],
+    overallBudget: overall,
+  });
+  const prevSpent = trend.data?.find((t) => t.month === addMonths(month, -1))?.spent ?? 0;
+  const stats = overviewStats(ins, { spent, prevSpent, overallBudget: overall, money });
+  const shownSpent = useCountUp(spent);
+
+  const rings = [
+    ...(overall !== null ? [{ key: "overall", name: "Overall", spent, limit: overall }] : []),
+    ...categoryBudgets.map(({ x, limit, spent: s }) => ({
+      key: x.id,
+      name: `${x.emoji} ${x.name}`,
+      spent: s,
+      limit,
+    })),
+  ];
+  const ringRows: (typeof rings)[] = [];
+  for (let i = 0; i < rings.length; i += 2) ringRows.push(rings.slice(i, i + 2));
+
   const refreshing = summary.isRefetching || txs.isRefetching;
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["summary"] });
@@ -70,7 +96,7 @@ export default function Overview() {
             <Skeleton style={{ height: 64, width: 240 }} />
           ) : (
             <T variant="display" size={68} fit accessibilityLabel={`Spent ${money(spent)}`}>
-              {money(spent)}
+              {money(shownSpent)}
             </T>
           )}
         </View>
@@ -102,7 +128,37 @@ export default function Overview() {
         />
       ) : (
         <>
-          <ShareBar items={expenses} categories={categories} left={left} />
+          <Reveal i={0}>
+            <StatGrid stats={stats} />
+          </Reveal>
+
+          <Reveal i={1}>
+            <ShareBar items={expenses} categories={categories} left={left} />
+          </Reveal>
+
+          <Reveal i={2}>
+            <SectionHeader title="Day by day" />
+            <View style={{ marginTop: 16 }}>
+              <DailyBars
+                month={month}
+                totals={ins.daily}
+                todayDate={todayDate}
+                dailyBudget={ins.dailyBudget}
+                days={ins.days}
+              />
+            </View>
+          </Reveal>
+
+          <Reveal i={3}>
+            <SectionHeader title="Last 6 months" />
+            <View style={{ marginTop: 16 }}>
+              {trend.data ? (
+                <MonthTrend months={trend.data} current={month} onPick={setMonth} />
+              ) : (
+                <Skeleton style={{ height: 156 }} />
+              )}
+            </View>
+          </Reveal>
 
           <View>
             <SectionHeader
@@ -150,12 +206,22 @@ export default function Overview() {
             }
           />
           {hasBudgets ? (
-            <>
-              {overall !== null && <BudgetRow name="Overall" spent={spent} limit={overall} />}
-              {categoryBudgets.map(({ x, limit, spent: s }) => (
-                <BudgetRow key={x.id} name={`${x.emoji} ${x.name}`} spent={s} limit={limit} />
+            <View style={{ marginTop: 16, gap: 10 }}>
+              {ringRows.map((row) => (
+                <View key={row[0]?.key} style={{ flexDirection: "row", gap: 10 }}>
+                  {row.map((b) => (
+                    <BudgetRing
+                      key={b.key}
+                      name={b.name}
+                      spent={b.spent}
+                      limit={b.limit}
+                      onPress={() => router.navigate("/budgets")}
+                    />
+                  ))}
+                  {row.length === 1 && <View style={{ flex: 1 }} />}
+                </View>
               ))}
-            </>
+            </View>
           ) : (
             <View
               style={{ paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: c.border }}

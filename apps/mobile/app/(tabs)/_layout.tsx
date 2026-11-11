@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { Tabs, useRouter } from "expo-router";
 import { type ColorValue, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PressableScale } from "../../components/motion";
 import { tap } from "../../lib/haptics";
 import { MonthProvider } from "../../lib/month";
 import { c } from "../../lib/theme";
@@ -50,14 +51,15 @@ export default function TabsLayout() {
               title: "Add",
               tabBarButton: () => (
                 <View style={{ flex: 1, alignItems: "center" }}>
-                  <Pressable
+                  <PressableScale
+                    scaleTo={0.88}
                     accessibilityRole="button"
                     accessibilityLabel="Add transaction"
                     onPress={() => {
                       tap();
                       router.push("/add");
                     }}
-                    style={({ pressed }) => ({
+                    style={{
                       width: 58,
                       height: 58,
                       marginTop: -14,
@@ -65,11 +67,10 @@ export default function TabsLayout() {
                       backgroundColor: c.accent,
                       alignItems: "center",
                       justifyContent: "center",
-                      opacity: pressed ? 0.85 : 1,
-                    })}
+                    }}
                   >
                     <Feather name="plus" size={30} color={c.onAccent} />
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ),
             }}

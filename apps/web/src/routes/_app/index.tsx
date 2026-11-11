@@ -1,8 +1,8 @@
-import { addMonths, budgetProgress, daysInMonth, today } from "@money/shared";
+import { addMonths, budgetProgress, monthInsights, overviewStats, today } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BudgetRing } from "../../components/BudgetRing";
-import { DailyBars, MonthTrend, type Stat, StatStrip } from "../../components/Charts";
+import { DailyBars, MonthTrend, StatStrip } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { CountUp, Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
@@ -53,70 +53,15 @@ function Overview() {
 
   // ── Daily figures for the charts and stat strip ──
   const todayDate = today();
-  const monthDays = daysInMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
-  const isCurrent = todayDate.startsWith(month);
-  const isFuture = `${month}-01` > todayDate;
-  const elapsed = isCurrent ? Number(todayDate.slice(8)) : isFuture ? 0 : monthDays;
-  const dailyTotals = new Map<string, number>();
-  for (const t of txs.data ?? []) {
-    if (t.type === "expense") dailyTotals.set(t.date, (dailyTotals.get(t.date) ?? 0) + t.amount);
-  }
-  const peakDay = [...dailyTotals].reduce<[string, number] | null>(
-    (best, d) => (!best || d[1] > best[1] ? d : best),
-    null,
-  );
+  const ins = monthInsights({
+    month,
+    todayDate,
+    spent,
+    transactions: txs.data ?? [],
+    overallBudget: overall,
+  });
   const prevSpent = trend.data?.find((t) => t.month === addMonths(month, -1))?.spent ?? 0;
-  // Whole currency units: paise on an average is noise.
-  const avg = elapsed > 0 ? Math.round(spent / elapsed / 100) * 100 : 0;
-  const projected = avg * monthDays;
-
-  const stats: Stat[] = [
-    {
-      label: "Daily average",
-      value: money(avg),
-      hint: `over ${elapsed} ${elapsed === 1 ? "day" : "days"}`,
-    },
-    isCurrent
-      ? {
-          label: "On pace for",
-          value: money(projected),
-          hint:
-            overall !== null
-              ? projected > overall
-                ? `${money(projected - overall)} over budget`
-                : `${money(overall - projected)} under budget`
-              : "by month end",
-          tone: overall !== null && projected > overall ? "danger" : undefined,
-        }
-      : {
-          label: "Days spent",
-          value: `${dailyTotals.size} of ${monthDays}`,
-          hint: `${monthDays - dailyTotals.size} no-spend days`,
-        },
-    {
-      label: "Last month",
-      value: money(prevSpent),
-      hint:
-        prevSpent === 0
-          ? "nothing logged"
-          : isCurrent
-            ? `${Math.round((spent / prevSpent) * 100)}% of it spent so far`
-            : spent >= prevSpent
-              ? `▲ ${Math.round((spent / prevSpent - 1) * 100)}% more this month`
-              : `▼ ${Math.round((1 - spent / prevSpent) * 100)}% less this month`,
-    },
-    {
-      label: "Biggest day",
-      value: money(peakDay?.[1] ?? 0),
-      hint: peakDay
-        ? new Date(`${peakDay[0]}T00:00:00`).toLocaleDateString("en", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          })
-        : "–",
-    },
-  ];
+  const stats = overviewStats(ins, { spent, prevSpent, overallBudget: overall, money });
 
   return (
     <div className="flex flex-col gap-8">
@@ -205,9 +150,9 @@ function Overview() {
               <div className="mt-5">
                 <DailyBars
                   month={month}
-                  totals={dailyTotals}
+                  totals={ins.daily}
                   todayDate={todayDate}
-                  dailyBudget={overall !== null ? Math.round(overall / monthDays) : undefined}
+                  dailyBudget={ins.dailyBudget ?? undefined}
                 />
               </div>
             </section>

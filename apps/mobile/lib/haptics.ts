@@ -8,6 +8,11 @@ export function tap() {
   if (enabled) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
+/** The faint tick used while scrubbing across a chart. */
+export function select() {
+  if (enabled) void Haptics.selectionAsync().catch(() => {});
+}
+
 /** A confirmation buzz, for a saved expense. */
 export function success() {
   if (enabled) {

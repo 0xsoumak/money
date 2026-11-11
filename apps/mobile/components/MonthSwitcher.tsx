@@ -1,6 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import { addMonths, currentMonth, monthTitle } from "@money/shared";
+import { useEffect, useRef } from "react";
 import { Pressable, View } from "react-native";
+import Animated, { SlideInLeft, SlideInRight } from "react-native-reanimated";
 import { useMonth } from "../lib/month";
 import { c } from "../lib/theme";
 import { T } from "./T";
@@ -10,14 +12,27 @@ import { IconButton } from "./ui";
 export function MonthSwitcher() {
   const { month, setMonth } = useMonth();
   const isCurrent = month === currentMonth();
+  // Slide the new title in from the side we moved towards.
+  const prev = useRef(month);
+  const forward = month >= prev.current;
+  useEffect(() => {
+    prev.current = month;
+  }, [month]);
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
       <IconButton label="Previous month" bordered onPress={() => setMonth(addMonths(month, -1))}>
         <Feather name="chevron-left" size={20} color={c.text} />
       </IconButton>
-      <T variant="label" style={{ minWidth: 150, textAlign: "center" }} accessibilityRole="header">
-        {monthTitle(month)}
-      </T>
+      <View style={{ minWidth: 150, overflow: "hidden" }}>
+        <Animated.View
+          key={month}
+          entering={(forward ? SlideInRight : SlideInLeft).springify().damping(20).stiffness(260)}
+        >
+          <T variant="label" style={{ textAlign: "center" }} accessibilityRole="header">
+            {monthTitle(month)}
+          </T>
+        </Animated.View>
+      </View>
       <IconButton label="Next month" bordered onPress={() => setMonth(addMonths(month, 1))}>
         <Feather name="chevron-right" size={20} color={c.text} />
       </IconButton>
