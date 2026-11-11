@@ -43,7 +43,7 @@
     "typecheck": "pnpm --filter @money/api build:types && tsc --noEmit",
     "eas": "pnpm dlx eas-cli@27.6.0",
     "build:apk": "pnpm dlx eas-cli@27.6.0 build --platform android --profile production",
-    "update": "pnpm dlx eas-cli@27.6.0 update --channel production --auto"
+    "ota": "pnpm dlx eas-cli@27.6.0 update --channel production --auto"
   },
   "private": true
 }

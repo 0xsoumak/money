@@ -60,6 +60,6 @@ Then:
 | Command          | What it does                                                                                                    |
 | ---------------- | --------------------------------------------------------------------------------------------------------------- |
 | `pnpm build:apk` | Builds a release APK (about 15 min). Open the link it prints on your phone and install it.                      |
-| `pnpm update`    | Ships JS and design changes to installed apps in seconds, no rebuild. The app picks them up on its next launch. |
+| `pnpm ota`       | Ships JS and design changes to installed apps in seconds, no rebuild. The app picks them up on its next launch. |
 
-`runtimeVersion` uses the **fingerprint** policy: an update only reaches APKs whose native code matches. After adding a native library (like Reanimated), run `pnpm build:apk` again; `pnpm update` alone won't reach older APKs, so it can never crash them.
+`runtimeVersion` uses the **fingerprint** policy: an update only reaches APKs whose native code matches. After adding a native library (like Reanimated), run `pnpm build:apk` again; `pnpm ota` alone won't reach older APKs, so it can never crash them.

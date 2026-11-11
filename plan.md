@@ -215,7 +215,7 @@ Starts after the web app has been used for a while. Reuses the API, shared packa
 - [x] Edit, delete with Undo toast, Categories screen (under Settings)
 - [x] A failed save shows an error toast with Retry (safe because of the client ULIDs). _Not yet:_ keep unsent entries across an app restart
 - [x] App icon and splash artwork: lime "M." mark from the wordmark, adaptive and monochrome Android icons, web favicon
-- [x] `runtimeVersion` (fingerprint policy), `expo-updates`, `eas.json` with `preview` / `production` APK profiles and channels, `pnpm build:apk` and `pnpm update`
+- [x] `runtimeVersion` (fingerprint policy), `expo-updates`, `eas.json` with `preview` / `production` APK profiles and channels, `pnpm build:apk` and `pnpm ota`
 - [ ] Build a release APK (EAS cloud build) and install it ← **you: `pnpm eas login`, `eas init`, `eas update:configure`, then `pnpm build:apk`** (see README)
 
 **Done when:** I've used it for a full week to log every expense, and adding one takes under 5 seconds.
