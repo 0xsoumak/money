@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BudgetRing } from "../../components/BudgetRing";
 import { DailyBars, MonthTrend, type Stat, StatStrip } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
+import { CountUp, Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
 import { ShareBar } from "../../components/ShareBar";
 import { TransactionList } from "../../components/TransactionList";
@@ -131,7 +132,7 @@ function Overview() {
               className="mt-2 text-[68px] font-bold leading-[0.9] tracking-[-0.06em] sm:text-[88px] md:text-[112px]"
               aria-label={`Spent ${money(summary.data?.spent ?? 0)}`}
             >
-              {money(summary.data?.spent ?? 0)}
+              <CountUp value={summary.data?.spent ?? 0} format={money} />
             </p>
           )}
         </div>
@@ -144,7 +145,12 @@ function Overview() {
               <dd
                 className={`mt-1 text-3xl font-bold ${overallProgress.over > 0 ? "text-danger" : "text-accent"}`}
               >
-                {money(overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining)}
+                <CountUp
+                  value={
+                    overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining
+                  }
+                  format={money}
+                />
               </dd>
             </div>
           )}
@@ -152,7 +158,9 @@ function Overview() {
             <dt>
               <Label className="text-[13px]">Income</Label>
             </dt>
-            <dd className="mt-1 text-3xl font-bold">{money(summary.data?.income ?? 0)}</dd>
+            <dd className="mt-1 text-3xl font-bold">
+              <CountUp value={summary.data?.income ?? 0} format={money} />
+            </dd>
           </div>
           <div>
             <dt>
@@ -161,7 +169,7 @@ function Overview() {
             <dd
               className={`mt-1 text-3xl font-bold ${(summary.data?.net ?? 0) < 0 ? "text-danger" : ""}`}
             >
-              {money(summary.data?.net ?? 0)}
+              <CountUp value={summary.data?.net ?? 0} format={money} />
             </dd>
           </div>
         </dl>
@@ -175,17 +183,23 @@ function Overview() {
         />
       ) : (
         <>
-          <StatStrip stats={stats} />
+          <Reveal i={0}>
+            <StatStrip stats={stats} />
+          </Reveal>
 
-          <ShareBar
-            items={expenses}
-            categories={categories}
-            left={
-              overallProgress && overallProgress.over === 0 ? overallProgress.remaining : undefined
-            }
-          />
+          <Reveal i={1}>
+            <ShareBar
+              items={expenses}
+              categories={categories}
+              left={
+                overallProgress && overallProgress.over === 0
+                  ? overallProgress.remaining
+                  : undefined
+              }
+            />
+          </Reveal>
 
-          <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
+          <Reveal i={2} className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
             <section>
               <SectionHeader title="Day by day" />
               <div className="mt-5">
@@ -207,7 +221,7 @@ function Overview() {
                 )}
               </div>
             </section>
-          </div>
+          </Reveal>
 
           <section>
             <SectionHeader

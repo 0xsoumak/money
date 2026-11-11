@@ -1,5 +1,6 @@
 import { monthSchema } from "@money/shared";
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
+import { motion } from "motion/react";
 import { z } from "zod";
 import {
   GridIcon,
@@ -9,6 +10,7 @@ import {
   PlusIcon,
   SlidersIcon,
 } from "../components/icons";
+import { spring } from "../components/motion";
 import { QuickAddProvider, useQuickAdd } from "../components/QuickAdd";
 import { Button } from "../components/ui";
 import { categoriesQuery, sessionQuery, settingsQuery } from "../lib/queries";
@@ -62,15 +64,28 @@ function Shell() {
                 to={item.to}
                 search={(prev: { month?: string }) => ({ month: prev.month })}
                 activeOptions={{ exact: item.to === "/" }}
-                className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold uppercase tracking-[0.08em] text-muted transition hover:text-ink"
-                activeProps={{ className: "bg-ink !text-bg" }}
+                className="relative inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-ink"
+                activeProps={{ className: "!text-bg" }}
               >
-                {item.label}
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.span
+                        layoutId="nav-pill"
+                        transition={spring.snappy}
+                        className="absolute inset-0 rounded-lg bg-ink"
+                      />
+                    )}
+                    <span className="relative">{item.label}</span>
+                  </>
+                )}
               </Link>
             ))}
           </nav>
-          <Button onClick={openNew} className="ml-auto sm:ml-0">
-            <PlusIcon size={20} />
+          <Button onClick={openNew} className="group ml-auto sm:ml-0">
+            <span className="transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)] group-hover:rotate-90">
+              <PlusIcon size={20} />
+            </span>
             Add
             <kbd className="hidden rounded-md border-[1.5px] border-on-accent px-1.5 py-0.5 font-[inherit] text-xs sm:inline">
               N
@@ -95,8 +110,17 @@ function Shell() {
             className="flex min-h-16 flex-col items-center justify-center gap-1 text-[10.5px] font-bold uppercase tracking-[0.04em] text-muted"
             activeProps={{ className: "!text-accent" }}
           >
-            <Icon />
-            {tab}
+            {({ isActive }) => (
+              <>
+                <motion.span
+                  animate={isActive ? { y: [0, -4, 0], scale: [1, 1.15, 1] } : { y: 0, scale: 1 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                >
+                  <Icon />
+                </motion.span>
+                {tab}
+              </>
+            )}
           </Link>
         ))}
       </nav>

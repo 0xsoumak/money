@@ -1,5 +1,6 @@
 import { addMonths, currentMonth, monthTitle } from "@money/shared";
-import { useEffect } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef } from "react";
 import { isTyping, useMonth } from "../lib/hooks";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 import { IconButton } from "./ui";
@@ -20,6 +21,12 @@ export function MonthSwitcher() {
   }, [month, setMonth]);
 
   const isCurrent = month === currentMonth();
+  // Which way we moved, so the new title slides in from that side.
+  const prev = useRef(month);
+  const dir = month > prev.current ? 1 : -1;
+  useEffect(() => {
+    prev.current = month;
+  }, [month]);
 
   return (
     <div className="flex items-center gap-1">
@@ -30,8 +37,25 @@ export function MonthSwitcher() {
       >
         <ChevronLeftIcon />
       </IconButton>
-      <h1 className="min-w-[10.5rem] px-2 text-center text-sm font-bold uppercase tracking-[0.12em]">
-        {monthTitle(month)}
+      <h1 className="relative min-w-[10.5rem] overflow-hidden px-2 text-center text-sm font-bold uppercase tracking-[0.12em]">
+        <AnimatePresence mode="popLayout" initial={false} custom={dir}>
+          <motion.span
+            key={month}
+            custom={dir}
+            className="block"
+            variants={{
+              enter: (d: number) => ({ x: d * 28, opacity: 0 }),
+              center: { x: 0, opacity: 1 },
+              exit: (d: number) => ({ x: d * -28, opacity: 0 }),
+            }}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ type: "spring", stiffness: 500, damping: 36 }}
+          >
+            {monthTitle(month)}
+          </motion.span>
+        </AnimatePresence>
       </h1>
       <IconButton
         label="Next month"

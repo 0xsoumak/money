@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "motion/react";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
 interface ToastItem {
@@ -53,28 +54,35 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         aria-live="polite"
         className="pointer-events-none fixed inset-x-0 bottom-20 z-[100] sm:bottom-4 flex flex-col items-center gap-2 px-4"
       >
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-lg border-2 bg-surface px-4 py-3 text-[15px] font-semibold ${
-              t.tone === "error" ? "border-danger text-danger" : "border-line-strong"
-            }`}
-          >
-            <span className="min-w-0 flex-1">{t.message}</span>
-            {t.action && (
-              <button
-                type="button"
-                onClick={() => {
-                  t.action?.onClick();
-                  dismiss(t.id);
-                }}
-                className="min-h-11 shrink-0 cursor-pointer rounded-md px-3 text-sm font-bold uppercase tracking-wider text-accent"
-              >
-                {t.action.label}
-              </button>
-            )}
-          </div>
-        ))}
+        <AnimatePresence initial={false}>
+          {toasts.map((t) => (
+            <motion.div
+              key={t.id}
+              layout
+              initial={{ opacity: 0, y: 24, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
+              transition={{ type: "spring", stiffness: 500, damping: 28 }}
+              className={`pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-lg border-2 bg-surface px-4 py-3 text-[15px] font-semibold ${
+                t.tone === "error" ? "border-danger text-danger" : "border-line-strong"
+              }`}
+            >
+              <span className="min-w-0 flex-1">{t.message}</span>
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    t.action?.onClick();
+                    dismiss(t.id);
+                  }}
+                  className="min-h-11 shrink-0 cursor-pointer rounded-md px-3 text-sm font-bold uppercase tracking-wider text-accent"
+                >
+                  {t.action.label}
+                </button>
+              )}
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );

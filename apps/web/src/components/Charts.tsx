@@ -1,4 +1,5 @@
 import { daysInMonth, monthTitle } from "@money/shared";
+import { motion } from "motion/react";
 import { useState } from "react";
 import { useMoney } from "../lib/hooks";
 import type { TrendMonth } from "../lib/queries";
@@ -75,9 +76,12 @@ export function DailyBars({
               className="flex h-full flex-1 cursor-default items-end"
               onMouseEnter={() => setHover(i)}
             >
-              <div
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: d.future ? 4 : d.total > 0 ? Math.max(h(d.total), 4) : 2 }}
+                transition={{ type: "spring", stiffness: 300, damping: 26, delay: i * 0.012 }}
                 className={cx(
-                  "w-full rounded-t-[4px] transition-[height] duration-500",
+                  "w-full rounded-t-[4px] transition-colors",
                   d.future
                     ? "bg-surface"
                     : d.date === todayDate
@@ -86,7 +90,6 @@ export function DailyBars({
                         ? "bg-ink"
                         : "bg-ink/70",
                 )}
-                style={{ height: d.future ? 4 : d.total > 0 ? Math.max(h(d.total), 4) : 2 }}
               />
             </div>
           ))}
@@ -151,7 +154,7 @@ export function MonthTrend({
   return (
     <figure className="m-0">
       <ul className="flex items-end gap-2" style={{ height: CHART_H + 24 }}>
-        {months.map((m) => {
+        {months.map((m, idx) => {
           const selected = m.month === current;
           return (
             <li key={m.month} className="flex h-full flex-1 flex-col justify-end">
@@ -170,12 +173,14 @@ export function MonthTrend({
                 >
                   {m.spent > 0 ? money(m.spent) : "–"}
                 </span>
-                <span
+                <motion.span
+                  initial={{ height: 0 }}
+                  animate={{ height: m.spent > 0 ? Math.max((m.spent / max) * H, 4) : 2 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 22, delay: idx * 0.05 }}
                   className={cx(
-                    "w-full rounded-t-[4px] transition-[height,background-color] duration-500",
+                    "block w-full rounded-t-[4px] transition-colors",
                     selected ? "bg-accent" : "bg-surface-strong group-hover:bg-ink/50",
                   )}
-                  style={{ height: m.spent > 0 ? Math.max((m.spent / max) * H, 4) : 2 }}
                 />
               </button>
             </li>

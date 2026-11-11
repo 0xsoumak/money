@@ -8,6 +8,7 @@ import {
   today,
 } from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "motion/react";
 import {
   createContext,
   type ReactNode,
@@ -21,6 +22,7 @@ import {
 import { isTyping, useMoney } from "../lib/hooks";
 import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
 import { BackspaceIcon, CloseIcon } from "./icons";
+import { spring } from "./motion";
 import { useToast } from "./Toast";
 import { Button, cx, fieldClass, IconButton } from "./ui";
 
@@ -250,7 +252,21 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       draft.amount ? "text-accent" : "text-faint",
                     )}
                   >
-                    {draft.amount || "0"}
+                    {/* Each digit pops in as it is typed. */}
+                    <AnimatePresence initial={false} mode="popLayout">
+                      {(draft.amount || "0").split("").map((ch, i) => (
+                        <motion.span
+                          key={`${i}-${ch}`}
+                          className="inline-block"
+                          initial={{ y: "35%", opacity: 0, scale: 0.6 }}
+                          animate={{ y: 0, opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.08 } }}
+                          transition={spring.bouncy}
+                        >
+                          {ch}
+                        </motion.span>
+                      ))}
+                    </AnimatePresence>
                   </p>
                 </div>
 
@@ -263,9 +279,12 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                   {visibleCategories.map((c) => {
                     const selected = c.id === draft.categoryId;
                     return (
-                      <button
+                      <motion.button
                         key={c.id}
                         type="button"
+                        whileTap={{ scale: 0.92 }}
+                        animate={{ scale: selected ? [1, 1.08, 1] : 1 }}
+                        transition={{ duration: 0.28, ease: "easeOut" }}
                         aria-pressed={selected}
                         onClick={() => {
                           setDraft({ ...draft, categoryId: c.id });
@@ -286,7 +305,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       >
                         <span aria-hidden="true">{c.emoji}</span>
                         {c.name}
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
