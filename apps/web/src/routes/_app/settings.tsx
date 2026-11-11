@@ -10,13 +10,6 @@ export const Route = createFileRoute("/_app/settings")({
 });
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED"];
-const LOCALES = [
-  { value: "en-IN", label: "English (India): 1,23,456" },
-  { value: "en-US", label: "English (US): 123,456" },
-  { value: "en-GB", label: "English (UK): 123,456" },
-  { value: "de-DE", label: "German: 123.456" },
-  { value: "fr-FR", label: "French: 123 456" },
-];
 
 function SettingsPage() {
   const settings = useSettings();
@@ -49,15 +42,6 @@ function SettingsPage() {
             value={settings.currency}
             onValueChange={(currency) => save({ currency })}
             options={CURRENCIES.map((c) => ({ value: c, label: c }))}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Number format</Label>
-          <Select
-            label="Number format"
-            value={settings.locale}
-            onValueChange={(locale) => save({ locale })}
-            options={LOCALES}
           />
         </div>
         <p className="text-sm text-muted">

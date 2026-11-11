@@ -13,13 +13,6 @@ import { useSession } from "../../lib/session";
 import { c, radius } from "../../lib/theme";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED"];
-const LOCALES = [
-  { value: "en-IN", label: "1,23,456 (India)" },
-  { value: "en-US", label: "123,456 (US)" },
-  { value: "en-GB", label: "123,456 (UK)" },
-  { value: "de-DE", label: "123.456 (German)" },
-  { value: "fr-FR", label: "123 456 (French)" },
-];
 
 export default function Settings() {
   const router = useRouter();
@@ -68,17 +61,6 @@ export default function Settings() {
               label={cur}
               selected={settings.currency === cur}
               onPress={() => save({ currency: cur })}
-            />
-          ))}
-        </View>
-        <Label>Number format</Label>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {LOCALES.map((l) => (
-            <Choice
-              key={l.value}
-              label={l.label}
-              selected={settings.locale === l.value}
-              onPress={() => save({ locale: l.value })}
             />
           ))}
         </View>
