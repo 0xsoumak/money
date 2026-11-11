@@ -32,6 +32,8 @@ function Overview() {
 
   const loading = summary.isPending || txs.isPending;
   const stale = summary.isPlaceholderData || txs.isPlaceholderData;
+  const income = summary.data?.income ?? 0;
+  const savedPct = income > 0 ? Math.round(((summary.data?.invested ?? 0) / income) * 100) : null;
   const expenses = (summary.data?.byCategory ?? []).filter((r) => r.type === "expense");
   const recent = (txs.data ?? []).slice(0, RECENT);
   const empty = !loading && (txs.data?.length ?? 0) === 0;
@@ -119,6 +121,23 @@ function Overview() {
             </div>
             <div>
               <dt>
+                <Label className="text-[13px]">Invested</Label>
+              </dt>
+              <dd className="mt-1">
+                <Link
+                  to="/investments"
+                  search={(prev: { month?: string }) => ({ month: prev.month })}
+                  className="text-3xl font-bold underline decoration-line-strong/30 decoration-2 underline-offset-[6px] hover:decoration-accent"
+                >
+                  <CountUp value={summary.data?.invested ?? 0} format={money} />
+                </Link>
+                {savedPct !== null && (
+                  <span className="mt-0.5 block text-sm text-muted">{savedPct}% of income</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>
                 <Label className="text-[13px]">Net</Label>
               </dt>
               <dd
@@ -134,7 +153,7 @@ function Overview() {
           <EmptyState
             title="Nothing logged this month"
             hint="Add your first expense. Press N, type the amount, press Enter."
-            action={<Button onClick={openNew}>Add expense</Button>}
+            action={<Button onClick={() => openNew()}>Add expense</Button>}
           />
         ) : (
           <>
@@ -170,7 +189,11 @@ function Overview() {
                 <SectionHeader title="Last 6 months" />
                 <div className="mt-5">
                   {trend.data ? (
-                    <MonthTrend months={trend.data} current={month} onPick={setMonth} />
+                    <MonthTrend
+                      months={trend.data.map((t) => ({ month: t.month, value: t.spent }))}
+                      current={month}
+                      onPick={setMonth}
+                    />
                   ) : (
                     <Skeleton className="h-[188px]" />
                   )}

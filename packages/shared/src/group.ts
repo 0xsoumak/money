@@ -2,7 +2,7 @@ import { today } from "./dates";
 
 export interface DayTx {
   date: string;
-  type: "expense" | "income";
+  type: "expense" | "income" | "investment";
   amount: number;
   createdAt: string;
 }

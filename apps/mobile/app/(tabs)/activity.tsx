@@ -15,11 +15,12 @@ import { categoriesQuery, transactionsQuery } from "../../lib/queries";
 import { c, radius } from "../../lib/theme";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
-type TypeFilter = "all" | "expense" | "income";
+type TypeFilter = "all" | "expense" | "income" | "investment";
 const TYPES: { value: TypeFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "expense", label: "Expenses" },
   { value: "income", label: "Income" },
+  { value: "investment", label: "Invested" },
 ];
 
 export default function Activity() {

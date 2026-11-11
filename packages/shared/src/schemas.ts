@@ -13,7 +13,8 @@ export const amountSchema = z.number().int().positive().max(MAX_MINOR);
 export const dateSchema = z.string().refine(isValidDate, "Expected a date as YYYY-MM-DD");
 export const monthSchema = z.string().refine(isValidMonth, "Expected a month as YYYY-MM");
 
-export const transactionTypeSchema = z.enum(["expense", "income"]);
+/** Investments are money put away (MF, FD, …): not spending, not counted in budgets. */
+export const transactionTypeSchema = z.enum(["expense", "income", "investment"]);
 export type TransactionType = z.infer<typeof transactionTypeSchema>;
 
 /** Category color keys. Actual color values live in the design tokens (Phase 0). */

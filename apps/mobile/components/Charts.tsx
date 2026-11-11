@@ -13,7 +13,6 @@ import Animated, {
 import Svg, { Circle } from "react-native-svg";
 import { select } from "../lib/haptics";
 import { useMoney } from "../lib/hooks";
-import type { TrendMonth } from "../lib/queries";
 import { c } from "../lib/theme";
 import { BudgetStatus } from "./BlockMeter";
 import { PressableScale } from "./motion";
@@ -210,13 +209,16 @@ export function MonthTrend({
   months,
   current,
   onPick,
+  verb = "spent",
 }: {
-  months: TrendMonth[];
+  months: { month: string; value: number }[];
   current: string;
   onPick: (month: string) => void;
+  /** Read out by screen readers: "May 2026: spent ₹40,000". */
+  verb?: string;
 }) {
   const money = useMoney();
-  const max = Math.max(...months.map((m) => m.spent), 1);
+  const max = Math.max(...months.map((m) => m.value), 1);
   const H = CHART_H - 24;
   return (
     <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
@@ -226,7 +228,7 @@ export function MonthTrend({
           <PressableScale
             key={m.month}
             accessibilityRole="button"
-            accessibilityLabel={`${monthTitle(m.month)}: spent ${money(m.spent)}`}
+            accessibilityLabel={`${monthTitle(m.month)}: ${verb} ${money(m.value)}`}
             accessibilityState={{ selected }}
             onPress={() => {
               select();
@@ -242,11 +244,11 @@ export function MonthTrend({
               adjustsFontSizeToFit
               style={{ textAlign: "center", fontWeight: "700" }}
             >
-              {m.spent > 0 ? money(m.spent) : "–"}
+              {m.value > 0 ? money(m.value) : "–"}
             </T>
             <View style={{ height: H, justifyContent: "flex-end" }}>
               <Bar
-                height={m.spent > 0 ? Math.max((m.spent / max) * H, 4) : 2}
+                height={m.value > 0 ? Math.max((m.value / max) * H, 4) : 2}
                 delay={i * 50}
                 color={selected ? c.accent : c.surfaceStrong}
               />

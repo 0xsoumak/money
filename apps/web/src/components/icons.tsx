@@ -82,3 +82,8 @@ export const SlidersIcon = () => (
     <path d="M16 4v6M8 14v6" />
   </Icon>
 );
+export const TrendIcon = () => (
+  <Icon>
+    <path d="M3 17l6-6 4 4 8-8M15 7h6v6" />
+  </Icon>
+);

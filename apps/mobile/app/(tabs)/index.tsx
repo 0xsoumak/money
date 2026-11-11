@@ -118,6 +118,18 @@ export default function Overview() {
               />
             )}
             <Stat label="Income" value={money(summary.data?.income ?? 0)} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Invested ${money(summary.data?.invested ?? 0)}. Open investments`}
+              onPress={() => router.push("/investments")}
+              hitSlop={8}
+            >
+              <Stat
+                label="Invested ›"
+                value={money(summary.data?.invested ?? 0)}
+                color={c.accent}
+              />
+            </Pressable>
             <Stat
               label="Net"
               value={money(summary.data?.net ?? 0)}
@@ -159,7 +171,11 @@ export default function Overview() {
               <SectionHeader title="Last 6 months" />
               <View style={{ marginTop: 16 }}>
                 {trend.data ? (
-                  <MonthTrend months={trend.data} current={month} onPick={setMonth} />
+                  <MonthTrend
+                    months={trend.data.map((t) => ({ month: t.month, value: t.spent }))}
+                    current={month}
+                    onPick={setMonth}
+                  />
                 ) : (
                   <Skeleton style={{ height: 156 }} />
                 )}

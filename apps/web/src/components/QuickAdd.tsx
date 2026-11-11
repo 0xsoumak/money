@@ -3,7 +3,9 @@ import {
   newId,
   parseAmount,
   pressKey,
+  TRANSACTION_TYPES,
   type TransactionType,
+  TYPE_LABEL,
   toDecimalString,
   today,
 } from "@money/shared";
@@ -37,7 +39,8 @@ interface Draft {
 }
 
 interface QuickAddApi {
-  openNew: () => void;
+  /** Opens a blank entry; `type` preselects Expense, Income or Invest. */
+  openNew: (type?: TransactionType) => void;
   openEdit: (tx: Tx) => void;
 }
 
@@ -92,17 +95,20 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
     [categories],
   );
 
-  const openNew = useCallback(() => {
-    setDraft({
-      id: newId(),
-      type: "expense",
-      amount: "",
-      categoryId: pickCategory("expense"),
-      date: today(),
-      note: "",
-      editing: false,
-    });
-  }, [pickCategory]);
+  const openNew = useCallback(
+    (type: TransactionType = "expense") => {
+      setDraft({
+        id: newId(),
+        type,
+        amount: "",
+        categoryId: pickCategory(type),
+        date: today(),
+        note: "",
+        editing: false,
+      });
+    },
+    [pickCategory],
+  );
 
   const openEdit = useCallback((tx: Tx) => {
     setDraft({
@@ -217,7 +223,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                     {draft.editing ? "Edit transaction" : "New transaction"}
                   </Dialog.Title>
                   <div className="flex gap-1.5" role="group" aria-label="Type">
-                    {(["expense", "income"] as const).map((t) => (
+                    {TRANSACTION_TYPES.map((t) => (
                       <button
                         key={t}
                         type="button"
@@ -233,7 +239,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                             : "border-2 border-line-strong/25 text-muted",
                         )}
                       >
-                        {t}
+                        {TYPE_LABEL[t]}
                       </button>
                     ))}
                   </div>

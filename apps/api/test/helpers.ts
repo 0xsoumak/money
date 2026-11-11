@@ -8,6 +8,8 @@ export const TEST_USER = {
 
 export const FOOD = "01M71R9BSCRVNRH5VKJ2GRD1FJ"; // seeded expense category
 export const SALARY = "01M71R9BSHX0JP16RPJRBDDJRZ"; // seeded income category
+export const MF = "01M7R71HFE865V215DE1CTEWH0"; // seeded investment bucket: Mutual funds
+export const FD = "01M7RAVNH9DN65R6PPG2X7R5JQ"; // seeded investment bucket: Fixed deposit
 
 const BASE = "http://localhost";
 

@@ -1,5 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import { CATEGORY_COLORS, type CategoryColor, type TransactionType } from "@money/shared";
+import {
+  CATEGORY_COLORS,
+  type CategoryColor,
+  TRANSACTION_TYPES,
+  type TransactionType,
+} from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -53,7 +58,11 @@ export default function CategoryModal() {
   const update = useUpdateCategory();
 
   const existing = params.id ? categories.find((x) => x.id === params.id) : undefined;
-  const kind: TransactionType = existing?.kind ?? (params.kind === "income" ? "income" : "expense");
+  const kind: TransactionType =
+    existing?.kind ??
+    ((TRANSACTION_TYPES as readonly string[]).includes(params.kind ?? "")
+      ? (params.kind as TransactionType)
+      : "expense");
 
   const [name, setName] = useState(existing?.name ?? "");
   const [emoji, setEmoji] = useState(existing?.emoji ?? "📦");

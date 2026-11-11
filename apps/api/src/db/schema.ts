@@ -89,7 +89,7 @@ export const categories = sqliteTable("categories", {
   name: text("name").notNull(),
   emoji: text("emoji").notNull(),
   color: text("color").notNull(),
-  kind: text("kind", { enum: ["expense", "income"] }).notNull(),
+  kind: text("kind", { enum: ["expense", "income", "investment"] }).notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
   ...timestamps,
@@ -100,7 +100,7 @@ export const transactions = sqliteTable(
   {
     /** ULID generated on the client so retries are idempotent. */
     id: text("id").primaryKey(),
-    type: text("type", { enum: ["expense", "income"] }).notNull(),
+    type: text("type", { enum: ["expense", "income", "investment"] }).notNull(),
     /** Minor units (paise), always positive. `type` carries the direction. */
     amount: integer("amount").notNull(),
     categoryId: text("category_id")

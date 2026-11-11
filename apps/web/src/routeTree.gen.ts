@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppBudgetsRouteImport } from './routes/_app/budgets'
 import { Route as AppCategoriesRouteImport } from './routes/_app/categories'
+import { Route as AppInvestmentsRouteImport } from './routes/_app/investments'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTransactionsRouteImport } from './routes/_app/transactions'
 
@@ -41,6 +42,11 @@ const AppCategoriesRoute = AppCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => AppRoute,
 } as any)
+const AppInvestmentsRoute = AppInvestmentsRouteImport.update({
+  id: '/investments',
+  path: '/investments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/budgets': typeof AppBudgetsRoute
   '/categories': typeof AppCategoriesRoute
+  '/investments': typeof AppInvestmentsRoute
   '/settings': typeof AppSettingsRoute
   '/transactions': typeof AppTransactionsRoute
 }
@@ -64,6 +71,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/budgets': typeof AppBudgetsRoute
   '/categories': typeof AppCategoriesRoute
+  '/investments': typeof AppInvestmentsRoute
   '/settings': typeof AppSettingsRoute
   '/transactions': typeof AppTransactionsRoute
   '/': typeof AppIndexRoute
@@ -74,6 +82,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/budgets': typeof AppBudgetsRoute
   '/_app/categories': typeof AppCategoriesRoute
+  '/_app/investments': typeof AppInvestmentsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/transactions': typeof AppTransactionsRoute
   '/_app/': typeof AppIndexRoute
@@ -81,16 +90,29 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/budgets' | '/categories' | '/settings' | '/transactions'
+    | '/'
+    | '/login'
+    | '/budgets'
+    | '/categories'
+    | '/investments'
+    | '/settings'
+    | '/transactions'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/login' | '/budgets' | '/categories' | '/settings' | '/transactions' | '/'
+    | '/login'
+    | '/budgets'
+    | '/categories'
+    | '/investments'
+    | '/settings'
+    | '/transactions'
+    | '/'
   id:
     | '__root__'
     | '/_app'
     | '/login'
     | '/_app/budgets'
     | '/_app/categories'
+    | '/_app/investments'
     | '/_app/settings'
     | '/_app/transactions'
     | '/_app/'
@@ -138,6 +160,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCategoriesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/investments': {
+      id: '/_app/investments'
+      path: '/investments'
+      fullPath: '/investments'
+      preLoaderRoute: typeof AppInvestmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
@@ -158,6 +187,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppBudgetsRoute: typeof AppBudgetsRoute
   AppCategoriesRoute: typeof AppCategoriesRoute
+  AppInvestmentsRoute: typeof AppInvestmentsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppTransactionsRoute: typeof AppTransactionsRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -166,6 +196,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppBudgetsRoute: AppBudgetsRoute,
   AppCategoriesRoute: AppCategoriesRoute,
+  AppInvestmentsRoute: AppInvestmentsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppTransactionsRoute: AppTransactionsRoute,
   AppIndexRoute: AppIndexRoute,

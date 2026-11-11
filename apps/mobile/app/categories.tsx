@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { TRANSACTION_TYPES, TYPE_PLURAL } from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
@@ -55,12 +56,12 @@ export default function Categories() {
 
       {isPending
         ? null
-        : (["expense", "income"] as const).map((kind) => {
+        : TRANSACTION_TYPES.map((kind) => {
             const list = active.filter((x) => x.kind === kind);
             return (
               <View key={kind}>
                 <SectionHeader
-                  title={kind === "expense" ? "Expenses" : "Income"}
+                  title={TYPE_PLURAL[kind]}
                   right={
                     <Pressable
                       accessibilityRole="button"

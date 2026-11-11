@@ -2,7 +2,6 @@ import { daysInMonth, monthTitle } from "@money/shared";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { useMoney } from "../lib/hooks";
-import type { TrendMonth } from "../lib/queries";
 import { cx } from "./ui";
 
 const CHART_H = 140;
@@ -142,13 +141,16 @@ export function MonthTrend({
   months,
   current,
   onPick,
+  verb = "spent",
 }: {
-  months: TrendMonth[];
+  months: { month: string; value: number }[];
   current: string;
   onPick: (month: string) => void;
+  /** Read out by screen readers: "May 2026: spent ₹40,000". */
+  verb?: string;
 }) {
   const money = useMoney();
-  const max = Math.max(...months.map((m) => m.spent), 1);
+  const max = Math.max(...months.map((m) => m.value), 1);
   const H = CHART_H - 20;
 
   return (
@@ -161,7 +163,7 @@ export function MonthTrend({
               <button
                 type="button"
                 onClick={() => onPick(m.month)}
-                aria-label={`${monthTitle(m.month)}: spent ${money(m.spent)}`}
+                aria-label={`${monthTitle(m.month)}: ${verb} ${money(m.value)}`}
                 aria-current={selected ? "date" : undefined}
                 className="group flex h-full cursor-pointer flex-col items-stretch justify-end gap-1.5 rounded-md"
               >
@@ -171,11 +173,11 @@ export function MonthTrend({
                     selected ? "text-ink" : "text-muted group-hover:text-ink",
                   )}
                 >
-                  {m.spent > 0 ? money(m.spent) : "–"}
+                  {m.value > 0 ? money(m.value) : "–"}
                 </span>
                 <motion.span
                   initial={{ height: 0 }}
-                  animate={{ height: m.spent > 0 ? Math.max((m.spent / max) * H, 4) : 2 }}
+                  animate={{ height: m.value > 0 ? Math.max((m.value / max) * H, 4) : 2 }}
                   transition={{ type: "spring", stiffness: 260, damping: 22, delay: idx * 0.05 }}
                   className={cx(
                     "block w-full rounded-t-[4px] transition-colors",

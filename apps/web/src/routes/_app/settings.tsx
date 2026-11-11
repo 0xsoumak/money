@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Select } from "../../components/Select";
 import { useToast } from "../../components/Toast";
 import { Button, Label, SectionHeader } from "../../components/ui";
@@ -32,6 +32,19 @@ function SettingsPage() {
   return (
     <div className="flex max-w-xl flex-col gap-10">
       <h1 className="text-5xl font-bold tracking-[-0.04em]">Settings</h1>
+
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="Organise" />
+        <Link
+          to="/categories"
+          className="flex min-h-14 items-center justify-between border-b border-line text-lg font-semibold hover:text-accent"
+        >
+          Categories and investment buckets
+          <span aria-hidden="true" className="text-muted">
+            →
+          </span>
+        </Link>
+      </section>
 
       <section className="flex flex-col gap-5">
         <SectionHeader title="Money" />

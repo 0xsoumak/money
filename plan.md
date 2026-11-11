@@ -242,7 +242,7 @@ Rough priority order:
 1. **Recurring transactions**: rent and subscriptions added automatically each month (Cron Trigger or created when the app opens)
 2. **Android shortcut / widget**: long-press the app icon → "Add expense", then perhaps a home-screen widget
 3. **Insights**: month-over-month comparison, top categories, spending trend
-4. **Investments**: holdings with manually updated values (no live prices at first), net worth over time
+4. ~~**Investments**~~ ✅ Done simply: an "Invest" transaction type with buckets (MF, FD, Stocks, PPF, NPS, Gold), kept out of spending and budgets, an Investments page with totals per bucket, year and month. _Not doing for now:_ withdrawals and current values.
 5. **Accounts**: cash, bank and card, with transfers (uses the reserved `account_id`)
 6. **Full offline-first sync** on mobile
 7. Custom domain, search, tags, receipts/attachments (R2)

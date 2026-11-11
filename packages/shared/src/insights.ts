@@ -1,7 +1,7 @@
 import { daysInMonth } from "./dates";
 
 export interface ExpenseLike {
-  type: "expense" | "income";
+  type: "expense" | "income" | "investment";
   date: string;
   amount: number;
 }

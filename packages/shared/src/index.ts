@@ -6,6 +6,7 @@ export * from "./dates";
 export * from "./errors";
 export * from "./group";
 export * from "./insights";
+export * from "./labels";
 export * from "./money";
 export * from "./schemas";
 export * from "./tokens";

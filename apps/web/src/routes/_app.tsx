@@ -9,6 +9,7 @@ import {
   MeterIcon,
   PlusIcon,
   SlidersIcon,
+  TrendIcon,
 } from "../components/icons";
 import { spring } from "../components/motion";
 import { QuickAddProvider, useQuickAdd } from "../components/QuickAdd";
@@ -32,11 +33,12 @@ export const Route = createFileRoute("/_app")({
 });
 
 const NAV = [
-  { to: "/", label: "Overview", tab: "Overview", Icon: HomeIcon },
-  { to: "/transactions", label: "Transactions", tab: "Activity", Icon: ListIcon },
-  { to: "/budgets", label: "Budgets", tab: "Budgets", Icon: MeterIcon },
-  { to: "/categories", label: "Categories", tab: "Categories", Icon: GridIcon },
-  { to: "/settings", label: "Settings", tab: "Settings", Icon: SlidersIcon },
+  { to: "/", label: "Overview", tab: "Overview", Icon: HomeIcon, phone: true },
+  { to: "/transactions", label: "Transactions", tab: "Activity", Icon: ListIcon, phone: true },
+  { to: "/budgets", label: "Budgets", tab: "Budgets", Icon: MeterIcon, phone: true },
+  { to: "/investments", label: "Investments", tab: "Invest", Icon: TrendIcon, phone: true },
+  { to: "/categories", label: "Categories", tab: "Categories", Icon: GridIcon, phone: false },
+  { to: "/settings", label: "Settings", tab: "Settings", Icon: SlidersIcon, phone: true },
 ] as const;
 
 function AppLayout() {
@@ -82,7 +84,7 @@ function Shell() {
               </Link>
             ))}
           </nav>
-          <Button onClick={openNew} className="group ml-auto sm:ml-0">
+          <Button onClick={() => openNew()} className="group ml-auto sm:ml-0">
             <span className="transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)] group-hover:rotate-90">
               <PlusIcon size={20} />
             </span>
@@ -101,7 +103,7 @@ function Shell() {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t-2 border-line-strong bg-bg pb-[env(safe-area-inset-bottom)] sm:hidden"
       >
-        {NAV.map(({ to, tab, Icon }) => (
+        {NAV.filter((item) => item.phone).map(({ to, tab, Icon }) => (
           <Link
             key={to}
             to={to}

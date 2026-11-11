@@ -49,6 +49,20 @@ export default function Settings() {
           <T variant="body">Manage categories</T>
           <Feather name="chevron-right" size={22} color={c.textMuted} />
         </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/investments")}
+          style={({ pressed }) => ({
+            minHeight: 56,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <T variant="body">Investments</T>
+          <Feather name="chevron-right" size={22} color={c.textMuted} />
+        </Pressable>
       </View>
 
       <View style={{ gap: 14 }}>

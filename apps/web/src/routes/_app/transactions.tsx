@@ -14,12 +14,13 @@ export const Route = createFileRoute("/_app/transactions")({
   component: Transactions,
 });
 
-type TypeFilter = "all" | "expense" | "income";
+type TypeFilter = "all" | "expense" | "income" | "investment";
 const ALL = "all";
 const TYPES: { value: TypeFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "expense", label: "Expenses" },
   { value: "income", label: "Income" },
+  { value: "investment", label: "Invested" },
 ];
 
 function Transactions() {

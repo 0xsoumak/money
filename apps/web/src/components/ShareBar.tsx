@@ -14,11 +14,14 @@ export function ShareBar({
   items,
   categories,
   left,
+  label = "Spending by category",
 }: {
   items: ShareItem[];
   categories: Category[];
   /** Minor units still available in the overall budget; adds a dashed "left" segment. */
   left?: number;
+  /** Accessible name for the section. */
+  label?: string;
 }) {
   const money = useMoney();
   const byId = new Map(categories.map((c) => [c.id, c]));
@@ -40,7 +43,7 @@ export function ShareBar({
   ].join(", ");
 
   return (
-    <section aria-label="Spending by category">
+    <section aria-label={label}>
       <div role="img" aria-label={summary} className="flex h-10 gap-1">
         {rows.map((r) => (
           <div

@@ -1,6 +1,6 @@
 import { newId } from "@money/shared";
 import { beforeAll, describe, expect, it } from "vitest";
-import { authed, FOOD, SALARY } from "./helpers";
+import { authed, FD, FOOD, MF, SALARY } from "./helpers";
 
 type Api = Awaited<ReturnType<typeof authed>>;
 type Json = Record<string, any>;
@@ -234,6 +234,59 @@ describe("summary trend", () => {
     expect(months[2]).toMatchObject({ spent: 700, income: 0 });
     expect(months[4]).toMatchObject({ spent: 1200, income: 9000 });
     expect(months[5]).toMatchObject({ spent: 0, income: 0 });
+  });
+});
+
+describe("investments", () => {
+  const put = (body: Json) => api(`/api/transactions/${newId()}`, { method: "PUT", json: body });
+  const invest = (categoryId: string, amount: number, date: string) =>
+    put({ type: "investment", amount, categoryId, date });
+
+  it("keeps investments out of spending and takes them off net", async () => {
+    await put(expense({ date: "2018-03-03", amount: 1000 }));
+    await put({ type: "income", amount: 10000, categoryId: SALARY, date: "2018-03-01" });
+    await invest(MF, 2500, "2018-03-05");
+    const s = await (await api("/api/summary?month=2018-03")).json<Json>();
+    expect(s).toMatchObject({ spent: 1000, income: 10000, invested: 2500, net: 6500 });
+    const t = await (await api("/api/summary/trend?month=2018-03")).json<Json>();
+    expect(t.months[5]).toMatchObject({ spent: 1000, invested: 2500 });
+  });
+
+  it("only accepts investment buckets for investments", async () => {
+    const bad = await invest(FOOD, 100, "2018-03-06");
+    expect(bad.status).toBe(400);
+    const alsoBad = await put(expense({ categoryId: MF, date: "2018-03-06", amount: 100 }));
+    expect(alsoBad.status).toBe(400);
+  });
+
+  it("can't put a budget on an investment bucket", async () => {
+    const res = await api(`/api/budgets/${MF}`, { method: "PUT", json: { amount: 5000 } });
+    expect(res.status).toBe(400);
+  });
+
+  it("totals by bucket, by year and by month up to the given month", async () => {
+    await invest(FD, 50000, "2017-06-10");
+    await invest(MF, 3000, "2018-01-15");
+    await invest(MF, 3000, "2018-02-15");
+    await invest(FD, 99999, "2018-07-01"); // after the month asked about: not counted
+    const deleted = newId();
+    await api(`/api/transactions/${deleted}`, {
+      method: "PUT",
+      json: { type: "investment", amount: 777, categoryId: MF, date: "2018-02-20" },
+    });
+    await api(`/api/transactions/${deleted}`, { method: "DELETE" });
+
+    const r = await (await api("/api/summary/investments?month=2018-03")).json<Json>();
+    // Includes the 2,500 MF from the previous test (2018-03-05).
+    expect(r.total).toBe(50000 + 3000 + 3000 + 2500);
+    expect(r.thisYear).toBe(3000 + 3000 + 2500);
+    expect(r.lastYear).toBe(50000);
+    expect(r.byCategory[0]).toMatchObject({ categoryId: FD, total: 50000, count: 1 });
+    expect(r.byCategory[1]).toMatchObject({ categoryId: MF, total: 8500, count: 3 });
+    expect(r.months).toHaveLength(12);
+    expect(r.months[0].month).toBe("2017-04");
+    expect(r.months.at(-1)).toEqual({ month: "2018-03", invested: 2500 });
+    expect(r.months.find((m: Json) => m.month === "2017-06").invested).toBe(50000);
   });
 });
 

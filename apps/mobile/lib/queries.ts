@@ -53,6 +53,18 @@ export const trendQuery = (month: string) =>
     queryFn: () => fetchTrend(month),
   });
 
+const fetchInvestments = async (month: string) =>
+  unwrap(await api.summary.investments.$get({ query: { month } }));
+
+export type Investments = Awaited<ReturnType<typeof fetchInvestments>>;
+
+/** All-time, yearly and monthly investment totals up to the end of `month`. */
+export const investmentsQuery = (month: string) =>
+  queryOptions({
+    queryKey: ["summary", "investments", month],
+    queryFn: () => fetchInvestments(month),
+  });
+
 export const settingsQuery = queryOptions({
   queryKey: ["settings"],
   queryFn: async () => (await unwrap(await api.settings.$get())).settings,

@@ -3,7 +3,9 @@ import {
   dayLabel,
   newId,
   parseAmount,
+  TRANSACTION_TYPES,
   type TransactionType,
+  TYPE_LABEL,
   toDecimalString,
   today,
 } from "@money/shared";
@@ -48,7 +50,7 @@ export default function Add() {
   const qc = useQueryClient();
   const toast = useToast();
   const money = useMoney();
-  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const { id: editId, type: presetType } = useLocalSearchParams<{ id?: string; type?: string }>();
   const { data: categories = [] } = useQuery(categoriesQuery);
   const save = useSaveTransaction();
   const remove = useDeleteTransaction();
@@ -67,7 +69,12 @@ export default function Add() {
   const editing = !!existing;
 
   const [id] = useState(() => existing?.id ?? newId());
-  const [type, setType] = useState<TransactionType>(existing?.type ?? "expense");
+  const [type, setType] = useState<TransactionType>(
+    existing?.type ??
+      ((TRANSACTION_TYPES as readonly string[]).includes(presetType ?? "")
+        ? (presetType as TransactionType)
+        : "expense"),
+  );
   const [amount, setAmount] = useState(
     existing ? toDecimalString(existing.amount).replace(/\.00$/, "") : "",
   );
@@ -167,7 +174,7 @@ export default function Add() {
             <Feather name="x" size={20} color={c.text} />
           </IconButton>
           <View style={{ flexDirection: "row", gap: 6 }}>
-            {(["expense", "income"] as const).map((t) => (
+            {TRANSACTION_TYPES.map((t) => (
               <Pressable
                 key={t}
                 accessibilityRole="button"
@@ -184,7 +191,7 @@ export default function Add() {
                 }}
               >
                 <T variant="label" size={13} color={type === t ? c.bg : c.textMuted}>
-                  {t}
+                  {TYPE_LABEL[t]}
                 </T>
               </Pressable>
             ))}

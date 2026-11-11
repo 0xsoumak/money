@@ -1,5 +1,11 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { CATEGORY_COLORS, type CategoryColor, type TransactionType } from "@money/shared";
+import {
+  CATEGORY_COLORS,
+  type CategoryColor,
+  TRANSACTION_TYPES,
+  type TransactionType,
+  TYPE_PLURAL,
+} from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
@@ -88,12 +94,12 @@ function CategoriesPage() {
 
       {isPending ? null : (
         <>
-          {(["expense", "income"] as const).map((kind) => {
+          {TRANSACTION_TYPES.map((kind) => {
             const list = active.filter((c) => c.kind === kind);
             return (
               <section key={kind}>
                 <SectionHeader
-                  title={kind === "expense" ? "Expenses" : "Income"}
+                  title={TYPE_PLURAL[kind]}
                   right={
                     <button
                       type="button"
