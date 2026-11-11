@@ -31,6 +31,7 @@ export default function Overview() {
   const trend = useQuery({ ...trendQuery(month), placeholderData: keepPreviousData });
 
   const loading = summary.isPending || txs.isPending;
+  const stale = summary.isPlaceholderData || txs.isPlaceholderData;
   const expenses = (summary.data?.byCategory ?? []).filter((r) => r.type === "expense");
   const recent = (txs.data ?? []).slice(0, RECENT);
   const empty = !loading && (txs.data?.length ?? 0) === 0;
@@ -88,151 +89,157 @@ export default function Overview() {
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <MonthSwitcher />
+      {/* While another month loads, dim the previous month's numbers so they don't read as this month's. */}
+      <View
+        accessibilityState={{ busy: stale }}
+        pointerEvents={stale ? "none" : "auto"}
+        style={{ gap: 28, opacity: stale ? 0.35 : 1 }}
+      >
+        <View style={{ gap: 20 }}>
+          <View style={{ gap: 6 }}>
+            <Label>Spent</Label>
+            {loading ? (
+              <Skeleton style={{ height: 64, width: 240 }} />
+            ) : (
+              <T variant="display" size={68} fit accessibilityLabel={`Spent ${money(spent)}`}>
+                {money(shownSpent)}
+              </T>
+            )}
+          </View>
 
-      <View style={{ gap: 20 }}>
-        <View style={{ gap: 6 }}>
-          <Label>Spent</Label>
-          {loading ? (
-            <Skeleton style={{ height: 64, width: 240 }} />
-          ) : (
-            <T variant="display" size={68} fit accessibilityLabel={`Spent ${money(spent)}`}>
-              {money(shownSpent)}
-            </T>
-          )}
-        </View>
-
-        <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 28, rowGap: 14 }}>
-          {overallProgress && (
-            <Stat
-              label={overallProgress.over > 0 ? "Over" : "Left"}
-              value={money(
-                overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining,
-              )}
-              color={overallProgress.over > 0 ? c.danger : c.accent}
-            />
-          )}
-          <Stat label="Income" value={money(summary.data?.income ?? 0)} />
-          <Stat
-            label="Net"
-            value={money(summary.data?.net ?? 0)}
-            color={(summary.data?.net ?? 0) < 0 ? c.danger : undefined}
-          />
-        </View>
-      </View>
-
-      {empty ? (
-        <EmptyState
-          title="Nothing logged this month"
-          hint="Tap the + button to add your first expense."
-          action={<Button title="Add expense" onPress={() => router.push("/add")} />}
-        />
-      ) : (
-        <>
-          <Reveal i={0}>
-            <StatGrid stats={stats} />
-          </Reveal>
-
-          <Reveal i={1}>
-            <ShareBar items={expenses} categories={categories} left={left} />
-          </Reveal>
-
-          <Reveal i={2}>
-            <SectionHeader title="Day by day" />
-            <View style={{ marginTop: 16 }}>
-              <DailyBars
-                month={month}
-                totals={ins.daily}
-                todayDate={todayDate}
-                dailyBudget={ins.dailyBudget}
-                days={ins.days}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 28, rowGap: 14 }}>
+            {overallProgress && (
+              <Stat
+                label={overallProgress.over > 0 ? "Over" : "Left"}
+                value={money(
+                  overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining,
+                )}
+                color={overallProgress.over > 0 ? c.danger : c.accent}
               />
-            </View>
-          </Reveal>
+            )}
+            <Stat label="Income" value={money(summary.data?.income ?? 0)} />
+            <Stat
+              label="Net"
+              value={money(summary.data?.net ?? 0)}
+              color={(summary.data?.net ?? 0) < 0 ? c.danger : undefined}
+            />
+          </View>
+        </View>
 
-          <Reveal i={3}>
-            <SectionHeader title="Last 6 months" />
-            <View style={{ marginTop: 16 }}>
-              {trend.data ? (
-                <MonthTrend months={trend.data} current={month} onPick={setMonth} />
-              ) : (
-                <Skeleton style={{ height: 156 }} />
-              )}
-            </View>
-          </Reveal>
+        {empty ? (
+          <EmptyState
+            title="Nothing logged this month"
+            hint="Tap the + button to add your first expense."
+            action={<Button title="Add expense" onPress={() => router.push("/add")} />}
+          />
+        ) : (
+          <>
+            <Reveal i={0}>
+              <StatGrid stats={stats} />
+            </Reveal>
 
+            <Reveal i={1}>
+              <ShareBar items={expenses} categories={categories} left={left} />
+            </Reveal>
+
+            <Reveal i={2}>
+              <SectionHeader title="Day by day" />
+              <View style={{ marginTop: 16 }}>
+                <DailyBars
+                  month={month}
+                  totals={ins.daily}
+                  todayDate={todayDate}
+                  dailyBudget={ins.dailyBudget}
+                  days={ins.days}
+                />
+              </View>
+            </Reveal>
+
+            <Reveal i={3}>
+              <SectionHeader title="Last 6 months" />
+              <View style={{ marginTop: 16 }}>
+                {trend.data ? (
+                  <MonthTrend months={trend.data} current={month} onPick={setMonth} />
+                ) : (
+                  <Skeleton style={{ height: 156 }} />
+                )}
+              </View>
+            </Reveal>
+
+            <View>
+              <SectionHeader
+                title="Recent"
+                right={
+                  (txs.data?.length ?? 0) > RECENT ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => router.navigate("/activity")}
+                      hitSlop={10}
+                    >
+                      <T variant="label" color={c.accent} size={13}>
+                        All {txs.data?.length}
+                      </T>
+                    </Pressable>
+                  ) : undefined
+                }
+              />
+              <View style={{ marginTop: 16 }}>
+                <TransactionList
+                  transactions={recent}
+                  categories={categories}
+                  onEdit={(tx) => router.push({ pathname: "/add", params: { id: tx.id } })}
+                  onDelete={deleteWithUndo}
+                />
+              </View>
+            </View>
+          </>
+        )}
+
+        {!loading && (
           <View>
             <SectionHeader
-              title="Recent"
+              title="Budgets"
               right={
-                (txs.data?.length ?? 0) > RECENT ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => router.navigate("/activity")}
-                    hitSlop={10}
-                  >
-                    <T variant="label" color={c.accent} size={13}>
-                      All {txs.data?.length}
-                    </T>
-                  </Pressable>
-                ) : undefined
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.navigate("/budgets")}
+                  hitSlop={10}
+                >
+                  <T variant="label" color={c.accent} size={13}>
+                    {hasBudgets ? "Manage" : "Set up"}
+                  </T>
+                </Pressable>
               }
             />
-            <View style={{ marginTop: 16 }}>
-              <TransactionList
-                transactions={recent}
-                categories={categories}
-                onEdit={(tx) => router.push({ pathname: "/add", params: { id: tx.id } })}
-                onDelete={deleteWithUndo}
-              />
-            </View>
-          </View>
-        </>
-      )}
-
-      {!loading && (
-        <View>
-          <SectionHeader
-            title="Budgets"
-            right={
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.navigate("/budgets")}
-                hitSlop={10}
+            {hasBudgets ? (
+              <View style={{ marginTop: 16, gap: 10 }}>
+                {ringRows.map((row) => (
+                  <View key={row[0]?.key} style={{ flexDirection: "row", gap: 10 }}>
+                    {row.map((b) => (
+                      <BudgetRing
+                        key={b.key}
+                        name={b.name}
+                        spent={b.spent}
+                        limit={b.limit}
+                        onPress={() => router.navigate("/budgets")}
+                      />
+                    ))}
+                    {row.length === 1 && <View style={{ flex: 1 }} />}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View
+                style={{ paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: c.border }}
               >
-                <T variant="label" color={c.accent} size={13}>
-                  {hasBudgets ? "Manage" : "Set up"}
+                <T variant="body" color={c.textMuted}>
+                  Set a monthly budget to see how much you have left to spend.
                 </T>
-              </Pressable>
-            }
-          />
-          {hasBudgets ? (
-            <View style={{ marginTop: 16, gap: 10 }}>
-              {ringRows.map((row) => (
-                <View key={row[0]?.key} style={{ flexDirection: "row", gap: 10 }}>
-                  {row.map((b) => (
-                    <BudgetRing
-                      key={b.key}
-                      name={b.name}
-                      spent={b.spent}
-                      limit={b.limit}
-                      onPress={() => router.navigate("/budgets")}
-                    />
-                  ))}
-                  {row.length === 1 && <View style={{ flex: 1 }} />}
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View
-              style={{ paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: c.border }}
-            >
-              <T variant="body" color={c.textMuted}>
-                Set a monthly budget to see how much you have left to spend.
-              </T>
-            </View>
-          )}
-        </View>
-      )}
+              </View>
+            )}
+          </View>
+        )}
+      </View>
     </Screen>
   );
 }

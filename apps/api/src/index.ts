@@ -42,7 +42,16 @@ const app = new Hono<AppEnv>()
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.onError((err, c) => {
-  console.error(err);
+  // Structured so Workers Observability can filter by path and search messages.
+  console.error(
+    JSON.stringify({
+      level: "error",
+      method: c.req.method,
+      path: c.req.path,
+      message: err.message,
+      stack: err.stack,
+    }),
+  );
   return c.json({ error: "Internal server error" }, 500);
 });
 

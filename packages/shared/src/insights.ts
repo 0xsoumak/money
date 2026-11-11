@@ -20,7 +20,7 @@ export interface MonthInsights {
   average: number;
   /** Average × days: where the month lands at the current pace. */
   projected: number;
-  /** Overall budget spread evenly over the month, or null without one. */
+  /** Overall budget spread evenly over the month (whole currency units), or null without one. */
   dailyBudget: number | null;
 }
 
@@ -64,7 +64,7 @@ export function monthInsights({
     peak,
     average,
     projected: average * days,
-    dailyBudget: overallBudget !== null ? Math.round(overallBudget / days) : null,
+    dailyBudget: overallBudget !== null ? Math.round(overallBudget / days / 100) * 100 : null,
   };
 }
 

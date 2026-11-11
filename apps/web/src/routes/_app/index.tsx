@@ -8,7 +8,7 @@ import { CountUp, Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
 import { ShareBar } from "../../components/ShareBar";
 import { TransactionList } from "../../components/TransactionList";
-import { Button, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
+import { Button, cx, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
 import { categoriesQuery, summaryQuery, transactionsQuery, trendQuery } from "../../lib/queries";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
@@ -31,6 +31,7 @@ function Overview() {
   const trend = useQuery({ ...trendQuery(month), placeholderData: keepPreviousData });
 
   const loading = summary.isPending || txs.isPending;
+  const stale = summary.isPlaceholderData || txs.isPlaceholderData;
   const expenses = (summary.data?.byCategory ?? []).filter((r) => r.type === "expense");
   const recent = (txs.data ?? []).slice(0, RECENT);
   const empty = !loading && (txs.data?.length ?? 0) === 0;
@@ -66,162 +67,172 @@ function Overview() {
   return (
     <div className="flex flex-col gap-8">
       <MonthSwitcher />
-
-      <section className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
-        <div>
-          <Label>Spent</Label>
-          {loading ? (
-            <Skeleton className="mt-3 h-[76px] w-72 md:h-[104px]" />
-          ) : (
-            <p
-              className="mt-2 text-[68px] font-bold leading-[0.9] tracking-[-0.06em] sm:text-[88px] md:text-[112px]"
-              aria-label={`Spent ${money(summary.data?.spent ?? 0)}`}
-            >
-              <CountUp value={summary.data?.spent ?? 0} format={money} />
-            </p>
-          )}
-        </div>
-        <dl className="flex flex-wrap gap-x-8 gap-y-4">
-          {overallProgress && (
+      {/* While another month loads, the previous month's numbers stay up: dim them so they don't read as this month's. */}
+      <div
+        aria-busy={stale}
+        className={cx(
+          "flex flex-col gap-8 transition-opacity duration-300",
+          stale && "pointer-events-none opacity-35",
+        )}
+      >
+        <section className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
+          <div>
+            <Label>Spent</Label>
+            {loading ? (
+              <Skeleton className="mt-3 h-[76px] w-72 md:h-[104px]" />
+            ) : (
+              <p
+                className="mt-2 text-[68px] font-bold leading-[0.9] tracking-[-0.06em] sm:text-[88px] md:text-[112px]"
+                aria-label={`Spent ${money(summary.data?.spent ?? 0)}`}
+              >
+                <CountUp value={summary.data?.spent ?? 0} format={money} />
+              </p>
+            )}
+          </div>
+          <dl className="flex flex-wrap gap-x-8 gap-y-4">
+            {overallProgress && (
+              <div>
+                <dt>
+                  <Label className="text-[13px]">
+                    {overallProgress.over > 0 ? "Over" : "Left"}
+                  </Label>
+                </dt>
+                <dd
+                  className={`mt-1 text-3xl font-bold ${overallProgress.over > 0 ? "text-danger" : "text-accent"}`}
+                >
+                  <CountUp
+                    value={
+                      overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining
+                    }
+                    format={money}
+                  />
+                </dd>
+              </div>
+            )}
             <div>
               <dt>
-                <Label className="text-[13px]">{overallProgress.over > 0 ? "Over" : "Left"}</Label>
+                <Label className="text-[13px]">Income</Label>
               </dt>
-              <dd
-                className={`mt-1 text-3xl font-bold ${overallProgress.over > 0 ? "text-danger" : "text-accent"}`}
-              >
-                <CountUp
-                  value={
-                    overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining
-                  }
-                  format={money}
-                />
+              <dd className="mt-1 text-3xl font-bold">
+                <CountUp value={summary.data?.income ?? 0} format={money} />
               </dd>
             </div>
-          )}
-          <div>
-            <dt>
-              <Label className="text-[13px]">Income</Label>
-            </dt>
-            <dd className="mt-1 text-3xl font-bold">
-              <CountUp value={summary.data?.income ?? 0} format={money} />
-            </dd>
-          </div>
-          <div>
-            <dt>
-              <Label className="text-[13px]">Net</Label>
-            </dt>
-            <dd
-              className={`mt-1 text-3xl font-bold ${(summary.data?.net ?? 0) < 0 ? "text-danger" : ""}`}
-            >
-              <CountUp value={summary.data?.net ?? 0} format={money} />
-            </dd>
-          </div>
-        </dl>
-      </section>
+            <div>
+              <dt>
+                <Label className="text-[13px]">Net</Label>
+              </dt>
+              <dd
+                className={`mt-1 text-3xl font-bold ${(summary.data?.net ?? 0) < 0 ? "text-danger" : ""}`}
+              >
+                <CountUp value={summary.data?.net ?? 0} format={money} />
+              </dd>
+            </div>
+          </dl>
+        </section>
 
-      {empty ? (
-        <EmptyState
-          title="Nothing logged this month"
-          hint="Add your first expense. Press N, type the amount, press Enter."
-          action={<Button onClick={openNew}>Add expense</Button>}
-        />
-      ) : (
-        <>
-          <Reveal i={0}>
-            <StatStrip stats={stats} />
-          </Reveal>
+        {empty ? (
+          <EmptyState
+            title="Nothing logged this month"
+            hint="Add your first expense. Press N, type the amount, press Enter."
+            action={<Button onClick={openNew}>Add expense</Button>}
+          />
+        ) : (
+          <>
+            <Reveal i={0}>
+              <StatStrip stats={stats} />
+            </Reveal>
 
-          <Reveal i={1}>
-            <ShareBar
-              items={expenses}
-              categories={categories}
-              left={
-                overallProgress && overallProgress.over === 0
-                  ? overallProgress.remaining
-                  : undefined
-              }
-            />
-          </Reveal>
+            <Reveal i={1}>
+              <ShareBar
+                items={expenses}
+                categories={categories}
+                left={
+                  overallProgress && overallProgress.over === 0
+                    ? overallProgress.remaining
+                    : undefined
+                }
+              />
+            </Reveal>
 
-          <Reveal i={2} className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
+            <Reveal i={2} className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
+              <section>
+                <SectionHeader title="Day by day" />
+                <div className="mt-5">
+                  <DailyBars
+                    month={month}
+                    totals={ins.daily}
+                    todayDate={todayDate}
+                    dailyBudget={ins.dailyBudget ?? undefined}
+                  />
+                </div>
+              </section>
+              <section>
+                <SectionHeader title="Last 6 months" />
+                <div className="mt-5">
+                  {trend.data ? (
+                    <MonthTrend months={trend.data} current={month} onPick={setMonth} />
+                  ) : (
+                    <Skeleton className="h-[188px]" />
+                  )}
+                </div>
+              </section>
+            </Reveal>
+
             <section>
-              <SectionHeader title="Day by day" />
+              <SectionHeader
+                title="Recent"
+                right={
+                  (txs.data?.length ?? 0) > RECENT ? (
+                    <Link
+                      to="/transactions"
+                      search={(prev: { month?: string }) => ({ month: prev.month })}
+                      className="min-h-6 text-sm font-bold uppercase tracking-wider text-accent"
+                    >
+                      All {txs.data?.length}
+                    </Link>
+                  ) : undefined
+                }
+              />
               <div className="mt-5">
-                <DailyBars
-                  month={month}
-                  totals={ins.daily}
-                  todayDate={todayDate}
-                  dailyBudget={ins.dailyBudget ?? undefined}
+                <TransactionList
+                  transactions={recent}
+                  categories={categories}
+                  onDelete={deleteWithUndo}
                 />
               </div>
             </section>
-            <section>
-              <SectionHeader title="Last 6 months" />
-              <div className="mt-5">
-                {trend.data ? (
-                  <MonthTrend months={trend.data} current={month} onPick={setMonth} />
-                ) : (
-                  <Skeleton className="h-[188px]" />
-                )}
-              </div>
-            </section>
-          </Reveal>
+          </>
+        )}
 
+        {!loading && (
           <section>
             <SectionHeader
-              title="Recent"
+              title="Budgets"
               right={
-                (txs.data?.length ?? 0) > RECENT ? (
-                  <Link
-                    to="/transactions"
-                    search={(prev: { month?: string }) => ({ month: prev.month })}
-                    className="min-h-6 text-sm font-bold uppercase tracking-wider text-accent"
-                  >
-                    All {txs.data?.length}
-                  </Link>
-                ) : undefined
+                <Link
+                  to="/budgets"
+                  search={(prev: { month?: string }) => ({ month: prev.month })}
+                  className="min-h-6 text-sm font-bold uppercase tracking-wider text-accent"
+                >
+                  {hasBudgets ? "Manage" : "Set up"}
+                </Link>
               }
             />
-            <div className="mt-5">
-              <TransactionList
-                transactions={recent}
-                categories={categories}
-                onDelete={deleteWithUndo}
-              />
-            </div>
+            {hasBudgets ? (
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {overall !== null && <BudgetRing name="Overall" spent={spent} limit={overall} />}
+                {categoryBudgets.map(({ c, limit, spent: s }) => (
+                  <BudgetRing key={c.id} name={`${c.emoji} ${c.name}`} spent={s} limit={limit} />
+                ))}
+              </div>
+            ) : (
+              <p className="border-b border-line py-5 text-muted">
+                Set a monthly budget to see how much you have left to spend.
+              </p>
+            )}
           </section>
-        </>
-      )}
-
-      {!loading && (
-        <section>
-          <SectionHeader
-            title="Budgets"
-            right={
-              <Link
-                to="/budgets"
-                search={(prev: { month?: string }) => ({ month: prev.month })}
-                className="min-h-6 text-sm font-bold uppercase tracking-wider text-accent"
-              >
-                {hasBudgets ? "Manage" : "Set up"}
-              </Link>
-            }
-          />
-          {hasBudgets ? (
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {overall !== null && <BudgetRing name="Overall" spent={spent} limit={overall} />}
-              {categoryBudgets.map(({ c, limit, spent: s }) => (
-                <BudgetRing key={c.id} name={`${c.emoji} ${c.name}`} spent={s} limit={limit} />
-              ))}
-            </div>
-          ) : (
-            <p className="border-b border-line py-5 text-muted">
-              Set a monthly budget to see how much you have left to spend.
-            </p>
-          )}
-        </section>
-      )}
+        )}
+      </div>
     </div>
   );
 }

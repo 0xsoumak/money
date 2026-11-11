@@ -3,6 +3,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { MotionConfig } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ErrorScreen } from "./components/ErrorScreen";
 import { queryClient } from "./lib/api";
 import { routeTree } from "./routeTree.gen";
 import { applyTheme } from "./theme";
@@ -15,6 +16,7 @@ const router = createRouter({
   context: { queryClient },
   defaultPreload: "intent",
   scrollRestoration: true,
+  defaultErrorComponent: ErrorScreen,
 });
 
 declare module "@tanstack/react-router" {

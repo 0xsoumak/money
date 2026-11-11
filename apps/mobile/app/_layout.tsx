@@ -12,6 +12,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryErrorToasts } from "../components/QueryErrors";
 import { ToastProvider } from "../components/Toast";
 import { queryClient } from "../lib/api";
 import { SessionProvider, useSession } from "../lib/session";
@@ -33,6 +34,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
           <ToastProvider>
+            <QueryErrorToasts />
             <StatusBar style="light" />
             <Navigator ready={fontsLoaded || !!fontError} />
           </ToastProvider>

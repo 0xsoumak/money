@@ -1,10 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Link, Outlet } from "@tanstack/react-router";
+import { OfflineBanner, QueryErrorToasts } from "../components/QueryErrors";
 import { ToastProvider } from "../components/Toast";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: () => (
     <ToastProvider>
+      <QueryErrorToasts />
+      <OfflineBanner />
       <Outlet />
     </ToastProvider>
   ),
