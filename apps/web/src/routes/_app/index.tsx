@@ -186,7 +186,7 @@ function Overview() {
                     <Link
                       to="/transactions"
                       search={(prev: { month?: string }) => ({ month: prev.month })}
-                      className="min-h-6 text-sm font-bold uppercase tracking-wider text-accent"
+                      className="-my-3 inline-flex min-h-11 items-center text-sm font-bold uppercase tracking-wider text-accent"
                     >
                       All {txs.data?.length}
                     </Link>
@@ -212,7 +212,7 @@ function Overview() {
                 <Link
                   to="/budgets"
                   search={(prev: { month?: string }) => ({ month: prev.month })}
-                  className="min-h-6 text-sm font-bold uppercase tracking-wider text-accent"
+                  className="-my-3 inline-flex min-h-11 items-center text-sm font-bold uppercase tracking-wider text-accent"
                 >
                   {hasBudgets ? "Manage" : "Set up"}
                 </Link>

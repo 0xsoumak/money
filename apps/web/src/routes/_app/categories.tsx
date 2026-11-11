@@ -98,7 +98,7 @@ function CategoriesPage() {
                     <button
                       type="button"
                       onClick={() => setEditing({ mode: "new", kind })}
-                      className="flex min-h-6 cursor-pointer items-center gap-1 text-sm font-bold uppercase tracking-wider text-accent"
+                      className="-my-3 flex min-h-11 cursor-pointer items-center gap-1 text-sm font-bold uppercase tracking-wider text-accent"
                     >
                       <PlusIcon size={16} />
                       Add

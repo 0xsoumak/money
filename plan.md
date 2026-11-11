@@ -224,11 +224,11 @@ Starts after the web app has been used for a while. Reuses the API, shared packa
 
 ### Phase 5: Polish and reliability (ongoing, ~3–5 days)
 
-- [ ] Motion pass: springy sheets, count-up amounts, list item enter/exit, bar fills
+- [x] Motion pass: springy presses, count-up amounts, list item enter/exit, bars that grow, sliding nav and month title (motion on web, Reanimated on Android; respects reduced motion)
 - [ ] Empty states and first-run experience (friendly, not blank)
-- [ ] Accessibility check: contrast in both themes, touch targets ≥ 44px, screen reader labels on amounts
-- [ ] **Backups**: confirm D1 Time Travel restore works (7 days on the free plan), add a `pnpm backup` script that runs `wrangler d1 export` to a local `.sql` file, and export JSON monthly
-- [ ] Error handling: friendly error toasts, Workers Observability logs checked
+- [x] Accessibility check: contrast tested in tokens, touch targets ≥ 44px (header links fixed), labels on every control, chart and amount
+- [ ] **Backups** (`pnpm backup` and Settings → Download my data done; restore verified locally ← **you: confirm Time Travel once**): confirm D1 Time Travel restore works (7 days on the free plan), add a `pnpm backup` script that runs `wrangler d1 export` to a local `.sql` file, and export JSON monthly
+- [x] Error handling: friendly messages, load-error toasts with Retry, offline banner, crash screen, structured Worker error logs
 - [ ] Performance: month queries hit indexes, lists virtualized if needed
 
 **Done when:** nothing feels rough in daily use, and I've restored a backup once to prove it works.
