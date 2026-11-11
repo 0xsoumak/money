@@ -216,6 +216,27 @@ describe("summary", () => {
   });
 });
 
+describe("summary trend", () => {
+  it("returns six months oldest first with zeros for empty ones", async () => {
+    const put = (body: Json) => api(`/api/transactions/${newId()}`, { method: "PUT", json: body });
+    await put(expense({ date: "2020-12-31", amount: 700 }));
+    await put(expense({ date: "2021-02-10", amount: 1200 }));
+    await put({ type: "income", amount: 9000, categoryId: SALARY, date: "2021-02-11" });
+    const { months } = await (await api("/api/summary/trend?month=2021-03")).json<Json>();
+    expect(months.map((m: Json) => m.month)).toEqual([
+      "2020-10",
+      "2020-11",
+      "2020-12",
+      "2021-01",
+      "2021-02",
+      "2021-03",
+    ]);
+    expect(months[2]).toMatchObject({ spent: 700, income: 0 });
+    expect(months[4]).toMatchObject({ spent: 1200, income: 9000 });
+    expect(months[5]).toMatchObject({ spent: 0, income: 0 });
+  });
+});
+
 describe("settings", () => {
   it("returns defaults and applies patches", async () => {
     const initial = (await (await api("/api/settings")).json<Json>()).settings;

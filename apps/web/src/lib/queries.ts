@@ -45,6 +45,18 @@ export const summaryQuery = (month: string) =>
     queryFn: () => fetchSummary(month),
   });
 
+const fetchTrend = async (month: string) =>
+  (await unwrap(await api.summary.trend.$get({ query: { month } }))).months;
+
+export type TrendMonth = Awaited<ReturnType<typeof fetchTrend>>[number];
+
+/** Spent and income for the six months ending at `month`, oldest first. */
+export const trendQuery = (month: string) =>
+  queryOptions({
+    queryKey: ["summary", "trend", month],
+    queryFn: () => fetchTrend(month),
+  });
+
 export const settingsQuery = queryOptions({
   queryKey: ["settings"],
   queryFn: async () => (await unwrap(await api.settings.$get())).settings,

@@ -16,13 +16,16 @@ Tokens live in [packages/shared/src/tokens.ts](../packages/shared/src/tokens.ts)
 
 ## Visualizations: clean and simple
 
-Only three kinds, so everything reads at a glance.
+A small set of kinds, so everything reads at a glance.
 
-| Visual          | Used for                         | Rules                                                                                                                                                                |
-| --------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Block meter** | Budget progress, month progress  | 10 equal blocks, filled left to right. Neutral until 80%, then `warning`, over 100% `danger`. Label with words (`₹1,680 left`, `₹60 over`).                          |
-| **Share bar**   | Where this month's money went    | One bar, one segment per category, widths proportional to amount. Legend below with name and amount. Includes a dashed "left to spend" segment when a budget exists. |
-| **Ranked list** | Category breakdown, top spending | Sorted high to low, name and amount on each row, a bar only if it adds clarity.                                                                                      |
+| Visual          | Used for                         | Rules                                                                                                                                                                                                                         |
+| --------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Block meter** | Budget progress, month progress  | 10 equal blocks, filled left to right. Neutral until 80%, then `warning`, over 100% `danger`. Label with words (`₹1,680 left`, `₹60 over`).                                                                                   |
+| **Share bar**   | Where this month's money went    | One bar, one segment per category, widths proportional to amount. Legend below with name and amount. Includes a dashed "left to spend" segment when a budget exists.                                                          |
+| **Ranked list** | Category breakdown, top spending | Sorted high to low, name and amount on each row, a bar only if it adds clarity.                                                                                                                                               |
+| **Day bars**    | Each day's spending this month   | One bar per day on a shared baseline, ink at 70%. Today is lime, future days are flat ghost stubs. Biggest day labelled; hover shows the day and amount. A dashed line marks the daily pace that lands on the overall budget. |
+| **Month bars**  | The last 6 months of spending    | One bar per month, amount labelled above, short month below. The viewed month is lime. Clicking a bar opens that month.                                                                                                       |
+| **Stat strip**  | Context for the hero number      | Four cells: daily average, on pace for (or days spent, for past months), last month, biggest day. Each has a one-line hint in words.                                                                                          |
 
 Rules for all of them:
 
@@ -31,7 +34,7 @@ Rules for all of them:
 - **Numbers first.** Every visual has its exact figure next to it.
 - **Same category, same color, everywhere.** Use `categoryColor(key, scheme)`.
 - **Animate on change only**: meters fill in on first show and when the value changes (about 400 ms), nothing loops.
-- **Trend over time** (post-v1): a single plain line or bar-per-month, labeled at the ends, no more than 12 points.
+- **Trend over time**: bar-per-month, labelled directly, no more than 12 points. No axes or gridlines.
 
 ## Typography
 

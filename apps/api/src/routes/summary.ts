@@ -1,14 +1,14 @@
-import { monthQuerySchema, monthRange } from "@money/shared";
+import { addMonths, monthQuerySchema, monthRange } from "@money/shared";
 import { and, count, gte, isNull, lt, sql, sum } from "drizzle-orm";
 import { Hono } from "hono";
 import { budgets, transactions } from "../db/schema";
 import { validate } from "../lib/validate";
 import type { AppEnv } from "../types";
 
-export const summaryRoute = new Hono<AppEnv>().get(
-  "/",
-  validate("query", monthQuerySchema),
-  async (c) => {
+const TREND_MONTHS = 6;
+
+export const summaryRoute = new Hono<AppEnv>()
+  .get("/", validate("query", monthQuerySchema), async (c) => {
     const { month } = c.req.valid("query");
     const { start, end } = monthRange(month);
 
@@ -48,5 +48,32 @@ export const summaryRoute = new Hono<AppEnv>().get(
     };
 
     return c.json({ month, spent, income, net: income - spent, byCategory, budget });
-  },
-);
+  })
+  /** Spent and income for the six months ending at `month`, oldest first. Empty months are zeros. */
+  .get("/trend", validate("query", monthQuerySchema), async (c) => {
+    const { month } = c.req.valid("query");
+    const first = addMonths(month, -(TREND_MONTHS - 1));
+    const rows = await c
+      .get("db")
+      .select({
+        month: sql<string>`substr(${transactions.date}, 1, 7)`,
+        type: transactions.type,
+        total: sql<number>`cast(${sum(transactions.amount)} as integer)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          gte(transactions.date, monthRange(first).start),
+          lt(transactions.date, monthRange(month).end),
+          isNull(transactions.deletedAt),
+        ),
+      )
+      .groupBy(sql`substr(${transactions.date}, 1, 7)`, transactions.type);
+
+    const months = Array.from({ length: TREND_MONTHS }, (_, i) => {
+      const m = addMonths(first, i);
+      const of = (type: string) => rows.find((r) => r.month === m && r.type === type)?.total ?? 0;
+      return { month: m, spent: of("expense"), income: of("income") };
+    });
+    return c.json({ months });
+  });

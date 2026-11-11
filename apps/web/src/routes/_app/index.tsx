@@ -1,14 +1,15 @@
-import { budgetProgress } from "@money/shared";
+import { addMonths, budgetProgress, daysInMonth, today } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BudgetRow } from "../../components/BlockMeter";
+import { DailyBars, MonthTrend, type Stat, StatStrip } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { useQuickAdd } from "../../components/QuickAdd";
 import { ShareBar } from "../../components/ShareBar";
 import { TransactionList } from "../../components/TransactionList";
 import { Button, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
-import { categoriesQuery, summaryQuery, transactionsQuery } from "../../lib/queries";
+import { categoriesQuery, summaryQuery, transactionsQuery, trendQuery } from "../../lib/queries";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
 export const Route = createFileRoute("/_app/")({
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/_app/")({
 const RECENT = 8;
 
 function Overview() {
-  const { month } = useMonth();
+  const { month, setMonth } = useMonth();
   const money = useMoney();
   const { openNew } = useQuickAdd();
   const deleteWithUndo = useDeleteWithUndo();
@@ -26,6 +27,7 @@ function Overview() {
   const { data: categories = [] } = useQuery(categoriesQuery);
   const summary = useQuery({ ...summaryQuery(month), placeholderData: keepPreviousData });
   const txs = useQuery({ ...transactionsQuery(month), placeholderData: keepPreviousData });
+  const trend = useQuery({ ...trendQuery(month), placeholderData: keepPreviousData });
 
   const loading = summary.isPending || txs.isPending;
   const expenses = (summary.data?.byCategory ?? []).filter((r) => r.type === "expense");
@@ -47,6 +49,73 @@ function Overview() {
       (a, b) => budgetProgress(b.spent, b.limit).ratio - budgetProgress(a.spent, a.limit).ratio,
     );
   const hasBudgets = overall !== null || categoryBudgets.length > 0;
+
+  // ── Daily figures for the charts and stat strip ──
+  const todayDate = today();
+  const monthDays = daysInMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
+  const isCurrent = todayDate.startsWith(month);
+  const isFuture = `${month}-01` > todayDate;
+  const elapsed = isCurrent ? Number(todayDate.slice(8)) : isFuture ? 0 : monthDays;
+  const dailyTotals = new Map<string, number>();
+  for (const t of txs.data ?? []) {
+    if (t.type === "expense") dailyTotals.set(t.date, (dailyTotals.get(t.date) ?? 0) + t.amount);
+  }
+  const peakDay = [...dailyTotals].reduce<[string, number] | null>(
+    (best, d) => (!best || d[1] > best[1] ? d : best),
+    null,
+  );
+  const prevSpent = trend.data?.find((t) => t.month === addMonths(month, -1))?.spent ?? 0;
+  // Whole currency units: paise on an average is noise.
+  const avg = elapsed > 0 ? Math.round(spent / elapsed / 100) * 100 : 0;
+  const projected = avg * monthDays;
+
+  const stats: Stat[] = [
+    {
+      label: "Daily average",
+      value: money(avg),
+      hint: `over ${elapsed} ${elapsed === 1 ? "day" : "days"}`,
+    },
+    isCurrent
+      ? {
+          label: "On pace for",
+          value: money(projected),
+          hint:
+            overall !== null
+              ? projected > overall
+                ? `${money(projected - overall)} over budget`
+                : `${money(overall - projected)} under budget`
+              : "by month end",
+          tone: overall !== null && projected > overall ? "danger" : undefined,
+        }
+      : {
+          label: "Days spent",
+          value: `${dailyTotals.size} of ${monthDays}`,
+          hint: `${monthDays - dailyTotals.size} no-spend days`,
+        },
+    {
+      label: "Last month",
+      value: money(prevSpent),
+      hint:
+        prevSpent === 0
+          ? "nothing logged"
+          : isCurrent
+            ? `${Math.round((spent / prevSpent) * 100)}% of it spent so far`
+            : spent >= prevSpent
+              ? `▲ ${Math.round((spent / prevSpent - 1) * 100)}% more this month`
+              : `▼ ${Math.round((1 - spent / prevSpent) * 100)}% less this month`,
+    },
+    {
+      label: "Biggest day",
+      value: money(peakDay?.[1] ?? 0),
+      hint: peakDay
+        ? new Date(`${peakDay[0]}T00:00:00`).toLocaleDateString("en", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          })
+        : "–",
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-8">
@@ -106,6 +175,8 @@ function Overview() {
         />
       ) : (
         <>
+          <StatStrip stats={stats} />
+
           <ShareBar
             items={expenses}
             categories={categories}
@@ -113,6 +184,30 @@ function Overview() {
               overallProgress && overallProgress.over === 0 ? overallProgress.remaining : undefined
             }
           />
+
+          <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
+            <section>
+              <SectionHeader title="Day by day" />
+              <div className="mt-5">
+                <DailyBars
+                  month={month}
+                  totals={dailyTotals}
+                  todayDate={todayDate}
+                  dailyBudget={overall !== null ? Math.round(overall / monthDays) : undefined}
+                />
+              </div>
+            </section>
+            <section>
+              <SectionHeader title="Last 6 months" />
+              <div className="mt-5">
+                {trend.data ? (
+                  <MonthTrend months={trend.data} current={month} onPick={setMonth} />
+                ) : (
+                  <Skeleton className="h-[188px]" />
+                )}
+              </div>
+            </section>
+          </div>
 
           <section>
             <SectionHeader
