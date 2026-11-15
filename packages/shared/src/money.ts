@@ -56,3 +56,20 @@ export function formatMoney(minor: number, opts: FormatMoneyOptions = {}): strin
     maximumFractionDigits: 2,
   }).format(fromMinor(minor));
 }
+
+export type TxDirection = "expense" | "income" | "investment";
+
+/**
+ * How a transaction amount is signed in lists: money in is "+", money out
+ * (spending or investing) is "−" (a true minus sign). `tone` says which color
+ * token to use: income is "success", everything else stays the normal ink so
+ * a list of expenses doesn't read as a wall of alarms.
+ */
+export function signedAmount(type: TxDirection): {
+  sign: "+" | "−";
+  tone: "success" | "ink";
+  verb: string;
+} {
+  if (type === "income") return { sign: "+", tone: "success", verb: "received" };
+  return { sign: "−", tone: "ink", verb: type === "investment" ? "invested" : "spent" };
+}
