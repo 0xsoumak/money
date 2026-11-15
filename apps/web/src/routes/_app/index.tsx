@@ -7,7 +7,7 @@ import {
   overviewStats,
   today,
   weekdayAverages,
-  weekendRatio,
+  weekdayHeadline,
 } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -99,13 +99,9 @@ function Overview() {
   const analytics = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
   const teaser = useMemo(() => {
     if (!analytics.data) return null;
-    const { dates } = analyticsWindow(month, 3, todayDate);
-    const r = weekendRatio(weekdayAverages(dailyExpenses(analytics.data.rows), dates));
-    if (r === null) return null;
-    if (r >= 1.15) return `Weekends cost you ${r.toFixed(1).replace(/\.0$/, "")}× a weekday.`;
-    if (r <= 0.87) return "You spend more on weekdays than weekends.";
-    return "Your spending is even across the week.";
-  }, [analytics.data, month, todayDate]);
+    const { dates } = analyticsWindow(analytics.data.to, 3, todayDate);
+    return weekdayHeadline(weekdayAverages(dailyExpenses(analytics.data.rows), dates));
+  }, [analytics.data, todayDate]);
 
   return (
     <div className="flex flex-col gap-8">

@@ -79,9 +79,10 @@ export default function TabsLayout() {
             name="budgets"
             options={{ title: "Budgets", tabBarIcon: icon("bar-chart-2") }}
           />
+          {/* Settings lives behind the gear on the Overview; it is opened rarely. */}
           <Tabs.Screen
-            name="settings"
-            options={{ title: "Settings", tabBarIcon: icon("sliders") }}
+            name="analytics"
+            options={{ title: "Analytics", tabBarIcon: icon("activity") }}
           />
         </Tabs>
       </View>

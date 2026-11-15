@@ -1,27 +1,46 @@
-import { addMonths, budgetProgress, monthInsights, overviewStats, today } from "@money/shared";
+import { Feather } from "@expo/vector-icons";
+import {
+  addMonths,
+  analyticsWindow,
+  budgetProgress,
+  dailyExpenses,
+  monthInsights,
+  overviewStats,
+  today,
+  weekdayAverages,
+  weekdayHeadline,
+} from "@money/shared";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import { useMemo } from "react";
 import { Pressable, View } from "react-native";
-import { BudgetRing, DailyBars, MonthTrend, StatGrid } from "../../components/Charts";
+import { BudgetRing } from "../../components/BudgetRing";
+import { StatGrid } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
-import { Reveal, useCountUp } from "../../components/motion";
+import { PressableScale, Reveal, useCountUp } from "../../components/motion";
 import { Screen } from "../../components/Screen";
 import { ShareBar } from "../../components/ShareBar";
 import { Label, T } from "../../components/T";
 import { TransactionList } from "../../components/TransactionList";
-import { Button, EmptyState, SectionHeader, Skeleton } from "../../components/ui";
+import { Button, EmptyState, IconButton, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney } from "../../lib/hooks";
 import { useMonth } from "../../lib/month";
-import { categoriesQuery, summaryQuery, transactionsQuery, trendQuery } from "../../lib/queries";
+import {
+  analyticsQuery,
+  categoriesQuery,
+  summaryQuery,
+  transactionsQuery,
+  trendQuery,
+} from "../../lib/queries";
 import { c } from "../../lib/theme";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
-const RECENT = 6;
+const RECENT = 5;
 
 export default function Overview() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { month, setMonth } = useMonth();
+  const { month } = useMonth();
   const money = useMoney();
   const deleteWithUndo = useDeleteWithUndo();
 
@@ -64,7 +83,8 @@ export default function Overview() {
   const stats = overviewStats(ins, { spent, prevSpent, overallBudget: overall, money });
   const shownSpent = useCountUp(spent);
 
-  const rings = [
+  // Only budgets at 80% or more make the overview; the rest are summed up in words.
+  const atRisk = [
     ...(overall !== null ? [{ key: "overall", name: "Overall", spent, limit: overall }] : []),
     ...categoryBudgets.map(({ x, limit, spent: s }) => ({
       key: x.id,
@@ -72,15 +92,24 @@ export default function Overview() {
       spent: s,
       limit,
     })),
-  ];
-  const ringRows: (typeof rings)[] = [];
-  for (let i = 0; i < rings.length; i += 2) ringRows.push(rings.slice(i, i + 2));
+  ].filter((b) => budgetProgress(b.spent, b.limit).state !== "ok");
+  const budgetCount = (overall !== null ? 1 : 0) + categoryBudgets.length;
+  const onTrack = budgetCount - atRisk.length;
+
+  // One line from the Analytics tab, as a way in.
+  const analytics = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
+  const teaser = useMemo(() => {
+    if (!analytics.data) return null;
+    const { dates } = analyticsWindow(analytics.data.to, 3, todayDate);
+    return weekdayHeadline(weekdayAverages(dailyExpenses(analytics.data.rows), dates));
+  }, [analytics.data, todayDate]);
 
   const refreshing = summary.isRefetching || txs.isRefetching;
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["summary"] });
     void qc.invalidateQueries({ queryKey: ["transactions"] });
     void qc.invalidateQueries({ queryKey: ["categories"] });
+    void qc.invalidateQueries({ queryKey: ["analytics"] });
   };
 
   const left =
@@ -88,7 +117,14 @@ export default function Overview() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
-      <MonthSwitcher />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <MonthSwitcher />
+        </View>
+        <IconButton label="Settings" bordered onPress={() => router.push("/settings")}>
+          <Feather name="settings" size={20} color={c.text} />
+        </IconButton>
+      </View>
       {/* While another month loads, dim the previous month's numbers so they don't read as this month's. */}
       <View
         accessibilityState={{ busy: stale }}
@@ -154,33 +190,58 @@ export default function Overview() {
               <ShareBar items={expenses} categories={categories} left={left} />
             </Reveal>
 
-            <Reveal>
-              <SectionHeader title="Day by day" />
-              <View style={{ marginTop: 16 }}>
-                <DailyBars
-                  month={month}
-                  totals={ins.daily}
-                  todayDate={todayDate}
-                  dailyBudget={ins.dailyBudget}
-                  days={ins.days}
+            {!loading && (
+              <View>
+                <SectionHeader
+                  title="Needs attention"
+                  right={
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => router.navigate("/budgets")}
+                      hitSlop={10}
+                    >
+                      <T variant="label" color={c.accent} size={13}>
+                        {hasBudgets ? "Manage" : "Set up"}
+                      </T>
+                    </Pressable>
+                  }
                 />
-              </View>
-            </Reveal>
-
-            <Reveal>
-              <SectionHeader title="Last 6 months" />
-              <View style={{ marginTop: 16 }}>
-                {trend.data ? (
-                  <MonthTrend
-                    months={trend.data.map((t) => ({ month: t.month, value: t.spent }))}
-                    current={month}
-                    onPick={setMonth}
-                  />
+                {!hasBudgets || atRisk.length === 0 ? (
+                  <View
+                    style={{
+                      paddingVertical: 20,
+                      borderBottomWidth: 1,
+                      borderBottomColor: c.border,
+                    }}
+                  >
+                    <T variant="body" color={c.textMuted}>
+                      {!hasBudgets
+                        ? "Set a monthly budget to see how much you have left to spend."
+                        : budgetCount === 1
+                          ? "Your budget is on track."
+                          : `All ${budgetCount} budgets on track.`}
+                    </T>
+                  </View>
                 ) : (
-                  <Skeleton style={{ height: 156 }} />
+                  <View style={{ marginTop: 16, gap: 8 }}>
+                    {atRisk.map((b) => (
+                      <BudgetRing
+                        key={b.key}
+                        name={b.name}
+                        spent={b.spent}
+                        limit={b.limit}
+                        onPress={() => router.navigate("/budgets")}
+                      />
+                    ))}
+                    {onTrack > 0 && (
+                      <T variant="caption" color={c.textMuted} style={{ marginTop: 4 }}>
+                        {onTrack} other {onTrack === 1 ? "budget" : "budgets"} on track
+                      </T>
+                    )}
+                  </View>
                 )}
               </View>
-            </Reveal>
+            )}
 
             <View>
               <SectionHeader
@@ -208,52 +269,42 @@ export default function Overview() {
                 />
               </View>
             </View>
-          </>
-        )}
 
-        {!loading && (
-          <View>
-            <SectionHeader
-              title="Budgets"
-              right={
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => router.navigate("/budgets")}
-                  hitSlop={10}
-                >
-                  <T variant="label" color={c.accent} size={13}>
-                    {hasBudgets ? "Manage" : "Set up"}
-                  </T>
-                </Pressable>
-              }
-            />
-            {hasBudgets ? (
-              <View style={{ marginTop: 16, gap: 10 }}>
-                {ringRows.map((row) => (
-                  <View key={row[0]?.key} style={{ flexDirection: "row", gap: 10 }}>
-                    {row.map((b) => (
-                      <BudgetRing
-                        key={b.key}
-                        name={b.name}
-                        spent={b.spent}
-                        limit={b.limit}
-                        onPress={() => router.navigate("/budgets")}
-                      />
-                    ))}
-                    {row.length === 1 && <View style={{ flex: 1 }} />}
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View
-                style={{ paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: c.border }}
-              >
-                <T variant="body" color={c.textMuted}>
-                  Set a monthly budget to see how much you have left to spend.
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={`${teaser ?? "See where your money really goes."} Open analytics`}
+              onPress={() => router.navigate("/analytics")}
+              scaleTo={0.98}
+              style={{
+                padding: 18,
+                gap: 14,
+                borderWidth: 2,
+                borderColor: c.borderStrong,
+                borderRadius: 16,
+              }}
+            >
+              <View style={{ gap: 6 }}>
+                <Label>From your analytics</Label>
+                <T variant="title" size={22}>
+                  {teaser ?? "See where your money really goes."}
                 </T>
               </View>
-            )}
-          </View>
+              <View
+                style={{
+                  alignSelf: "flex-start",
+                  minHeight: 44,
+                  justifyContent: "center",
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  backgroundColor: c.accent,
+                }}
+              >
+                <T variant="label" size={13} color={c.onAccent}>
+                  Open analytics →
+                </T>
+              </View>
+            </PressableScale>
+          </>
         )}
       </View>
     </Screen>

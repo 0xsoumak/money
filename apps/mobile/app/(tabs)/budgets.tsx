@@ -1,9 +1,10 @@
-import { budgetProgress } from "@money/shared";
+import { budgetProgress, daysInMonth, lastDayOf, today } from "@money/shared";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { Pressable, View } from "react-native";
-import { BlockMeter, BudgetRow, BudgetStatus } from "../../components/BlockMeter";
+import { View } from "react-native";
+import { BudgetRing, Ring, STATE_COLOR } from "../../components/BudgetRing";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
+import { PressableScale } from "../../components/motion";
 import { Screen } from "../../components/Screen";
 import { Label, T } from "../../components/T";
 import { Button, EmptyState, SectionHeader, Skeleton } from "../../components/ui";
@@ -54,51 +55,89 @@ export default function Budgets() {
     );
   const withoutLimit = expenseCategories.filter((x) => !summary?.budget.categories[x.id]);
 
+  // How far through the month we are, to set against how much of the budget is used.
+  const todayDate = today();
+  const days = daysInMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
+  const elapsed = todayDate.startsWith(month)
+    ? Number(todayDate.slice(8))
+    : todayDate > lastDayOf(month)
+      ? days
+      : 0;
+  const monthPct = Math.round((elapsed / days) * 100);
+  const usedPct = overallProgress ? Math.round(overallProgress.ratio * 100) : 0;
+  // Ahead of the month's pace reads as a warning (or worse, if already over).
+  const paceState =
+    !overallProgress || usedPct <= monthPct
+      ? "ok"
+      : overallProgress.state === "over"
+        ? "over"
+        : "warning";
+  const overCount = withLimit.filter(
+    (b) => budgetProgress(b.spent, b.limit).state === "over",
+  ).length;
+
   return (
     <Screen
       refreshing={isRefetching}
       onRefresh={() => void qc.invalidateQueries({ queryKey: ["summary"] })}
     >
       <MonthSwitcher />
-      <T variant="title" size={44} accessibilityRole="header">
+      <T variant="display" size={52} accessibilityRole="header">
         Budgets
       </T>
 
       <View>
         <SectionHeader title="Overall" />
         {isPending ? (
-          <Skeleton style={{ height: 130, marginTop: 16 }} />
+          <Skeleton style={{ height: 170, marginTop: 16 }} />
         ) : overall && overallProgress ? (
-          <Pressable
+          <PressableScale
             accessibilityRole="button"
-            accessibilityLabel={`Edit overall budget, ${money(overall)}`}
+            accessibilityLabel={`Edit overall budget, ${money(overall)}. ${usedPct}% used.`}
             onPress={() => edit("overall", "Overall", overall, spent)}
+            scaleTo={0.98}
             style={{
-              paddingVertical: 20,
-              gap: 8,
-              borderBottomWidth: 1,
-              borderBottomColor: c.border,
+              marginTop: 16,
+              padding: 18,
+              gap: 16,
+              borderWidth: 2,
+              borderColor: c.border,
+              borderRadius: 18,
             }}
           >
-            <Label>{overallProgress.over > 0 ? "Over budget by" : "Left to spend"}</Label>
-            <T
-              variant="display"
-              size={56}
-              fit
-              color={overallProgress.over > 0 ? c.danger : c.accent}
-            >
-              {money(overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining)}
-            </T>
-            <View style={{ marginTop: 8 }}>
-              <BlockMeter spent={spent} limit={overall} label="Overall" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
+              <Ring spent={spent} limit={overall} size={116} stroke={13} fontSize={26} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Label>{overallProgress.over > 0 ? "Over by" : "Left to spend"}</Label>
+                <T
+                  variant="display"
+                  size={40}
+                  fit
+                  color={overallProgress.over > 0 ? c.danger : c.accent}
+                >
+                  {money(
+                    overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining,
+                  )}
+                </T>
+                <T variant="caption" color={c.textMuted}>
+                  {money(spent)} of {money(overall)} spent
+                </T>
+              </View>
             </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <T variant="caption" color={c.textMuted}>
-                {money(spent)} of {money(overall)} spent
+            {elapsed > 0 && elapsed < days && (
+              <T variant="small" color={c.textMuted}>
+                Day {elapsed} of {days}:{" "}
+                <T
+                  variant="small"
+                  color={STATE_COLOR[paceState]}
+                  style={{ fontFamily: "SpaceGrotesk_700Bold" }}
+                >
+                  {usedPct}% of budget used
+                </T>{" "}
+                in {monthPct}% of the month
               </T>
-              <BudgetStatus spent={spent} limit={overall} size={13} />
-            </View>
-          </Pressable>
+            )}
+          </PressableScale>
         ) : (
           <EmptyState
             title="No overall budget"
@@ -114,68 +153,88 @@ export default function Budgets() {
       </View>
 
       <View>
-        <SectionHeader title="By category" />
-        {withLimit.map(({ x, limit, spent: s }) => (
-          <BudgetRow
-            key={x.id}
-            name={`${x.emoji} ${x.name}`}
-            spent={s}
-            limit={limit}
-            onPress={() => edit(x.id, x.name, limit, s)}
-          />
-        ))}
-        {withLimit.length === 0 && !isPending && (
-          <View style={{ paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: c.border }}>
-            <T variant="body" color={c.textMuted}>
-              No category limits yet. Pick a category below to set one.
-            </T>
+        <SectionHeader
+          title="By category"
+          right={
+            withLimit.length > 0 ? (
+              <T variant="caption" color={c.textMuted}>
+                {overCount} over · {withLimit.length} set
+              </T>
+            ) : undefined
+          }
+        />
+        {withLimit.length > 0 ? (
+          <View style={{ marginTop: 16, gap: 8 }}>
+            {withLimit.map(({ x, limit, spent: s }) => (
+              <BudgetRing
+                key={x.id}
+                name={`${x.emoji} ${x.name}`}
+                spent={s}
+                limit={limit}
+                onPress={() => edit(x.id, x.name, limit, s)}
+              />
+            ))}
           </View>
+        ) : (
+          !isPending && (
+            <View
+              style={{ paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: c.border }}
+            >
+              <T variant="body" color={c.textMuted}>
+                No category limits yet. Pick a category below to set one.
+              </T>
+            </View>
+          )
         )}
+      </View>
 
-        {withoutLimit.length > 0 && (
-          <View style={{ marginTop: 28 }}>
-            <Label>No limit</Label>
+      {withoutLimit.length > 0 && (
+        <View>
+          <SectionHeader title="No limit" />
+          <View style={{ marginTop: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {withoutLimit.map((x) => {
               const s = spentBy.get(x.id) ?? 0;
               return (
-                <View
+                <PressableScale
                   key={x.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set a limit for ${x.name}`}
+                  onPress={() => edit(x.id, x.name, null, s)}
+                  scaleTo={0.97}
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    borderBottomWidth: 1,
-                    borderBottomColor: c.border,
+                    flexBasis: "48%",
+                    flexGrow: 1,
+                    minHeight: 64,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    gap: 2,
+                    borderWidth: 2,
+                    borderColor: c.border,
+                    borderRadius: 12,
                   }}
                 >
-                  <View style={{ flex: 1, paddingVertical: 12 }}>
-                    <T variant="body" size={16} numberOfLines={1}>
-                      {x.emoji} {x.name}
+                  <T variant="body" size={15} numberOfLines={1}>
+                    {x.emoji} {x.name}
+                  </T>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 6 }}>
+                    <T
+                      variant="caption"
+                      color={c.textMuted}
+                      numberOfLines={1}
+                      style={{ flexShrink: 1 }}
+                    >
+                      {money(s)}
                     </T>
-                    <T variant="caption" color={c.textMuted}>
-                      {money(s)} this month
+                    <T variant="label" size={11} color={c.accent}>
+                      + Limit
                     </T>
                   </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Set a limit for ${x.name}`}
-                    onPress={() => edit(x.id, x.name, null, s)}
-                    style={{
-                      minHeight: 44,
-                      minWidth: 44,
-                      justifyContent: "center",
-                      paddingHorizontal: 8,
-                    }}
-                  >
-                    <T variant="label" size={13} color={c.textMuted}>
-                      Set limit
-                    </T>
-                  </Pressable>
-                </View>
+                </PressableScale>
               );
             })}
           </View>
-        )}
-      </View>
+        </View>
+      )}
     </Screen>
   );
 }

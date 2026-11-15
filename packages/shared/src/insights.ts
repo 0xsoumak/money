@@ -80,7 +80,7 @@ export interface StatItem {
   label: string;
   value: string;
   hint: string;
-  tone?: "danger";
+  tone?: "danger" | "accent";
 }
 
 /** The four overview stats, worded the same on every platform. */

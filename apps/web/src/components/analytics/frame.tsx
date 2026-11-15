@@ -103,18 +103,8 @@ export function seriesOf(key: string, byId: Map<string, Category>): Series {
   };
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "2026-11" → "Nov". */
-export const shortMonth = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1] ?? m;
-
-/** "2026-11-07" → "Sat, 7 Nov". */
-export const shortDate = (d: string) =>
-  new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
+/** Short month and date labels live in shared so every platform words them alike. */
+export { shortDate, shortMonth } from "@money/shared";
 
 /** Compact money for axis ticks and tight labels: ₹950, ₹1.2k, ₹45k, ₹1.2L. */
 export function compactMoney(minor: number): string {

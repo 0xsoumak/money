@@ -2,6 +2,7 @@ import { ulid } from "ulidx";
 
 export * from "./amount";
 export * from "./analytics";
+export * from "./analyticsReport";
 export * from "./budget";
 export * from "./dates";
 export * from "./errors";
