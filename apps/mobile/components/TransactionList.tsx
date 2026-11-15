@@ -14,6 +14,8 @@ import { SwipeRow } from "./SwipeRow";
 import { T } from "./T";
 import { SectionHeader } from "./ui";
 
+const toneColor = { success: c.success, danger: c.danger, ink: c.text } as const;
+
 /**
  * Transactions grouped by day, newest first.
  * Tap a row (or swipe it right) to edit it; swipe it left to delete it.
@@ -96,7 +98,7 @@ export function TransactionList({
                           {category ? `${category.emoji} ${category.name}` : "Unknown category"}
                         </T>
                       </View>
-                      <T variant="rowAmount" color={signed.tone === "success" ? c.success : c.text}>
+                      <T variant="rowAmount" color={toneColor[signed.tone]}>
                         {signed.sign}
                         {money(tx.amount)}
                       </T>

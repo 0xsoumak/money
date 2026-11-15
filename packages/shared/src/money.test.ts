@@ -49,8 +49,8 @@ describe("signedAmount", () => {
     expect(signedAmount("income")).toEqual({ sign: "+", tone: "success", verb: "received" });
   });
 
-  it("marks expenses and investments as money out with a true minus sign", () => {
-    expect(signedAmount("expense")).toMatchObject({ sign: "−", tone: "ink", verb: "spent" });
-    expect(signedAmount("investment")).toMatchObject({ sign: "−", verb: "invested" });
+  it("marks spending in red and investing in ink, both with a true minus sign", () => {
+    expect(signedAmount("expense")).toEqual({ sign: "−", tone: "danger", verb: "spent" });
+    expect(signedAmount("investment")).toEqual({ sign: "−", tone: "ink", verb: "invested" });
   });
 });

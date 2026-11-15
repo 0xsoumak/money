@@ -7,6 +7,8 @@ import { tween } from "./motion";
 import { useQuickAdd } from "./QuickAdd";
 import { IconButton, SectionHeader } from "./ui";
 
+const toneClass = { success: "text-success", danger: "text-danger", ink: "" } as const;
+
 interface Props {
   transactions: Tx[];
   categories: Category[];
@@ -65,9 +67,7 @@ export function TransactionList({ transactions, categories, onDelete }: Props) {
                           {cat ? `${cat.emoji} ${cat.name}` : "Unknown category"}
                         </span>
                       </span>
-                      <span
-                        className={`shrink-0 text-xl font-bold ${signed.tone === "success" ? "text-success" : ""}`}
-                      >
+                      <span className={`shrink-0 text-xl font-bold ${toneClass[signed.tone]}`}>
                         {signed.sign}
                         {money(tx.amount)}
                       </span>
