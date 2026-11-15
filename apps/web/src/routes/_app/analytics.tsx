@@ -101,14 +101,17 @@ function Analytics() {
     () => new Map<string, Category>(categories.map((c) => [c.id, c])),
     [categories],
   );
+  // While the next month loads, the previous month's rows stay up (dimmed). Compute for the
+  // month those rows belong to, not the new one, or the charts briefly show it as empty.
+  const dataMonth = q.data?.to ?? month;
   const a = useMemo(
-    () => (q.data ? compute(q.data.rows, month, range, todayDate) : null),
-    [q.data, month, range, todayDate],
+    () => (q.data ? compute(q.data.rows, q.data.to, range, todayDate) : null),
+    [q.data, range, todayDate],
   );
 
   const budget = summary.data?.budget.overall ?? null;
-  const running = todayDate.startsWith(month);
-  const prev = addMonths(month, -1);
+  const running = todayDate.startsWith(dataMonth);
+  const prev = addMonths(dataMonth, -1);
   const lastDate = a?.win.dates.at(-1);
 
   return (
@@ -165,7 +168,7 @@ function Analytics() {
             <>
               <Reveal>
                 <ChartSection
-                  title={`Where ${monthTitle(month).split(" ")[0]}'s money went`}
+                  title={`Where ${monthTitle(dataMonth).split(" ")[0]}'s money went`}
                   note="Income → what happened to it"
                   headline={flowHeadline(a.flow, money)}
                 >
@@ -185,15 +188,15 @@ function Analytics() {
                   title="Movers"
                   note={
                     running
-                      ? `Days 1–${a.curve.elapsed}, ${shortMonth(prev)} vs ${shortMonth(month)}`
-                      : `${shortMonth(prev)} vs ${shortMonth(month)}`
+                      ? `Days 1–${a.curve.elapsed}, ${shortMonth(prev)} vs ${shortMonth(dataMonth)}`
+                      : `${shortMonth(prev)} vs ${shortMonth(dataMonth)}`
                   }
                   headline={moversHeadline(a.movers, byId, money)}
                 >
                   <Movers
                     movers={a.movers}
                     byId={byId}
-                    labels={[shortMonth(prev), shortMonth(month)]}
+                    labels={[shortMonth(prev), shortMonth(dataMonth)]}
                   />
                 </ChartSection>
               </Reveal>

@@ -1,5 +1,5 @@
 import { OTHER } from "@money/shared";
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 import type { Category } from "../../lib/queries";
 import { SectionHeader } from "../ui";
 
@@ -30,19 +30,25 @@ export function ChartSection({
   );
 }
 
-/** The element's content width, kept current as it resizes. Charts draw to this width. */
+/**
+ * The element's content width, kept current as it resizes. Charts draw to this width.
+ * A callback ref, so it re-attaches when the element is replaced (a chart that swaps to
+ * an empty state and back). Zero readings, which a detached element reports, are ignored.
+ */
 export function useWidth<T extends HTMLElement>(fallback = 600) {
-  const ref = useRef<T>(null);
   const [width, setWidth] = useState(fallback);
-  useLayoutEffect(() => {
-    const el = ref.current;
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: T | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
     if (!el) return;
-    setWidth(el.clientWidth);
+    if (el.clientWidth > 0) setWidth(el.clientWidth);
     const ro = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(Math.round(entry.contentRect.width));
+      const w = Math.round(entry?.contentRect.width ?? 0);
+      if (w > 0) setWidth(w);
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    observer.current = ro;
   }, []);
   return [ref, width] as const;
 }
