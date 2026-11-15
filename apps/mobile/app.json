@@ -39,6 +39,21 @@
     ],
     "runtimeVersion": {
       "policy": "fingerprint"
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "17f72c78-65bc-4313-9f63-6137c2e7b6fc"
+      }
+    },
+    "owner": "soumak",
+    "updates": {
+      "url": "https://u.expo.dev/17f72c78-65bc-4313-9f63-6137c2e7b6fc"
+    },
+    "ios": {}
   }
 }
