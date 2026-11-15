@@ -101,4 +101,4 @@ jobs:
       # runtimeVersion uses the "fingerprint" policy: if this commit changed native code, the
       # update is tagged with a new runtime that no installed APK has, so phones safely ignore
       # it until you install a new build (see the "Build Android APK" workflow).
-      - run: pnpm dlx eas-cli@27.6.0 update --channel production --auto --non-interactive
+      - run: pnpm dlx eas-cli@27.6.0 update --channel production --platform android --auto --non-interactive
