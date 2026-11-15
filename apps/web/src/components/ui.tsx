@@ -1,6 +1,6 @@
 import { type HTMLMotionProps, motion } from "motion/react";
 import type { ReactNode } from "react";
-import { spring, tap } from "./motion";
+import { tap, tween } from "./motion";
 
 const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" ");
 
@@ -22,7 +22,7 @@ export function Button({
     <motion.button
       type="button"
       whileTap={props.disabled ? undefined : tap}
-      transition={spring.snappy}
+      transition={tween.base}
       {...props}
       className={cx(
         "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg px-5 text-[15px] font-bold uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-40",
@@ -42,8 +42,8 @@ export function IconButton({
   return (
     <motion.button
       type="button"
-      whileTap={props.disabled ? undefined : { scale: 0.88 }}
-      transition={spring.snappy}
+      whileTap={props.disabled ? undefined : { scale: 0.92 }}
+      transition={tween.base}
       aria-label={label}
       title={label}
       {...props}

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMoney } from "../lib/hooks";
 import type { Category, Tx } from "../lib/queries";
 import { TrashIcon } from "./icons";
+import { tween } from "./motion";
 import { useQuickAdd } from "./QuickAdd";
 import { IconButton, SectionHeader } from "./ui";
 
@@ -40,11 +41,11 @@ export function TransactionList({ transactions, categories, onDelete }: Props) {
                   <motion.li
                     key={tx.id}
                     layout="position"
-                    initial={{ opacity: 0, height: 0, x: -12 }}
-                    animate={{ opacity: 1, height: "auto", x: 0 }}
-                    exit={{ opacity: 0, height: 0, x: 24 }}
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                    className="group flex items-center overflow-hidden border-b border-line"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={tween.base}
+                    className="group flex items-center overflow-hidden border-b border-line transition-colors duration-150 hover:bg-surface/50"
                   >
                     <button
                       type="button"
@@ -71,7 +72,7 @@ export function TransactionList({ transactions, categories, onDelete }: Props) {
                     <IconButton
                       label={`Delete ${title}`}
                       onClick={() => onDelete(tx)}
-                      className="opacity-60 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+                      className="opacity-0 transition-opacity duration-150 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-60"
                     >
                       <TrashIcon />
                     </IconButton>

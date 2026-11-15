@@ -2,6 +2,7 @@ import { daysInMonth, monthTitle } from "@money/shared";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { useMoney } from "../lib/hooks";
+import { tween } from "./motion";
 import { cx } from "./ui";
 
 const CHART_H = 140;
@@ -78,7 +79,7 @@ export function DailyBars({
               <motion.div
                 initial={{ height: 0 }}
                 animate={{ height: d.future ? 4 : d.total > 0 ? Math.max(h(d.total), 4) : 2 }}
-                transition={{ type: "spring", stiffness: 300, damping: 26, delay: i * 0.012 }}
+                transition={{ ...tween.slow, delay: i * 0.012 }}
                 className={cx(
                   "w-full rounded-t-[4px] transition-colors",
                   d.future
@@ -178,7 +179,7 @@ export function MonthTrend({
                 <motion.span
                   initial={{ height: 0 }}
                   animate={{ height: m.value > 0 ? Math.max((m.value / max) * H, 4) : 2 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 22, delay: idx * 0.05 }}
+                  transition={{ ...tween.slow, delay: idx * 0.05 }}
                   className={cx(
                     "block w-full rounded-t-[4px] transition-colors",
                     selected ? "bg-accent" : "bg-surface-strong group-hover:bg-ink/50",

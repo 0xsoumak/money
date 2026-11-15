@@ -25,7 +25,7 @@ import { isTyping, useMoney } from "../lib/hooks";
 import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
 import { DatePicker } from "./DatePicker";
 import { BackspaceIcon, CloseIcon } from "./icons";
-import { spring } from "./motion";
+import { tween } from "./motion";
 import { useToast } from "./Toast";
 import { Button, cx, fieldClass, IconButton } from "./ui";
 
@@ -259,16 +259,16 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       draft.amount ? "text-accent" : "text-faint",
                     )}
                   >
-                    {/* Each digit pops in as it is typed. */}
+                    {/* Each digit eases in as it is typed. */}
                     <AnimatePresence initial={false} mode="popLayout">
                       {(draft.amount || "0").split("").map((ch, i) => (
                         <motion.span
                           key={`${i}-${ch}`}
                           className="inline-block"
-                          initial={{ y: "35%", opacity: 0, scale: 0.6 }}
-                          animate={{ y: 0, opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.08 } }}
-                          transition={spring.bouncy}
+                          initial={{ y: "20%", opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ opacity: 0, transition: { duration: 0.08 } }}
+                          transition={tween.fast}
                         >
                           {ch}
                         </motion.span>
@@ -289,9 +289,8 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       <motion.button
                         key={c.id}
                         type="button"
-                        whileTap={{ scale: 0.92 }}
-                        animate={{ scale: selected ? [1, 1.08, 1] : 1 }}
-                        transition={{ duration: 0.28, ease: "easeOut" }}
+                        whileTap={{ scale: 0.96 }}
+                        transition={tween.fast}
                         aria-pressed={selected}
                         onClick={() => {
                           setDraft({ ...draft, categoryId: c.id });
@@ -299,7 +298,9 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                         }}
                         className={cx(
                           "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 px-3.5 text-[15px] font-semibold",
-                          selected ? "text-on-accent" : "border-line-strong/25",
+                          selected
+                            ? "text-on-accent"
+                            : "border-line-strong/25 transition-colors hover:border-line-strong/60",
                         )}
                         style={
                           selected
@@ -366,7 +367,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       onClick={() =>
                         setDraft((d) => (d ? { ...d, amount: pressKey(d.amount, k) } : d))
                       }
-                      className="flex h-14 cursor-pointer items-center justify-center rounded-[14px] bg-surface text-[26px] font-semibold active:bg-surface-strong"
+                      className="flex h-14 cursor-pointer items-center justify-center rounded-[14px] bg-surface text-[26px] font-semibold transition-colors duration-100 hover:bg-surface-strong/60 active:bg-surface-strong"
                     >
                       {k === "Backspace" ? <BackspaceIcon /> : k}
                     </button>

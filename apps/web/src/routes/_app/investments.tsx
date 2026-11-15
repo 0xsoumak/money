@@ -91,7 +91,7 @@ function Investments() {
         ) : (
           <>
             {data && (
-              <Reveal i={0}>
+              <Reveal>
                 <ShareBar
                   items={data.byCategory}
                   categories={categories}
@@ -100,7 +100,7 @@ function Investments() {
               </Reveal>
             )}
 
-            <Reveal i={1}>
+            <Reveal>
               <SectionHeader title="Last 12 months" />
               <div className="mt-5">
                 {data ? (
@@ -116,14 +116,14 @@ function Investments() {
               </div>
             </Reveal>
 
-            <Reveal i={2}>
+            <Reveal>
               <SectionHeader
                 title={`${monthTitle(month)}`}
                 right={
                   <button
                     type="button"
                     onClick={() => openNew("investment")}
-                    className="-my-3 flex min-h-11 cursor-pointer items-center text-sm font-bold uppercase tracking-wider text-accent"
+                    className="-my-3 flex min-h-11 cursor-pointer items-center text-sm font-bold uppercase tracking-wider text-accent transition-opacity hover:opacity-75"
                   >
                     Log one
                   </button>

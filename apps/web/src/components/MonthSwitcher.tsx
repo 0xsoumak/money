@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { isTyping, useMonth } from "../lib/hooks";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
+import { tween } from "./motion";
 import { IconButton } from "./ui";
 
 /** Previous / label / next. Left and right arrow keys change month when nothing is being typed. */
@@ -51,7 +52,7 @@ export function MonthSwitcher() {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ type: "spring", stiffness: 500, damping: 36 }}
+            transition={tween.base}
           >
             {monthTitle(month)}
           </motion.span>
@@ -68,7 +69,7 @@ export function MonthSwitcher() {
         <button
           type="button"
           onClick={() => setMonth(currentMonth())}
-          className="ml-1 min-h-11 cursor-pointer rounded-lg px-3 text-sm font-bold uppercase tracking-wider text-accent"
+          className="ml-1 min-h-11 cursor-pointer rounded-lg px-3 text-sm font-bold uppercase tracking-wider text-accent transition-opacity hover:opacity-75"
         >
           Today
         </button>

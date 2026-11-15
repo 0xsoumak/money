@@ -1,5 +1,6 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { motion } from "motion/react";
+import { tween } from "./motion";
 import { Button } from "./ui";
 
 /** A broken-link glyph: something came apart, nothing was lost. */
@@ -31,15 +32,10 @@ export function ErrorScreen({ error, reset }: ErrorComponentProps) {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 260, damping: 24 }}
+        transition={tween.base}
         className="flex max-w-md flex-col items-center gap-4 text-center"
       >
-        <motion.div
-          initial={{ rotate: -12, scale: 0.8 }}
-          animate={{ rotate: 0, scale: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 12, delay: 0.1 }}
-          className="mb-2 flex size-20 items-center justify-center rounded-2xl border-2 border-danger/40 bg-danger/10 text-danger"
-        >
+        <motion.div className="mb-2 flex size-20 items-center justify-center rounded-2xl border-2 border-danger/40 bg-danger/10 text-danger">
           <BrokenIcon />
         </motion.div>
         <p className="text-sm font-bold uppercase tracking-[0.12em] text-danger">Something broke</p>

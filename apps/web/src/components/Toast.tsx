@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { tween } from "./motion";
 
 interface ToastItem {
   id: number;
@@ -59,11 +60,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <motion.div
               key={t.id}
               layout
-              initial={{ opacity: 0, y: 24, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
-              transition={{ type: "spring", stiffness: 500, damping: 28 }}
-              className={`pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-lg border-2 bg-surface px-4 py-3 text-[15px] font-semibold ${
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.12 } }}
+              // Flick sideways to dismiss (touch or mouse).
+              drag="x"
+              dragSnapToOrigin
+              dragElastic={0.6}
+              onDragEnd={(_e, info) => {
+                if (Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 600) dismiss(t.id);
+              }}
+              transition={tween.base}
+              className={`pointer-events-auto flex w-full cursor-grab touch-pan-y active:cursor-grabbing max-w-md items-center gap-3 rounded-lg border-2 bg-surface px-4 py-3 text-[15px] font-semibold ${
                 t.tone === "error" ? "border-danger text-danger" : "border-line-strong"
               }`}
             >
@@ -75,7 +83,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     t.action?.onClick();
                     dismiss(t.id);
                   }}
-                  className="min-h-11 shrink-0 cursor-pointer rounded-md px-3 text-sm font-bold uppercase tracking-wider text-accent"
+                  className="min-h-11 shrink-0 cursor-pointer rounded-md px-3 text-sm font-bold uppercase tracking-wider text-accent transition-opacity hover:opacity-75"
                 >
                   {t.action.label}
                 </button>

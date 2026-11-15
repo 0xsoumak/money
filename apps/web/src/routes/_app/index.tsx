@@ -157,11 +157,11 @@ function Overview() {
           />
         ) : (
           <>
-            <Reveal i={0}>
+            <Reveal>
               <StatStrip stats={stats} />
             </Reveal>
 
-            <Reveal i={1}>
+            <Reveal>
               <ShareBar
                 items={expenses}
                 categories={categories}
@@ -173,7 +173,7 @@ function Overview() {
               />
             </Reveal>
 
-            <Reveal i={2} className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
+            <Reveal className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
               <section>
                 <SectionHeader title="Day by day" />
                 <div className="mt-5">

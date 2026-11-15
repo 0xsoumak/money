@@ -103,7 +103,7 @@ export function BudgetRow({
     <button
       type="button"
       onClick={onClick}
-      className="block w-full cursor-pointer border-b border-line py-3.5 text-left"
+      className="block w-full cursor-pointer border-b border-line py-3.5 text-left transition-colors duration-150 hover:bg-surface/50"
     >
       {body}
     </button>

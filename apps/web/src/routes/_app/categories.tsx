@@ -104,7 +104,7 @@ function CategoriesPage() {
                     <button
                       type="button"
                       onClick={() => setEditing({ mode: "new", kind })}
-                      className="-my-3 flex min-h-11 cursor-pointer items-center gap-1 text-sm font-bold uppercase tracking-wider text-accent"
+                      className="-my-3 flex min-h-11 cursor-pointer items-center gap-1 text-sm font-bold uppercase tracking-wider text-accent transition-opacity hover:opacity-75"
                     >
                       <PlusIcon size={16} />
                       Add
@@ -189,7 +189,7 @@ function CategoryRow({
       <button
         type="button"
         onClick={onEdit}
-        className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+        className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left transition-opacity hover:opacity-80"
         aria-label={`Edit ${category.name}`}
       >
         <Swatch category={category} />

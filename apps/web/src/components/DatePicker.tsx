@@ -3,6 +3,7 @@ import { addMonths, daysInMonth, monthTitle, today } from "@money/shared";
 import { motion } from "motion/react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
+import { tween } from "./motion";
 import { cx, fieldClass } from "./ui";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -180,7 +181,7 @@ export function DatePicker({
               onKeyDown={onKeyDown}
               initial={dir ? { x: dir * 16, opacity: 0 } : false}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 36 }}
+              transition={tween.base}
               className="grid grid-cols-7 gap-0.5"
             >
               {cells.map((date, i) =>
@@ -223,7 +224,7 @@ export function DatePicker({
               <button
                 type="button"
                 onClick={() => pick(now)}
-                className="min-h-11 cursor-pointer rounded-lg px-3 text-sm font-bold uppercase tracking-wider text-accent"
+                className="min-h-11 cursor-pointer rounded-lg px-3 text-sm font-bold uppercase tracking-wider text-accent transition-opacity hover:opacity-75"
               >
                 Today
               </button>

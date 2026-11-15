@@ -59,7 +59,7 @@ function BudgetsPage() {
           <button
             type="button"
             onClick={() => setTarget({ key: "overall", title: "Overall", current: overall, spent })}
-            className="block w-full cursor-pointer border-b border-line py-5 text-left"
+            className="block w-full cursor-pointer border-b border-line py-5 text-left transition-colors duration-150 hover:bg-surface/50"
             aria-label={`Edit overall budget, ${money(overall)}`}
           >
             <Label>{overallProgress.over > 0 ? "Over budget by" : "Left to spend"}</Label>

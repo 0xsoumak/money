@@ -11,7 +11,7 @@ import {
   SlidersIcon,
   TrendIcon,
 } from "../components/icons";
-import { spring } from "../components/motion";
+import { tween } from "../components/motion";
 import { QuickAddProvider, useQuickAdd } from "../components/QuickAdd";
 import { Button } from "../components/ui";
 import { categoriesQuery, sessionQuery, settingsQuery } from "../lib/queries";
@@ -74,7 +74,7 @@ function Shell() {
                     {isActive && (
                       <motion.span
                         layoutId="nav-pill"
-                        transition={spring.snappy}
+                        transition={tween.base}
                         className="absolute inset-0 rounded-lg bg-ink"
                       />
                     )}
@@ -85,7 +85,7 @@ function Shell() {
             ))}
           </nav>
           <Button onClick={() => openNew()} className="group ml-auto sm:ml-0">
-            <span className="transition-transform duration-300 ease-[cubic-bezier(.34,1.56,.64,1)] group-hover:rotate-90">
+            <span className="transition-transform duration-200 ease-[cubic-bezier(.2,0,0,1)] group-hover:rotate-90">
               <PlusIcon size={20} />
             </span>
             Add
@@ -114,10 +114,7 @@ function Shell() {
           >
             {({ isActive }) => (
               <>
-                <motion.span
-                  animate={isActive ? { y: [0, -4, 0], scale: [1, 1.15, 1] } : { y: 0, scale: 1 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                >
+                <motion.span animate={{ y: isActive ? -1 : 0 }} transition={tween.base}>
                   <Icon />
                 </motion.span>
                 {tab}
