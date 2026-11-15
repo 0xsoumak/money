@@ -23,14 +23,13 @@ export default function Settings() {
   const update = useUpdateSettings();
   const { signOut } = useSession();
   const lock = useAppLock();
-  const [lockBusy, setLockBusy] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
 
-  const toggleLock = async (on: boolean) => {
-    setLockBusy(true);
-    const result = await lock.setEnabled(on);
-    setLockBusy(false);
-    if (result.ok) toast.show(on ? "App lock on" : "App lock off");
-    else if (result.message !== "Cancelled.") toast.show(result.message, { tone: "error" });
+  const toggleBiometrics = async (on: boolean) => {
+    setBioBusy(true);
+    const result = await lock.setBiometricsEnabled(on);
+    setBioBusy(false);
+    if (result.ok) toast.show(on ? "Fingerprint unlock on" : "Fingerprint unlock off");
   };
 
   const save = (patch: Parameters<typeof update.mutate>[0]) =>
@@ -110,20 +109,55 @@ export default function Settings() {
             <View style={{ flex: 1 }}>
               <T variant="body">App lock</T>
               <T variant="small" color={c.textMuted}>
-                Ask for your fingerprint or phone PIN to open the app.
+                Ask for a 6-digit PIN to open the app.
               </T>
             </View>
-            <Switch
-              accessibilityLabel="App lock"
+            <Toggle
+              label="App lock"
               value={lock.enabled}
-              disabled={lockBusy}
-              onValueChange={(on) => void toggleLock(on)}
-              trackColor={{ false: c.surfaceStrong, true: c.accent }}
-              thumbColor={lock.enabled ? c.onAccent : c.textMuted}
+              // Both directions go through the PIN screen: choose one, or prove you know it.
+              onChange={(on) =>
+                router.push({ pathname: "/pin", params: { mode: on ? "setup" : "disable" } })
+              }
             />
           </View>
           {lock.enabled ? (
             <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: "/pin", params: { mode: "change" } })}
+                style={({ pressed }) => ({
+                  minHeight: 56,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                <T variant="body">Change PIN</T>
+                <Feather name="chevron-right" size={22} color={c.textMuted} />
+              </Pressable>
+              {lock.biometricsAvailable ? (
+                <View
+                  style={{
+                    minHeight: 56,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <T variant="body" style={{ flex: 1 }}>
+                    Unlock with fingerprint
+                  </T>
+                  <Toggle
+                    label="Unlock with fingerprint"
+                    value={lock.biometricsEnabled}
+                    disabled={bioBusy}
+                    onChange={(on) => void toggleBiometrics(on)}
+                  />
+                </View>
+              ) : null}
               <Label>Lock again</Label>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {LOCK_DELAYS.map((d) => (
@@ -185,5 +219,28 @@ function Choice({
         {label}
       </T>
     </Pressable>
+  );
+}
+
+function Toggle({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <Switch
+      accessibilityLabel={label}
+      value={value}
+      disabled={disabled}
+      onValueChange={onChange}
+      trackColor={{ false: c.surfaceStrong, true: c.accent }}
+      thumbColor={value ? c.onAccent : c.textMuted}
+    />
   );
 }

@@ -83,6 +83,10 @@ function Navigator({ ready }: { ready: boolean }) {
           name="budget"
           options={{ presentation: "modal", animation: "slide_from_bottom" }}
         />
+        <Stack.Screen
+          name="pin"
+          options={{ presentation: "modal", animation: "slide_from_bottom" }}
+        />
         <Stack.Screen name="categories" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="investments" options={{ animation: "slide_from_right" }} />
         <Stack.Screen

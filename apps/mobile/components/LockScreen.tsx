@@ -1,98 +1,148 @@
-import { Feather } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { AppState, StyleSheet, View } from "react-native";
+import { Alert, AppState, Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppLock } from "../lib/appLock";
 import { warn } from "../lib/haptics";
 import { useSession } from "../lib/session";
-import { c, radius } from "../lib/theme";
+import { c } from "../lib/theme";
 import { duration } from "./motion";
+import { PinPad } from "./PinPad";
 import { T } from "./T";
-import { Button } from "./ui";
 
 /**
- * Covers the whole app while it is locked. Asks for the fingerprint as soon as it shows
- * (and whenever the app comes back to the front), with a button to try again.
+ * Covers the whole app while it is locked. Offers the fingerprint first when allowed,
+ * with the PIN pad underneath. "Forgot PIN?" signs out; the password gets you back in.
  */
 export function LockScreen() {
-  const { locked, unlock } = useAppLock();
-  const { signedIn } = useSession();
+  const lock = useAppLock();
+  const { signedIn, signOut } = useSession();
   const insets = useSafeAreaInsets();
+  const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
+  const [shake, setShake] = useState(0);
+  const now = useNow(lock.lockedUntil);
   const asked = useRef(false);
 
-  const show = locked && signedIn;
+  const show = lock.locked && signedIn;
+  const waiting = lock.lockedUntil !== null && lock.lockedUntil > now;
+  const bio = lock.biometricsEnabled;
+  const { unlockWithBiometrics } = lock;
 
-  const tryUnlock = async () => {
-    setMessage("");
-    const result = await unlock();
-    if (!result.ok && result.message) {
-      warn();
-      setMessage(result.message);
-    }
-  };
-
-  // Prompt once when the lock appears, and again each time the app returns while locked.
+  // Offer the fingerprint as soon as the lock shows, and each time the app returns locked.
   useEffect(() => {
     if (!show) {
       asked.current = false;
+      setPin("");
+      setMessage("");
       return;
     }
+    if (!bio) return;
     if (!asked.current && AppState.currentState === "active") {
       asked.current = true;
-      void tryUnlock();
+      void unlockWithBiometrics();
     }
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void tryUnlock();
+      if (state === "active") void unlockWithBiometrics();
     });
     return () => sub.remove();
-  }, [show]);
+  }, [show, bio, unlockWithBiometrics]);
 
   if (!show) return null;
+
+  const submit = async (entered: string) => {
+    const result = await lock.checkPin(entered);
+    if (result.ok) return;
+    warn();
+    setShake((n) => n + 1);
+    setMessage(result.message);
+    setPin("");
+  };
+
+  const forgot = () =>
+    Alert.alert(
+      "Forgot your PIN?",
+      "Sign out to reset it. You'll need your email and password to sign back in. Your data stays safe on the server.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign out",
+          style: "destructive",
+          onPress: () => void lock.disable().then(signOut),
+        },
+      ],
+    );
 
   return (
     <Animated.View
       exiting={FadeOut.duration(duration.base)}
+      accessibilityViewIsModal
       style={[
         StyleSheet.absoluteFill,
         {
           backgroundColor: c.bg,
-          paddingTop: insets.top + 24,
-          paddingBottom: insets.bottom + 24,
+          paddingTop: insets.top + 40,
+          paddingBottom: insets.bottom + 16,
           paddingHorizontal: 24,
+          alignItems: "center",
           justifyContent: "space-between",
         },
       ]}
-      accessibilityViewIsModal
     >
-      <View />
-      <View style={{ alignItems: "center", gap: 16 }}>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: radius.xl,
-            backgroundColor: c.accent,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+      <View style={{ alignItems: "center", gap: 8 }}>
+        <T variant="title" size={28} accessibilityRole="header">
+          Enter PIN
+        </T>
+        <T
+          variant="small"
+          color={message || waiting ? c.danger : c.textMuted}
+          accessibilityLiveRegion="polite"
+          style={{ minHeight: 20 }}
         >
-          <Feather name="lock" size={30} color={c.onAccent} />
-        </View>
-        <T variant="title" size={32} accessibilityRole="header">
-          Money is locked
+          {waiting
+            ? `Too many tries. Try again in ${Math.ceil(((lock.lockedUntil ?? now) - now) / 1000)}s.`
+            : message || "to open Money"}
         </T>
-        <T variant="body" color={c.textMuted} style={{ textAlign: "center", fontWeight: "400" }}>
-          Use your fingerprint or phone PIN to open it.
-        </T>
-        {message ? (
-          <T variant="small" color={c.danger} accessibilityLiveRegion="polite">
-            {message}
-          </T>
-        ) : null}
       </View>
-      <Button title="Unlock" onPress={() => void tryUnlock()} />
+
+      <PinPad
+        value={pin}
+        onChange={(next) => {
+          setMessage("");
+          setPin(next);
+        }}
+        onComplete={(entered) => void submit(entered)}
+        shake={shake}
+        disabled={waiting}
+        onBiometrics={bio ? () => void unlockWithBiometrics() : undefined}
+      />
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={forgot}
+        hitSlop={8}
+        style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 12 }}
+      >
+        <T variant="label" size={13} color={c.textMuted}>
+          Forgot PIN?
+        </T>
+      </Pressable>
     </Animated.View>
   );
+}
+
+/** The current time, ticking each second while a wait is running. */
+function useNow(until: number | null): number {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!until || until <= Date.now()) return;
+    setNow(Date.now());
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= until) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [until]);
+  return now;
 }
