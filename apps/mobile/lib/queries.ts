@@ -171,6 +171,35 @@ export function useUpdateCategory() {
   });
 }
 
+/**
+ * Saves a new order for some categories (usually one kind). Applied to the cache at once
+ * so the list doesn't jump back while the request is in flight; rolled back if it fails.
+ */
+export function useReorderCategories() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => unwrap(await api.categories.order.$put({ json: { ids } })),
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: ["categories"] });
+      const previous = qc.getQueryData<Category[]>(["categories"]);
+      const position = new Map(ids.map((id, i) => [id, i]));
+      qc.setQueryData<Category[]>(["categories"], (list) =>
+        list
+          ?.map((x) => (position.has(x.id) ? { ...x, sortOrder: position.get(x.id) ?? 0 } : x))
+          .sort(
+            (a, b) =>
+              a.kind.localeCompare(b.kind) ||
+              a.sortOrder - b.sortOrder ||
+              a.name.localeCompare(b.name),
+          ),
+      );
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => qc.setQueryData(["categories"], ctx?.previous),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["categories"] }),
+  });
+}
+
 // Budgets arrive inside the summary, so that is what a change refreshes.
 export function useSetBudget() {
   const qc = useQueryClient();

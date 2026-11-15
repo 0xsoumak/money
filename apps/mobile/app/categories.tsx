@@ -1,13 +1,22 @@
 import { Feather } from "@expo/vector-icons";
-import { TRANSACTION_TYPES, TYPE_PLURAL } from "@money/shared";
+import { moveItem, TRANSACTION_TYPES, TYPE_PLURAL } from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import Animated, { LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { duration, ease } from "../components/motion";
 import { T } from "../components/T";
 import { useToast } from "../components/Toast";
 import { Button, EmptyState, IconButton, SectionHeader } from "../components/ui";
-import { type Category, categoriesQuery, useUpdateCategory } from "../lib/queries";
+import { tap } from "../lib/haptics";
+import {
+  type Category,
+  categoriesQuery,
+  useReorderCategories,
+  useUpdateCategory,
+} from "../lib/queries";
 import { c, cat } from "../lib/theme";
 
 export default function Categories() {
@@ -15,7 +24,18 @@ export default function Categories() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const update = useUpdateCategory();
+  const reorder = useReorderCategories();
   const { data: categories = [], isPending } = useQuery(categoriesQuery);
+  const [reordering, setReordering] = useState(false);
+
+  /** Moves a category one step within its kind and saves the new order straight away. */
+  const move = (list: Category[], x: Category, by: -1 | 1) => {
+    tap();
+    const ids = list.map((y) => y.id);
+    reorder.mutate(moveItem(ids, x.id, by), {
+      onError: (err) => toast.show(`Couldn't save the order: ${err.message}`, { tone: "error" }),
+    });
+  };
 
   const active = categories.filter((x) => !x.archivedAt);
   const archived = categories.filter((x) => x.archivedAt);
@@ -45,10 +65,16 @@ export default function Categories() {
         gap: 28,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <IconButton label="Back" bordered onPress={() => router.back()}>
           <Feather name="arrow-left" size={20} color={c.text} />
         </IconButton>
+        <Button
+          title={reordering ? "Done" : "Reorder"}
+          variant={reordering ? "primary" : "outline"}
+          height={44}
+          onPress={() => setReordering((v) => !v)}
+        />
       </View>
       <T variant="title" size={44} accessibilityRole="header">
         Categories
@@ -63,25 +89,28 @@ export default function Categories() {
                 <SectionHeader
                   title={TYPE_PLURAL[kind]}
                   right={
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={10}
-                      onPress={() => router.push({ pathname: "/category", params: { kind } })}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-                    >
-                      <Feather name="plus" size={16} color={c.accent} />
-                      <T variant="label" size={13} color={c.accent}>
-                        Add
-                      </T>
-                    </Pressable>
+                    reordering ? undefined : (
+                      <Pressable
+                        accessibilityRole="button"
+                        hitSlop={10}
+                        onPress={() => router.push({ pathname: "/category", params: { kind } })}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                      >
+                        <Feather name="plus" size={16} color={c.accent} />
+                        <T variant="label" size={13} color={c.accent}>
+                          Add
+                        </T>
+                      </Pressable>
+                    )
                   }
                 />
                 {list.length === 0 ? (
                   <EmptyState title={`No ${kind} categories`} />
                 ) : (
-                  list.map((x) => (
-                    <View
+                  list.map((x, i) => (
+                    <Animated.View
                       key={x.id}
+                      layout={LinearTransition.duration(duration.base).easing(ease)}
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
@@ -93,6 +122,7 @@ export default function Categories() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Edit ${x.name}`}
+                        disabled={reordering}
                         onPress={() => router.push({ pathname: "/category", params: { id: x.id } })}
                         style={{
                           flex: 1,
@@ -120,20 +150,37 @@ export default function Categories() {
                           {x.name}
                         </T>
                       </Pressable>
-                      <Button
-                        title="Archive"
-                        variant="ghost"
-                        height={44}
-                        onPress={() => setArchived(x, true)}
-                      />
-                    </View>
+                      {reordering ? (
+                        <View style={{ flexDirection: "row" }}>
+                          <MoveButton
+                            label={`Move ${x.name} up`}
+                            icon="arrow-up"
+                            disabled={i === 0}
+                            onPress={() => move(list, x, -1)}
+                          />
+                          <MoveButton
+                            label={`Move ${x.name} down`}
+                            icon="arrow-down"
+                            disabled={i === list.length - 1}
+                            onPress={() => move(list, x, 1)}
+                          />
+                        </View>
+                      ) : (
+                        <Button
+                          title="Archive"
+                          variant="ghost"
+                          height={44}
+                          onPress={() => setArchived(x, true)}
+                        />
+                      )}
+                    </Animated.View>
                   ))
                 )}
               </View>
             );
           })}
 
-      {archived.length > 0 && (
+      {archived.length > 0 && !reordering && (
         <View>
           <SectionHeader title="Archived" />
           <T variant="small" color={c.textMuted} style={{ marginVertical: 8 }}>
@@ -179,5 +226,25 @@ export default function Categories() {
         </View>
       )}
     </ScrollView>
+  );
+}
+
+function MoveButton({
+  label,
+  icon,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  icon: "arrow-up" | "arrow-down";
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View style={{ opacity: disabled ? 0.25 : 1 }} pointerEvents={disabled ? "none" : "auto"}>
+      <IconButton label={label} onPress={onPress}>
+        <Feather name={icon} size={20} color={c.text} />
+      </IconButton>
+    </View>
   );
 }

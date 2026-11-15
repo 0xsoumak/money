@@ -77,6 +77,31 @@ describe("categories", () => {
     expect(pinned.sortOrder).toBe(0);
   });
 
+  it("reorders categories", async () => {
+    const list = async () =>
+      ((await (await api("/api/categories")).json<Json>()).categories as Json[])
+        .filter((c) => c.kind === "investment")
+        .map((c) => c.id);
+    const before = await list();
+    expect(before[0]).toBe(MF);
+    const reversed = [...before].reverse();
+
+    const res = await api("/api/categories/order", { method: "PUT", json: { ids: reversed } });
+    expect(res.status).toBe(200);
+    expect(await list()).toEqual(reversed);
+
+    // Put it back so later tests see the seeded order.
+    await api("/api/categories/order", { method: "PUT", json: { ids: before } });
+    expect(await list()).toEqual(before);
+  });
+
+  it("rejects a reorder with duplicates or bad ids", async () => {
+    for (const ids of [[MF, MF], ["nope"], []]) {
+      const res = await api("/api/categories/order", { method: "PUT", json: { ids } });
+      expect(res.status).toBe(400);
+    }
+  });
+
   it("validates input", async () => {
     const res = await api("/api/categories", {
       method: "POST",

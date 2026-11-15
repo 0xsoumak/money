@@ -51,6 +51,16 @@ export const categoryUpdateSchema = categoryCreateSchema
   .refine((v) => Object.keys(v).length > 0, "Nothing to update");
 export type CategoryUpdate = z.infer<typeof categoryUpdateSchema>;
 
+/** A new order for categories: the ids, first to last. Each id's position becomes its sortOrder. */
+export const categoryOrderSchema = z.object({
+  ids: z
+    .array(idSchema)
+    .min(1)
+    .max(500)
+    .refine((ids) => new Set(ids).size === ids.length, "Duplicate ids"),
+});
+export type CategoryOrder = z.infer<typeof categoryOrderSchema>;
+
 // ── Transactions ────────────────────────────────────────────────────────────
 
 export const transactionInputSchema = z.object({

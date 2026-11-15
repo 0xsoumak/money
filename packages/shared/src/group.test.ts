@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, groupByDay, monthTitle } from "./group";
+import { dayLabel, groupByDay, monthTitle, moveItem } from "./group";
 
 const tx = (
   date: string,
@@ -45,5 +45,18 @@ describe("groupByDay", () => {
 describe("monthTitle", () => {
   it("formats a month", () => {
     expect(monthTitle("2026-11")).toBe("November 2026");
+  });
+});
+
+describe("moveItem", () => {
+  it("moves an item one step either way", () => {
+    expect(moveItem(["a", "b", "c"], "b", -1)).toEqual(["b", "a", "c"]);
+    expect(moveItem(["a", "b", "c"], "b", 1)).toEqual(["a", "c", "b"]);
+  });
+
+  it("leaves the list alone at the ends or for a missing item", () => {
+    expect(moveItem(["a", "b"], "a", -1)).toEqual(["a", "b"]);
+    expect(moveItem(["a", "b"], "b", 1)).toEqual(["a", "b"]);
+    expect(moveItem(["a", "b"], "z", 1)).toEqual(["a", "b"]);
   });
 });

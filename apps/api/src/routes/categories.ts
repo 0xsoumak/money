@@ -1,4 +1,10 @@
-import { categoryCreateSchema, categoryUpdateSchema, idSchema, newId } from "@money/shared";
+import {
+  categoryCreateSchema,
+  categoryOrderSchema,
+  categoryUpdateSchema,
+  idSchema,
+  newId,
+} from "@money/shared";
 import { asc, eq, max } from "drizzle-orm";
 import { Hono } from "hono";
 import { categories } from "../db/schema";
@@ -33,6 +39,23 @@ export const categoriesRoute = new Hono<AppEnv>()
       .values({ id: newId(), ...input, sortOrder })
       .returning();
     return c.json({ category: row }, 201);
+  })
+
+  /** Reorders categories: each id's position in the list becomes its sortOrder. */
+  .put("/order", validate("json", categoryOrderSchema), async (c) => {
+    const { ids } = c.req.valid("json");
+    const db = c.get("db");
+    const now = new Date();
+    const updates = ids.map((id, i) =>
+      db.update(categories).set({ sortOrder: i, updatedAt: now }).where(eq(categories.id, id)),
+    );
+    // One batch, so the order is never left half-applied. The schema guarantees at least one id.
+    await db.batch(updates as [(typeof updates)[number], ...typeof updates]);
+    const rows = await db
+      .select()
+      .from(categories)
+      .orderBy(asc(categories.kind), asc(categories.sortOrder), asc(categories.name));
+    return c.json({ categories: rows });
   })
 
   .patch(

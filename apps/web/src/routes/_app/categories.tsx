@@ -2,14 +2,17 @@ import { Dialog } from "@base-ui/react/dialog";
 import {
   CATEGORY_COLORS,
   type CategoryColor,
+  moveItem,
   TRANSACTION_TYPES,
   type TransactionType,
   TYPE_PLURAL,
 } from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { type FormEvent, useState } from "react";
-import { CloseIcon, PlusIcon } from "../../components/icons";
+import { Reorder, useDragControls } from "motion/react";
+import { type FormEvent, type KeyboardEvent, useState } from "react";
+import { CloseIcon, GripIcon, PlusIcon } from "../../components/icons";
+import { tween } from "../../components/motion";
 import { useToast } from "../../components/Toast";
 import {
   Button,
@@ -24,6 +27,7 @@ import {
   type Category,
   categoriesQuery,
   useCreateCategory,
+  useReorderCategories,
   useUpdateCategory,
 } from "../../lib/queries";
 
@@ -114,16 +118,11 @@ function CategoriesPage() {
                 {list.length === 0 ? (
                   <EmptyState title={`No ${kind} categories`} />
                 ) : (
-                  <ul>
-                    {list.map((c) => (
-                      <CategoryRow
-                        key={c.id}
-                        category={c}
-                        onEdit={() => setEditing({ mode: "edit", category: c })}
-                        onArchive={() => setArchived(c, true)}
-                      />
-                    ))}
-                  </ul>
+                  <SortableList
+                    list={list}
+                    onEdit={(c) => setEditing({ mode: "edit", category: c })}
+                    onArchive={(c) => setArchived(c, true)}
+                  />
                 )}
               </section>
             );
@@ -175,17 +174,106 @@ function Swatch({ category }: { category: Pick<Category, "emoji" | "color"> }) {
   );
 }
 
-function CategoryRow({
-  category,
+/**
+ * One kind's categories, in their saved order. Drag a row by its handle to move it, or focus
+ * the handle and use the arrow keys. The new order is saved when you let go.
+ */
+function SortableList({
+  list,
   onEdit,
   onArchive,
 }: {
+  list: Category[];
+  onEdit: (c: Category) => void;
+  onArchive: (c: Category) => void;
+}) {
+  const reorder = useReorderCategories();
+  const toast = useToast();
+  const byId = new Map(list.map((c) => [c.id, c]));
+  const saved = list.map((c) => c.id);
+  // While dragging, the order lives here; otherwise it follows the server's.
+  const [draft, setDraft] = useState<string[] | null>(null);
+  const ids = (draft ?? saved).filter((id) => byId.has(id));
+
+  const commit = (next: string[]) => {
+    setDraft(null);
+    if (next.join() === saved.join()) return;
+    reorder.mutate(next, {
+      onError: (err) => toast.show(`Couldn't save the order: ${err.message}`, { tone: "error" }),
+    });
+  };
+
+  const move = (id: string, by: -1 | 1) => commit(moveItem(ids, id, by));
+
+  return (
+    <Reorder.Group as="ul" axis="y" values={ids} onReorder={setDraft}>
+      {ids.map((id, i) => {
+        const c = byId.get(id);
+        return c ? (
+          <CategoryRow
+            key={id}
+            category={c}
+            position={i + 1}
+            count={ids.length}
+            onEdit={() => onEdit(c)}
+            onArchive={() => onArchive(c)}
+            onDrop={() => commit(ids)}
+            onMove={(by) => move(id, by)}
+          />
+        ) : null;
+      })}
+    </Reorder.Group>
+  );
+}
+
+function CategoryRow({
+  category,
+  position,
+  count,
+  onEdit,
+  onArchive,
+  onDrop,
+  onMove,
+}: {
   category: Category;
+  position: number;
+  count: number;
   onEdit: () => void;
   onArchive: () => void;
+  onDrop: () => void;
+  onMove: (by: -1 | 1) => void;
 }) {
+  const controls = useDragControls();
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      onMove(e.key === "ArrowUp" ? -1 : 1);
+    }
+  };
   return (
-    <li className="flex items-center gap-3 border-b border-line py-2">
+    <Reorder.Item
+      value={category.id}
+      dragListener={false}
+      dragControls={controls}
+      onDragEnd={onDrop}
+      layout="position"
+      transition={tween.base}
+      // The lifted row tints and grows a touch, so it reads as "picked up".
+      whileDrag={{ scale: 1.015, backgroundColor: "var(--surface)", zIndex: 10 }}
+      className="group relative flex items-center gap-1 border-b border-line bg-bg py-2"
+    >
+      <button
+        type="button"
+        aria-label={`Move ${category.name}, ${position} of ${count}. Use the arrow keys to move it.`}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          controls.start(e);
+        }}
+        onKeyDown={onKeyDown}
+        className="-ml-2 flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-faint transition-colors hover:text-ink focus-visible:text-ink active:cursor-grabbing"
+      >
+        <GripIcon />
+      </button>
       <button
         type="button"
         onClick={onEdit}
@@ -198,7 +286,7 @@ function CategoryRow({
       <Button variant="ghost" className="min-h-11" onClick={onArchive}>
         Archive
       </Button>
-    </li>
+    </Reorder.Item>
   );
 }
 

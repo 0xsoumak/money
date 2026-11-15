@@ -53,3 +53,16 @@ export function monthTitle(month: string): string {
     new Date(`${month}-01T00:00:00Z`),
   );
 }
+
+/**
+ * Moves `item` one step up (-1) or down (+1) in `list`, returning a new list.
+ * At either end, or if `item` isn't there, the list comes back unchanged.
+ */
+export function moveItem<T>(list: readonly T[], item: T, by: -1 | 1): T[] {
+  const from = list.indexOf(item);
+  const to = from + by;
+  if (from < 0 || to < 0 || to >= list.length) return [...list];
+  const next = list.filter((_, i) => i !== from);
+  next.splice(to, 0, item);
+  return next;
+}
