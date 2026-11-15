@@ -3,15 +3,15 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Switch, View } from "react-native";
-import { Screen } from "../../components/Screen";
-import { Label, T } from "../../components/T";
-import { useToast } from "../../components/Toast";
-import { Button, SectionHeader } from "../../components/ui";
-import { LOCK_DELAYS, useAppLock } from "../../lib/appLock";
-import { API_URL } from "../../lib/config";
-import { tap } from "../../lib/haptics";
-import { useSession } from "../../lib/session";
-import { c, radius } from "../../lib/theme";
+import { Screen } from "../components/Screen";
+import { Label, T } from "../components/T";
+import { useToast } from "../components/Toast";
+import { Button, IconButton, SectionHeader } from "../components/ui";
+import { LOCK_DELAYS, useAppLock } from "../lib/appLock";
+import { API_URL } from "../lib/config";
+import { tap } from "../lib/haptics";
+import { useSession } from "../lib/session";
+import { c, radius } from "../lib/theme";
 
 export default function Settings() {
   const router = useRouter();
@@ -28,10 +28,15 @@ export default function Settings() {
   };
 
   return (
-    <Screen>
-      <T variant="title" size={44} accessibilityRole="header">
-        Settings
-      </T>
+    <Screen bottomSpace={48}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+        <IconButton label="Back" bordered onPress={() => router.back()}>
+          <Feather name="arrow-left" size={20} color={c.text} />
+        </IconButton>
+        <T variant="title" size={36} accessibilityRole="header">
+          Settings
+        </T>
+      </View>
 
       <View style={{ gap: 14 }}>
         <SectionHeader title="Categories" />

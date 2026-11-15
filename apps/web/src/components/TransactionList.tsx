@@ -1,4 +1,4 @@
-import { groupByDay } from "@money/shared";
+import { groupByDay, signedAmount } from "@money/shared";
 import { AnimatePresence, motion } from "motion/react";
 import { useMoney } from "../lib/hooks";
 import type { Category, Tx } from "../lib/queries";
@@ -6,6 +6,8 @@ import { TrashIcon } from "./icons";
 import { tween } from "./motion";
 import { useQuickAdd } from "./QuickAdd";
 import { IconButton, SectionHeader } from "./ui";
+
+const toneClass = { success: "text-success", danger: "text-danger", ink: "" } as const;
 
 interface Props {
   transactions: Tx[];
@@ -37,6 +39,7 @@ export function TransactionList({ transactions, categories, onDelete }: Props) {
               {g.items.map((tx) => {
                 const cat = byId.get(tx.categoryId);
                 const title = tx.note || cat?.name || "Transaction";
+                const signed = signedAmount(tx.type);
                 return (
                   <motion.li
                     key={tx.id}
@@ -51,7 +54,7 @@ export function TransactionList({ transactions, categories, onDelete }: Props) {
                       type="button"
                       onClick={() => openEdit(tx)}
                       className="flex min-h-[4.25rem] min-w-0 flex-1 cursor-pointer items-center gap-3.5 py-2 text-left"
-                      aria-label={`Edit ${title}, ${money(tx.amount)}`}
+                      aria-label={`Edit ${title}, ${signed.verb} ${money(tx.amount)}`}
                     >
                       <span
                         aria-hidden="true"
@@ -64,8 +67,8 @@ export function TransactionList({ transactions, categories, onDelete }: Props) {
                           {cat ? `${cat.emoji} ${cat.name}` : "Unknown category"}
                         </span>
                       </span>
-                      <span className="shrink-0 text-xl font-bold">
-                        {tx.type === "income" ? "+" : ""}
+                      <span className={`shrink-0 text-xl font-bold ${toneClass[signed.tone]}`}>
+                        {signed.sign}
                         {money(tx.amount)}
                       </span>
                     </button>

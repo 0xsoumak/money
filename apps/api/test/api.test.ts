@@ -262,6 +262,35 @@ describe("summary trend", () => {
   });
 });
 
+describe("analytics", () => {
+  it("returns 13 months of live rows, oldest first", async () => {
+    const put = (body: Json) => api(`/api/transactions/${newId()}`, { method: "PUT", json: body });
+    await put(expense({ date: "2018-12-31", amount: 111 })); // one day before the window
+    await put(expense({ date: "2019-01-01", amount: 222, note: "First" }));
+    await put({ type: "income", amount: 9000, categoryId: SALARY, date: "2019-06-01" });
+    await put(expense({ date: "2020-01-31", amount: 333 }));
+    await put(expense({ date: "2020-02-01", amount: 444 })); // after the window
+    const deleted = newId();
+    await api(`/api/transactions/${deleted}`, {
+      method: "PUT",
+      json: expense({ date: "2019-05-05", amount: 999 }),
+    });
+    await api(`/api/transactions/${deleted}`, { method: "DELETE" });
+
+    const body = await (await api("/api/analytics?month=2020-01")).json<Json>();
+    expect(body).toMatchObject({ from: "2019-01", to: "2020-01" });
+    expect(body.rows).toEqual([
+      { date: "2019-01-01", type: "expense", categoryId: FOOD, amount: 222, note: "First" },
+      { date: "2019-06-01", type: "income", categoryId: SALARY, amount: 9000, note: null },
+      { date: "2020-01-31", type: "expense", categoryId: FOOD, amount: 333, note: "Lunch" },
+    ]);
+  });
+
+  it("rejects a bad month", async () => {
+    expect((await api("/api/analytics?month=2020-13")).status).toBe(400);
+  });
+});
+
 describe("investments", () => {
   const put = (body: Json) => api(`/api/transactions/${newId()}`, { method: "PUT", json: body });
   const invest = (categoryId: string, amount: number, date: string) =>

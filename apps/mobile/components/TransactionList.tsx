@@ -1,4 +1,4 @@
-import { groupByDay } from "@money/shared";
+import { groupByDay, signedAmount } from "@money/shared";
 import { Pressable, View } from "react-native";
 import Animated, {
   FadeIn,
@@ -13,6 +13,8 @@ import { duration, ease } from "./motion";
 import { SwipeRow } from "./SwipeRow";
 import { T } from "./T";
 import { SectionHeader } from "./ui";
+
+const toneColor = { success: c.success, danger: c.danger, ink: c.text } as const;
 
 /**
  * Transactions grouped by day, newest first.
@@ -52,6 +54,7 @@ export function TransactionList({
             {g.items.map((tx) => {
               const category = byId.get(tx.categoryId);
               const title = tx.note || category?.name || "Transaction";
+              const signed = signedAmount(tx.type);
               return (
                 <Animated.View
                   key={tx.id}
@@ -63,7 +66,7 @@ export function TransactionList({
                   <SwipeRow onEdit={() => onEdit(tx)} onDelete={() => onDelete(tx)}>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Edit ${title}, ${money(tx.amount)}`}
+                      accessibilityLabel={`Edit ${title}, ${signed.verb} ${money(tx.amount)}`}
                       accessibilityHint="Swipe left to delete"
                       accessibilityActions={[{ name: "delete", label: "Delete" }]}
                       onAccessibilityAction={(e) => {
@@ -95,8 +98,8 @@ export function TransactionList({
                           {category ? `${category.emoji} ${category.name}` : "Unknown category"}
                         </T>
                       </View>
-                      <T variant="rowAmount">
-                        {tx.type === "income" ? "+" : ""}
+                      <T variant="rowAmount" color={toneColor[signed.tone]}>
+                        {signed.sign}
                         {money(tx.amount)}
                       </T>
                     </Pressable>

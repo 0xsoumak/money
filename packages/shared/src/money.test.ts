@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, MAX_MINOR, parseAmount, toDecimalString } from "./money";
+import { formatMoney, MAX_MINOR, parseAmount, signedAmount, toDecimalString } from "./money";
 
 describe("parseAmount", () => {
   it.each([
@@ -41,5 +41,16 @@ describe("formatMoney", () => {
 
   it("supports other currencies", () => {
     expect(formatMoney(12550, { currency: "USD", locale: "en-US" })).toBe("$125.50");
+  });
+});
+
+describe("signedAmount", () => {
+  it("marks income as money in, in the success tone", () => {
+    expect(signedAmount("income")).toEqual({ sign: "+", tone: "success", verb: "received" });
+  });
+
+  it("marks spending in red and investing in ink, both with a true minus sign", () => {
+    expect(signedAmount("expense")).toEqual({ sign: "−", tone: "danger", verb: "spent" });
+    expect(signedAmount("investment")).toEqual({ sign: "−", tone: "ink", verb: "invested" });
   });
 });

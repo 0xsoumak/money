@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, isValidDate, isValidMonth, monthOf, monthRange, today } from "./dates";
+import {
+  addDays,
+  addMonths,
+  eachDay,
+  isValidDate,
+  isValidMonth,
+  lastDayOf,
+  monthOf,
+  monthRange,
+  today,
+  weekday,
+} from "./dates";
 
 describe("isValidDate", () => {
   it.each(["2026-11-10", "2024-02-29", "2026-12-31"])("accepts %s", (d) => {
@@ -43,5 +54,33 @@ describe("today / monthOf", () => {
     const lateNight = new Date(2026, 10, 30, 23, 30);
     expect(today(lateNight)).toBe("2026-11-30");
     expect(monthOf(today(lateNight))).toBe("2026-11");
+  });
+});
+
+describe("day helpers", () => {
+  it("adds days across month and year ends", () => {
+    expect(addDays("2026-11-30", 1)).toBe("2026-12-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+  });
+
+  it("numbers weekdays from Monday", () => {
+    expect(weekday("2026-11-16")).toBe(0); // Monday
+    expect(weekday("2026-11-15")).toBe(6); // Sunday
+  });
+
+  it("lists every day in a range, inclusive", () => {
+    expect(eachDay("2026-02-27", "2026-03-02")).toEqual([
+      "2026-02-27",
+      "2026-02-28",
+      "2026-03-01",
+      "2026-03-02",
+    ]);
+    expect(eachDay("2026-03-02", "2026-03-01")).toEqual([]);
+  });
+
+  it("finds the last day of a month", () => {
+    expect(lastDayOf("2028-02")).toBe("2028-02-29");
+    expect(lastDayOf("2026-11")).toBe("2026-11-30");
   });
 });

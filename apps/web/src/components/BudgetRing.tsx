@@ -1,7 +1,6 @@
 import { type BudgetState, budgetProgress } from "@money/shared";
 import { useEffect, useState } from "react";
 import { useMoney } from "../lib/hooks";
-import { BudgetStatus } from "./BlockMeter";
 import { cx } from "./ui";
 
 const STROKE: Record<BudgetState, string> = {
@@ -10,36 +9,35 @@ const STROKE: Record<BudgetState, string> = {
   over: "stroke-danger",
 };
 
-const PCT_TEXT: Record<BudgetState, string> = {
+export const STATE_TEXT: Record<BudgetState, string> = {
   ok: "text-ink",
   warning: "text-warning",
   over: "text-danger",
 };
 
 /**
- * A progress ring for one budget: how much of the limit is used, with the
- * percentage in the middle and the exact figures underneath. Same state
- * colors as the block meter; the words carry the meaning, not the color.
+ * The progress ring itself, percentage in the middle. Same state colors as the
+ * block meter. Over budget, the ring is a faded full lap and the solid arc is
+ * the overspend (a second lap), so 108% and 227% look different.
  */
-export function BudgetRing({
-  name,
+export function Ring({
   spent,
   limit,
-  size = 104,
+  size,
+  stroke,
+  textClass,
 }: {
-  name: string;
   spent: number;
   limit: number;
-  size?: number;
+  size: number;
+  stroke: number;
+  /** Size of the percentage, e.g. "text-[15px]". */
+  textClass: string;
 }) {
-  const money = useMoney();
   const p = budgetProgress(spent, limit);
-  const stroke = Math.round(size / 9);
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const isOver = p.state === "over";
-  // Over budget, the ring is a faded full lap and the solid arc is the overspend
-  // (a second lap), so 108% and 227% look different.
   const lap = isOver ? Math.min(p.ratio - 1, 1) : p.ratio;
   const target = spent > 0 ? Math.min(1, Math.max(lap, 0.02)) : 0;
   const pct = Number.isFinite(p.ratio) ? Math.round(p.ratio * 100) : 100;
@@ -51,64 +49,91 @@ export function BudgetRing({
     return () => cancelAnimationFrame(id);
   }, [target]);
 
-  const description =
-    p.over > 0
-      ? `${name}: ${pct}% used, ${money(spent)} of ${money(limit)}, ${money(p.over)} over`
-      : `${name}: ${pct}% used, ${money(spent)} of ${money(limit)}, ${money(p.remaining)} left`;
-
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-line p-4 text-center">
-      <div
-        role="img"
-        aria-label={description}
-        className="relative"
-        style={{ width: size, height: size }}
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={stroke}
+          className={isOver ? "stroke-danger/30" : "stroke-surface-strong"}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - shown)}
+          className={cx(STROKE[p.state], "transition-[stroke-dashoffset] duration-700 ease-out")}
+        />
+      </svg>
+      <span
+        aria-hidden="true"
+        className={cx(
+          "absolute inset-0 flex items-center justify-center font-bold tracking-[-0.03em]",
+          textClass,
+          STATE_TEXT[p.state],
+        )}
       >
-        <svg
-          width={size}
-          height={size}
-          viewBox={`0 0 ${size} ${size}`}
-          className="-rotate-90"
-          aria-hidden="true"
-        >
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            strokeWidth={stroke}
-            className={isOver ? "stroke-danger/35" : "stroke-surface-strong"}
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            fill="none"
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={circ}
-            strokeDashoffset={circ * (1 - shown)}
-            className={cx(STROKE[p.state], "transition-[stroke-dashoffset] duration-700 ease-out")}
-          />
-        </svg>
-        <span
-          className={cx(
-            "absolute inset-0 flex items-center justify-center text-xl font-bold tracking-[-0.03em]",
-            PCT_TEXT[p.state],
-          )}
-        >
-          {pct}%
-        </span>
-      </div>
-      <div className="flex w-full min-w-0 flex-col gap-0.5">
+        {pct}%
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A compact budget card: ring on the left; name, status in words and exact
+ * figures beside it. The words carry the meaning, not the color.
+ * With `onClick` the whole card is a button.
+ */
+export function BudgetRing({
+  name,
+  spent,
+  limit,
+  onClick,
+}: {
+  name: string;
+  spent: number;
+  limit: number;
+  onClick?: () => void;
+}) {
+  const money = useMoney();
+  const p = budgetProgress(spent, limit);
+  const pct = Number.isFinite(p.ratio) ? Math.round(p.ratio * 100) : 100;
+  const status = p.over > 0 ? `${money(p.over)} over` : `${money(p.remaining)} left`;
+  const label = `${name}: ${pct}% used, ${money(spent)} of ${money(limit)}, ${status}`;
+
+  const body = (
+    <>
+      <Ring spent={spent} limit={limit} size={64} stroke={7} textClass="text-[15px]" />
+      <span className="flex min-w-0 flex-col">
         <span className="truncate text-base font-semibold">{name}</span>
-        <span className="text-sm">
-          <BudgetStatus spent={spent} limit={limit} />
-        </span>
-        <span className="text-[13px] text-muted">
+        <span className={cx("text-lg font-bold leading-tight", STATE_TEXT[p.state])}>{status}</span>
+        <span className="truncate text-[13px] text-muted">
           {money(spent)} of {money(limit)}
         </span>
-      </div>
+      </span>
+    </>
+  );
+  const box = "flex items-center gap-4 rounded-xl border-2 border-line px-4 py-3.5 text-left";
+
+  return onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Edit ${label}`}
+      className={cx(box, "w-full cursor-pointer transition-colors hover:border-line-strong/60")}
+    >
+      {body}
+    </button>
+  ) : (
+    <div role="img" aria-label={label} className={box}>
+      {body}
     </div>
   );
 }
