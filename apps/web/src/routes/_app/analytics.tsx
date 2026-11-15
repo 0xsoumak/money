@@ -14,7 +14,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ChartSection, seriesOf } from "../../components/analytics/frame";
+import { ChartSection } from "../../components/analytics/frame";
 import { MoneyFlow } from "../../components/analytics/MoneyFlow";
 import { SavingsRate } from "../../components/analytics/SavingsRate";
 import { SpendCurve } from "../../components/analytics/SpendCurve";
@@ -71,10 +71,7 @@ function Analytics() {
     () => (q.data ? analyticsReport(q.data.rows, q.data.to, range, todayDate) : null),
     [q.data, range, todayDate],
   );
-  const h = useMemo(
-    () => (a ? analyticsHeadlines(a, money, (key) => seriesOf(key, byId).name) : null),
-    [a, money, byId],
-  );
+  const h = useMemo(() => (a ? analyticsHeadlines(a, money) : null), [a, money]);
 
   const budget = summary.data?.budget.overall ?? null;
   const prev = addMonths(dataMonth, -1);

@@ -15,7 +15,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
-import { ChartSection, seriesOf } from "../../components/analytics/frame";
+import { ChartSection } from "../../components/analytics/frame";
 import { MoneyFlow } from "../../components/analytics/MoneyFlow";
 import { SavingsRate } from "../../components/analytics/SavingsRate";
 import { SpendCurve } from "../../components/analytics/SpendCurve";
@@ -70,10 +70,7 @@ export default function Analytics() {
     () => (q.data ? analyticsReport(q.data.rows, q.data.to, range, todayDate) : null),
     [q.data, range, todayDate],
   );
-  const h = useMemo(
-    () => (a ? analyticsHeadlines(a, money, (key) => seriesOf(key, byId).name) : null),
-    [a, money, byId],
-  );
+  const h = useMemo(() => (a ? analyticsHeadlines(a, money) : null), [a, money]);
 
   const budget = summary.data?.budget.overall ?? null;
   const prev = addMonths(dataMonth, -1);

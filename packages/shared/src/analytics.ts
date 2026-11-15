@@ -211,46 +211,6 @@ export function spendCurve(
   };
 }
 
-// ── Movers ──────────────────────────────────────────────────────────────────
-
-export interface Mover {
-  categoryId: string;
-  previous: number;
-  current: number;
-  change: number;
-}
-
-/**
- * Spending per category this month against last month, compared like for like:
- * a running month is compared with the same number of days of last month.
- * Sorted by size of change, biggest first.
- */
-export function movers(rows: AnalyticsRow[], month: string, todayDate: string): Mover[] {
-  const prevMonth = addMonths(month, -1);
-  const running = monthOf(todayDate) === month;
-  const cutoffDay = running ? Number(todayDate.slice(8)) : 31;
-  const current = new Map<string, number>();
-  const previous = new Map<string, number>();
-  for (const r of rows) {
-    if (!isExpense(r)) continue;
-    const m = monthOf(r.date);
-    const day = Number(r.date.slice(8));
-    if (m === month && day <= cutoffDay) {
-      current.set(r.categoryId, (current.get(r.categoryId) ?? 0) + r.amount);
-    } else if (m === prevMonth && day <= cutoffDay) {
-      previous.set(r.categoryId, (previous.get(r.categoryId) ?? 0) + r.amount);
-    }
-  }
-  const ids = new Set([...current.keys(), ...previous.keys()]);
-  return [...ids]
-    .map((categoryId) => {
-      const c = current.get(categoryId) ?? 0;
-      const p = previous.get(categoryId) ?? 0;
-      return { categoryId, previous: p, current: c, change: c - p };
-    })
-    .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
-}
-
 // ── Days ────────────────────────────────────────────────────────────────────
 
 export interface DayStats {
@@ -321,58 +281,14 @@ export function weekendRatio(averages: number[]): number | null {
 
 // ── Months ──────────────────────────────────────────────────────────────────
 
-export interface CategoryMix {
-  /** Series keys (category ids, maybe OTHER), largest over the window first. */
-  keys: string[];
-  /** One entry per month: amount per key. */
-  months: { month: string; values: Record<string, number>; total: number }[];
-}
-
-/** Monthly spending per category over `months`, folded to MAX_SERIES series. */
-export function categoryMix(rows: AnalyticsRow[], months: string[]): CategoryMix {
-  const inWindow = new Set(months);
-  const totals = new Map<string, number>();
+/** Total spending in each of `months`, in order. */
+export function monthlySpending(rows: AnalyticsRow[], months: string[]): number[] {
+  const at = new Map(months.map((m) => [m, 0]));
   for (const r of rows) {
-    if (isExpense(r) && inWindow.has(monthOf(r.date))) {
-      totals.set(r.categoryId, (totals.get(r.categoryId) ?? 0) + r.amount);
-    }
+    const m = monthOf(r.date);
+    if (isExpense(r) && at.has(m)) at.set(m, (at.get(m) ?? 0) + r.amount);
   }
-  const keys = topWithOther(totals).map((r) => r.key);
-  const named = new Set(keys.filter((k) => k !== OTHER));
-  const byMonth = new Map(months.map((m) => [m, Object.fromEntries(keys.map((k) => [k, 0]))]));
-  for (const r of rows) {
-    const values = byMonth.get(monthOf(r.date));
-    if (!values || !isExpense(r)) continue;
-    const key = named.has(r.categoryId) ? r.categoryId : OTHER;
-    if (key in values) values[key] = (values[key] ?? 0) + r.amount;
-  }
-  return {
-    keys,
-    months: months.map((month) => {
-      const values = byMonth.get(month) ?? {};
-      return { month, values, total: sum(Object.values(values)) };
-    }),
-  };
-}
-
-/** The series whose share of spending changed most between the first and last third of the window. */
-export function biggestShift(mix: CategoryMix): { key: string; from: number; to: number } | null {
-  const n = mix.months.length;
-  if (n < 2 || mix.keys.length === 0) return null;
-  const span = Math.max(1, Math.floor(n / 3));
-  const share = (key: string, slice: CategoryMix["months"]) => {
-    const total = sum(slice.map((m) => m.total));
-    return total > 0 ? sum(slice.map((m) => m.values[key] ?? 0)) / total : 0;
-  };
-  const head = mix.months.slice(0, span);
-  const tail = mix.months.slice(n - span);
-  let best: { key: string; from: number; to: number } | null = null;
-  for (const key of mix.keys) {
-    const from = share(key, head);
-    const to = share(key, tail);
-    if (!best || Math.abs(to - from) > Math.abs(best.to - best.from)) best = { key, from, to };
-  }
-  return best;
+  return months.map((m) => at.get(m) ?? 0);
 }
 
 export interface SavingsMonth {
@@ -395,76 +311,4 @@ export function savingsRates(rows: AnalyticsRow[], months: string[]): SavingsMon
     const t = at.get(month) ?? { income: 0, invested: 0 };
     return { month, ...t, rate: t.income > 0 ? t.invested / t.income : null };
   });
-}
-
-// ── Transactions ────────────────────────────────────────────────────────────
-
-export interface SizeStats {
-  count: number;
-  median: number;
-  /** How many purchases make up the top tenth (at least one). */
-  topCount: number;
-  /** Their share of all spending, 0–1. */
-  topShare: number;
-}
-
-export function sizeStats(amounts: number[]): SizeStats | null {
-  if (amounts.length === 0) return null;
-  const sorted = [...amounts].sort((a, b) => a - b);
-  const total = sum(sorted);
-  const topCount = Math.max(1, Math.round(sorted.length * 0.1));
-  const mid = Math.floor(sorted.length / 2);
-  const median =
-    sorted.length % 2
-      ? (sorted[mid] as number)
-      : Math.round(((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2);
-  return {
-    count: sorted.length,
-    median,
-    topCount,
-    topShare: total > 0 ? sum(sorted.slice(-topCount)) / total : 0,
-  };
-}
-
-export interface RepeatSpend {
-  /** The note as last written. */
-  note: string;
-  categoryId: string;
-  count: number;
-  total: number;
-  /** Once a month, every month it appears, for at least three months. */
-  monthly: boolean;
-  /** Typical single amount (the latest one). */
-  latest: number;
-}
-
-/**
- * Expenses that share a note (ignoring case and spacing), seen at least twice.
- * Biggest total first.
- */
-export function repeatSpends(rows: AnalyticsRow[], limit = 6): RepeatSpend[] {
-  const groups = new Map<string, AnalyticsRow[]>();
-  for (const r of rows) {
-    if (!isExpense(r) || !r.note) continue;
-    const key = r.note.trim().toLowerCase().replace(/\s+/g, " ");
-    if (!key) continue;
-    const list = groups.get(key);
-    if (list) list.push(r);
-    else groups.set(key, [r]);
-  }
-  const out: RepeatSpend[] = [];
-  for (const list of groups.values()) {
-    if (list.length < 2) continue;
-    const latest = list.reduce((a, b) => (b.date > a.date ? b : a));
-    const months = new Set(list.map((r) => monthOf(r.date)));
-    out.push({
-      note: (latest.note ?? "").trim(),
-      categoryId: latest.categoryId,
-      count: list.length,
-      total: sum(list.map((r) => r.amount)),
-      monthly: months.size >= 3 && months.size === list.length,
-      latest: latest.amount,
-    });
-  }
-  return out.sort((a, b) => b.total - a.total).slice(0, limit);
 }

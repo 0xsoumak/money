@@ -2,19 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   type AnalyticsRow,
   analyticsWindow,
-  biggestShift,
-  categoryMix,
   dailyExpenses,
   dayStats,
   heatLevel,
   heatLevels,
   moneyFlow,
-  movers,
   OTHER,
-  repeatSpends,
   runningTotals,
   savingsRates,
-  sizeStats,
   spendCurve,
   stackLinks,
   topWithOther,
@@ -138,25 +133,6 @@ describe("spend curve", () => {
   });
 });
 
-describe("movers", () => {
-  it("compares the same days of last month while a month is running", () => {
-    const m = movers(
-      [
-        row("2026-10-03", 500, "food"),
-        row("2026-10-20", 9_999, "food"), // after day 15: not compared
-        row("2026-11-04", 800, "food"),
-        row("2026-10-10", 400, "fun"),
-      ],
-      "2026-11",
-      "2026-11-15",
-    );
-    expect(m).toEqual([
-      { categoryId: "fun", previous: 400, current: 0, change: -400 },
-      { categoryId: "food", previous: 500, current: 800, change: 300 },
-    ]);
-  });
-});
-
 describe("days", () => {
   const daily = new Map([
     ["2026-11-02", 500],
@@ -201,27 +177,6 @@ describe("days", () => {
   });
 });
 
-describe("categoryMix", () => {
-  it("totals each month per category and finds the biggest shift", () => {
-    const mix = categoryMix(
-      [
-        row("2026-09-01", 100, "food"),
-        row("2026-09-01", 100, "fun"),
-        row("2026-10-01", 300, "food"),
-        row("2026-10-01", 100, "fun"),
-        row("2026-11-01", 999, "food"), // outside the window
-      ],
-      ["2026-09", "2026-10"],
-    );
-    expect(mix.keys).toEqual(["food", "fun"]);
-    expect(mix.months).toEqual([
-      { month: "2026-09", values: { food: 100, fun: 100 }, total: 200 },
-      { month: "2026-10", values: { food: 300, fun: 100 }, total: 400 },
-    ]);
-    expect(biggestShift(mix)).toEqual({ key: "food", from: 0.5, to: 0.75 });
-  });
-});
-
 describe("savingsRates", () => {
   it("divides investing by income, null without income", () => {
     expect(
@@ -232,32 +187,6 @@ describe("savingsRates", () => {
     ).toEqual([
       { month: "2026-10", income: 1000, invested: 250, rate: 0.25 },
       { month: "2026-11", income: 0, invested: 0, rate: null },
-    ]);
-  });
-});
-
-describe("sizeStats", () => {
-  it("finds the median and how much the biggest tenth accounts for", () => {
-    const amounts = [10, 10, 10, 10, 10, 10, 10, 10, 10, 910];
-    expect(sizeStats(amounts)).toEqual({ count: 10, median: 10, topCount: 1, topShare: 0.91 });
-    expect(sizeStats([])).toBeNull();
-  });
-});
-
-describe("repeatSpends", () => {
-  it("groups by note ignoring case and spacing, and spots monthly ones", () => {
-    const r = repeatSpends([
-      row("2026-08-05", 649, "fun", "expense", "Netflix"),
-      row("2026-09-05", 649, "fun", "expense", "netflix "),
-      row("2026-10-05", 649, "fun", "expense", "NETFLIX"),
-      row("2026-10-06", 300, "food", "expense", "Swiggy"),
-      row("2026-10-07", 500, "food", "expense", "swiggy"),
-      row("2026-10-08", 100, "food", "expense", "One-off"),
-      row("2026-10-09", 900, "s", "income", "Swiggy"),
-    ]);
-    expect(r).toEqual([
-      { note: "NETFLIX", categoryId: "fun", count: 3, total: 1947, monthly: true, latest: 649 },
-      { note: "swiggy", categoryId: "food", count: 2, total: 800, monthly: false, latest: 500 },
     ]);
   });
 });
