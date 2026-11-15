@@ -3,6 +3,7 @@ import {
   ENTRY_JSON_SCHEMA,
   entryRequestSchema,
   interpretEntryReply,
+  mentionsAmount,
 } from "@money/shared";
 import { asc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
@@ -28,6 +29,9 @@ export const aiRoute = new Hono<AppEnv>()
 
     const already = await db.query.transactions.findFirst({ where: eq(transactions.id, id) });
     if (already) return c.json({ transaction: already });
+
+    if (!mentionsAmount(text))
+      return c.json({ error: "Include an amount, like “500 dinner”." }, 422);
 
     const usable = await db
       .select({ id: categories.id, name: categories.name, kind: categories.kind })

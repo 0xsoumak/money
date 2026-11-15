@@ -453,6 +453,15 @@ describe("ai entry", () => {
     }
   });
 
+  it("rejects a sentence with no amount without asking the model", async () => {
+    const res = await api("/api/ai/entry", {
+      method: "POST",
+      json: { id: newId(), text: "dinner with friends", today: "2026-11-15" },
+    });
+    expect(res.status).toBe(422);
+    expect((await res.json<Json>()).error).toMatch(/amount/i);
+  });
+
   it("returns the already-saved row when a request is retried", async () => {
     const id = newId();
     await api(`/api/transactions/${id}`, { method: "PUT", json: expense({ amount: 50000 }) });

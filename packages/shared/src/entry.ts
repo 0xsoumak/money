@@ -18,6 +18,18 @@ export const entryRequestSchema = z.object({
 });
 export type EntryRequest = z.infer<typeof entryRequestSchema>;
 
+// Digits, or amounts written as words ("five hundred"). "2 lakh" is caught by the digit.
+const AMOUNT_HINT =
+  /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|forty|fifty|hundred|thousand|lakh|crore|k)\b/i;
+
+/**
+ * Free check before calling the model: a sentence with no amount in it can't become an entry,
+ * so don't spend the daily AI allowance finding that out.
+ */
+export function mentionsAmount(text: string): boolean {
+  return AMOUNT_HINT.test(text);
+}
+
 export interface EntryCategory {
   id: string;
   name: string;

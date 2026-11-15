@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEntryPrompt, type EntryCategory, interpretEntryReply } from "./entry";
+import { buildEntryPrompt, type EntryCategory, interpretEntryReply, mentionsAmount } from "./entry";
 
 const CATS: EntryCategory[] = [
   { id: "01M71R9BSCRVNRH5VKJ2GRD1FJ", name: "Food", kind: "expense" },
@@ -75,4 +75,14 @@ describe("interpretEntryReply", () => {
     if (error === null) expect(r.ok && r.input.amount).toBe(123);
     else expect(!r.ok && r.error.toLowerCase()).toContain(error);
   });
+});
+
+describe("mentionsAmount", () => {
+  it.each(["500 dinner", "spent ₹1.5k", "five hundred on cab", "rent 2 lakh", "SIP 5k"])(
+    "accepts %j",
+    (text) => expect(mentionsAmount(text)).toBe(true),
+  );
+  it.each(["dinner with friends", "groceries yesterday", "kebab"])("rejects %j", (text) =>
+    expect(mentionsAmount(text)).toBe(false),
+  );
 });
