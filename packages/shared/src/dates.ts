@@ -56,3 +56,28 @@ export function addMonths(month: string, n: number): string {
 export function monthRange(month: string): { start: string; end: string } {
   return { start: `${month}-01`, end: `${addMonths(month, 1)}-01` };
 }
+
+/** Shift a "YYYY-MM-DD" date by n days (n may be negative). */
+export function addDays(date: string, n: number): string {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${pad(t.getUTCFullYear(), 4)}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+}
+
+/** Day of the week for a "YYYY-MM-DD" date, Monday = 0 … Sunday = 6. */
+export function weekday(date: string): number {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+}
+
+/** Every date from `start` to `end`, both inclusive. Empty when end is before start. */
+export function eachDay(start: string, end: string): string[] {
+  const out: string[] = [];
+  for (let d = start; d <= end; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
+/** Last calendar date of a "YYYY-MM" month. */
+export function lastDayOf(month: string): string {
+  return `${month}-${pad(daysInMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7))))}`;
+}
