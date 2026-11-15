@@ -14,13 +14,9 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { CategoryRiver } from "../../components/analytics/CategoryRiver";
-import { ChartSection, seriesOf } from "../../components/analytics/frame";
+import { ChartSection } from "../../components/analytics/frame";
 import { MoneyFlow } from "../../components/analytics/MoneyFlow";
-import { Movers } from "../../components/analytics/Movers";
-import { RepeatSpends } from "../../components/analytics/RepeatSpends";
 import { SavingsRate } from "../../components/analytics/SavingsRate";
-import { SizeSwarm } from "../../components/analytics/SizeSwarm";
 import { SpendCurve } from "../../components/analytics/SpendCurve";
 import { WeekdayBars } from "../../components/analytics/WeekdayBars";
 import { YearHeatmap } from "../../components/analytics/YearHeatmap";
@@ -75,10 +71,7 @@ function Analytics() {
     () => (q.data ? analyticsReport(q.data.rows, q.data.to, range, todayDate) : null),
     [q.data, range, todayDate],
   );
-  const h = useMemo(
-    () => (a ? analyticsHeadlines(a, money, (key) => seriesOf(key, byId).name) : null),
-    [a, money, byId],
-  );
+  const h = useMemo(() => (a ? analyticsHeadlines(a, money) : null), [a, money]);
 
   const budget = summary.data?.budget.overall ?? null;
   const prev = addMonths(dataMonth, -1);
@@ -147,24 +140,9 @@ function Analytics() {
                 </ChartSection>
               </Reveal>
 
-              <Reveal className="grid gap-x-12 gap-y-14 lg:grid-cols-2">
+              <Reveal>
                 <ChartSection title="Spend curve" note="Running total" headline={h.curve}>
                   <SpendCurve curve={a.curve} budget={budget} />
-                </ChartSection>
-                <ChartSection
-                  title="Movers"
-                  note={
-                    a.running
-                      ? `Days 1–${a.curve.elapsed}, ${shortMonth(prev)} vs ${shortMonth(dataMonth)}`
-                      : `${shortMonth(prev)} vs ${shortMonth(dataMonth)}`
-                  }
-                  headline={h.movers}
-                >
-                  <Movers
-                    movers={a.movers}
-                    byId={byId}
-                    labels={[shortMonth(prev), shortMonth(dataMonth)]}
-                  />
                 </ChartSection>
               </Reveal>
 
@@ -174,39 +152,12 @@ function Analytics() {
                 </ChartSection>
               </Reveal>
 
-              <Reveal>
-                <ChartSection
-                  title="How the mix changed"
-                  note={`${a.mix.months.length} full months · band width = amount`}
-                  headline={h.mix}
-                >
-                  <CategoryRiver mix={a.mix} byId={byId} />
-                </ChartSection>
-              </Reveal>
-
               <Reveal className="grid gap-x-12 gap-y-14 lg:grid-cols-2">
                 <ChartSection title="Weekday rhythm" note="Average per day" headline={h.weekdays}>
                   <WeekdayBars averages={a.weekdays} />
                 </ChartSection>
                 <ChartSection title="Savings rate" note="Invested ÷ income" headline={h.savings}>
                   <SavingsRate months={a.savings} />
-                </ChartSection>
-              </Reveal>
-
-              <Reveal className="grid gap-x-12 gap-y-14 lg:grid-cols-2">
-                <ChartSection
-                  title="Transaction sizes"
-                  note={`Every expense, last ${a.swarmDays} days`}
-                  headline={h.sizes}
-                >
-                  <SizeSwarm items={a.swarm} median={a.size?.median ?? 0} byId={byId} />
-                </ChartSection>
-                <ChartSection
-                  title="Repeat spends"
-                  note="Same note, this range"
-                  headline={h.repeats}
-                >
-                  <RepeatSpends items={a.repeats} byId={byId} />
                 </ChartSection>
               </Reveal>
             </>

@@ -26,12 +26,14 @@ Personal expense tracker and budget app. See [plan.md](plan.md) for the roadmap.
 1. `cp apps/api/.dev.vars.example apps/api/.dev.vars` and set a random `BETTER_AUTH_SECRET`
 2. `pnpm db:migrate:local`
 3. `pnpm create-user --local`
-4. `pnpm dev`, then open http://localhost:5173
+4. `npx wrangler login` once, for "Describe it" entries (Workers AI always runs on Cloudflare, even in dev)
+5. `pnpm dev`, then open http://localhost:5173
 
 ## Notes
 
 - Money is stored as integer minor units (paise). Dates are `YYYY-MM-DD` strings.
 - Sign-up is disabled. `create-user` writes the account straight to D1.
+- "Describe it" (type "spent 500 on dinner yesterday" in Add) uses Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) on the free 10k neurons/day. The model only extracts fields; `packages/shared/src/entry.ts` validates them before anything is saved.
 - Production secrets live in Cloudflare (`wrangler secret put BETTER_AUTH_SECRET`), never in the repo.
 
 ## Android app

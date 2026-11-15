@@ -15,13 +15,9 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
-import { CategoryRiver } from "../../components/analytics/CategoryRiver";
-import { ChartSection, seriesOf } from "../../components/analytics/frame";
+import { ChartSection } from "../../components/analytics/frame";
 import { MoneyFlow } from "../../components/analytics/MoneyFlow";
-import { Movers } from "../../components/analytics/Movers";
-import { RepeatSpends } from "../../components/analytics/RepeatSpends";
 import { SavingsRate } from "../../components/analytics/SavingsRate";
-import { SizeSwarm } from "../../components/analytics/SizeSwarm";
 import { SpendCurve } from "../../components/analytics/SpendCurve";
 import { WeekdayBars } from "../../components/analytics/WeekdayBars";
 import { YearHeatmap } from "../../components/analytics/YearHeatmap";
@@ -74,10 +70,7 @@ export default function Analytics() {
     () => (q.data ? analyticsReport(q.data.rows, q.data.to, range, todayDate) : null),
     [q.data, range, todayDate],
   );
-  const h = useMemo(
-    () => (a ? analyticsHeadlines(a, money, (key) => seriesOf(key, byId).name) : null),
-    [a, money, byId],
-  );
+  const h = useMemo(() => (a ? analyticsHeadlines(a, money) : null), [a, money]);
 
   const budget = summary.data?.budget.overall ?? null;
   const prev = addMonths(dataMonth, -1);
@@ -164,24 +157,9 @@ export default function Analytics() {
                   <MoneyFlow flow={a.flow} byId={byId} />
                 </ChartSection>
               </Reveal>
-
               <Reveal>
                 <ChartSection title="Spend curve" note="Running total" headline={h.curve}>
                   <SpendCurve curve={a.curve} budget={budget} />
-                </ChartSection>
-              </Reveal>
-
-              <Reveal>
-                <ChartSection
-                  title="Movers"
-                  note={a.running ? `Days 1–${a.curve.elapsed}` : undefined}
-                  headline={h.movers}
-                >
-                  <Movers
-                    movers={a.movers}
-                    byId={byId}
-                    labels={[shortMonth(prev), shortMonth(dataMonth)]}
-                  />
                 </ChartSection>
               </Reveal>
 
@@ -197,16 +175,6 @@ export default function Analytics() {
               </Reveal>
 
               <Reveal>
-                <ChartSection
-                  title="How the mix changed"
-                  note={`${a.mix.months.length} full months`}
-                  headline={h.mix}
-                >
-                  <CategoryRiver mix={a.mix} byId={byId} />
-                </ChartSection>
-              </Reveal>
-
-              <Reveal>
                 <ChartSection title="Weekday rhythm" note="Average per day" headline={h.weekdays}>
                   <WeekdayBars averages={a.weekdays} />
                 </ChartSection>
@@ -215,22 +183,6 @@ export default function Analytics() {
               <Reveal>
                 <ChartSection title="Savings rate" note="Invested ÷ income" headline={h.savings}>
                   <SavingsRate months={a.savings} />
-                </ChartSection>
-              </Reveal>
-
-              <Reveal>
-                <ChartSection
-                  title="Transaction sizes"
-                  note={`Last ${a.swarmDays} days`}
-                  headline={h.sizes}
-                >
-                  <SizeSwarm items={a.swarm} median={a.size?.median ?? 0} byId={byId} />
-                </ChartSection>
-              </Reveal>
-
-              <Reveal>
-                <ChartSection title="Repeat spends" note="Same note" headline={h.repeats}>
-                  <RepeatSpends items={a.repeats} byId={byId} />
                 </ChartSection>
               </Reveal>
             </>

@@ -7,24 +7,16 @@ import {
   type AnalyticsRange,
   type AnalyticsRow,
   analyticsWindow,
-  biggestShift,
-  categoryMix,
   dailyExpenses,
   dayStats,
   moneyFlow,
-  movers,
-  repeatSpends,
+  monthlySpending,
   savingsRates,
-  sizeStats,
   spendCurve,
   weekdayAverages,
   weekendRatio,
 } from "./analytics";
-import { addDays } from "./dates";
 import type { StatItem } from "./insights";
-
-/** How far back the transaction-size chart looks; a year of dots would be a smear. */
-export const SWARM_DAYS = 90;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -48,15 +40,9 @@ export function analyticsReport(
   todayDate: string,
 ) {
   const win = analyticsWindow(month, range, todayDate);
-  const first = win.dates[0] ?? `${month}-01`;
-  const last = win.dates.at(-1) ?? first;
-  const inWindow = rows.filter((r) => r.date >= first && r.date <= last);
   const daily = dailyExpenses(rows);
-  const mix = categoryMix(rows, win.fullMonths);
   const savings = savingsRates(rows, win.fullMonths);
-  const swarmFrom = addDays(last, -(SWARM_DAYS - 1));
-  const swarm = inWindow.filter((r) => r.type === "expense" && r.date >= swarmFrom);
-  const activeMonths = mix.months.filter((m) => m.total > 0);
+  const activeMonths = monthlySpending(rows, win.fullMonths).filter((t) => t > 0);
   const income = sum(savings.map((s) => s.income));
   const invested = sum(savings.map((s) => s.invested));
 
@@ -68,17 +54,10 @@ export function analyticsReport(
     daily,
     flow: moneyFlow(rows, month),
     curve: spendCurve(daily, month, todayDate),
-    movers: movers(rows, month, todayDate),
     days: dayStats(daily, win.dates),
     weekdays: weekdayAverages(daily, win.dates),
-    mix,
-    shift: biggestShift(mix),
     savings,
-    swarm,
-    swarmDays: Math.min(SWARM_DAYS, win.dates.length),
-    size: sizeStats(swarm.map((r) => r.amount)),
-    repeats: repeatSpends(inWindow),
-    avgMonth: activeMonths.length ? sum(activeMonths.map((m) => m.total)) / activeMonths.length : 0,
+    avgMonth: activeMonths.length ? sum(activeMonths) / activeMonths.length : 0,
     savedRate: income > 0 ? invested / income : null,
   };
 }
@@ -120,36 +99,20 @@ export type HeadlinePart = { text: string; accent?: boolean };
 export interface AnalyticsHeadlines {
   flow: HeadlinePart[] | null;
   curve: string | null;
-  movers: string | null;
   days: string;
-  mix: string | null;
   weekdays: string | null;
   savings: string | null;
-  sizes: string | null;
-  repeats: string | null;
 }
 
-/** One sentence per chart that says what it shows. `nameOf` turns a series key into a name. */
-export function analyticsHeadlines(
-  a: AnalyticsReport,
-  money: Money,
-  nameOf: (key: string) => string,
-): AnalyticsHeadlines {
+/** One sentence per chart that says what it shows. */
+export function analyticsHeadlines(a: AnalyticsReport, money: Money): AnalyticsHeadlines {
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   return {
     flow: flowHeadline(a.flow, money),
     curve: curveHeadline(a, money),
-    movers: moversHeadline(a.movers, money, nameOf),
     days: `${plural(a.days.noSpendDays, "no-spend day")}. Longest streak: ${plural(a.days.longestNoSpend, "day")}.`,
-    mix: mixHeadline(a.shift, nameOf),
     weekdays: weekdayHeadline(a.weekdays),
     savings: savingsHeadline(a.savings),
-    sizes: a.size
-      ? a.size.topCount === 1
-        ? `Your biggest buy was ${pct(a.size.topShare)} of spending.`
-        : `Your biggest ${a.size.topCount} buys were ${pct(a.size.topShare)} of spending.`
-      : null,
-    repeats: repeatHeadline(a.repeats, money),
   };
 }
 
@@ -176,26 +139,6 @@ function curveHeadline(a: AnalyticsReport, money: Money): string | null {
   return diff >= 0 ? `${money(diff)} less than ${when}.` : `${money(-diff)} more than ${when}.`;
 }
 
-function moversHeadline(
-  list: AnalyticsReport["movers"],
-  money: Money,
-  nameOf: (key: string) => string,
-) {
-  const up = list.filter((m) => m.change > 0).sort((a, b) => b.change - a.change)[0];
-  const down = list.filter((m) => m.change < 0).sort((a, b) => a.change - b.change)[0];
-  const parts = [
-    up && `${nameOf(up.categoryId)} up ${money(up.change)}`,
-    down && `${nameOf(down.categoryId)} down ${money(-down.change)}`,
-  ].filter(Boolean);
-  return parts.length ? `${parts.join(", ")}.` : null;
-}
-
-function mixHeadline(shift: AnalyticsReport["shift"], nameOf: (key: string) => string) {
-  if (!shift) return null;
-  if (Math.abs(shift.to - shift.from) < 0.03) return "Your spending mix held steady.";
-  return `${nameOf(shift.key)} went from ${pct(shift.from)} to ${pct(shift.to)} of your spending.`;
-}
-
 /** "Weekends cost 2× a weekday." and friends; shared with the Overview's insight card. */
 export function weekdayHeadline(averages: number[]): string | null {
   const r = weekendRatio(averages);
@@ -216,11 +159,4 @@ function savingsHeadline(months: AnalyticsReport["savings"]) {
   const best = pts.reduce((a, b) => (b.rate > a.rate ? b : a));
   const dir = last.rate >= first.rate ? "Up" : "Down";
   return `${dir} from ${pct(first.rate)} to ${pct(last.rate)}. Best: ${shortMonth(best.month)}, ${pct(best.rate)}.`;
-}
-
-function repeatHeadline(items: AnalyticsReport["repeats"], money: Money) {
-  const monthly = items.filter((r) => r.monthly);
-  if (monthly.length) return `Fixed monthly costs: ${money(sum(monthly.map((r) => r.latest)))}.`;
-  const top = items[0];
-  return top ? `${top.note}: ${top.count} times, ${money(top.total)}.` : null;
 }

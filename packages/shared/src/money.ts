@@ -57,6 +57,9 @@ export function formatMoney(minor: number, opts: FormatMoneyOptions = {}): strin
   }).format(fromMinor(minor));
 }
 
+/** What every money value shows while balances are hidden. Same width for every amount, so nothing leaks. */
+export const MASKED_MONEY = "₹•••••";
+
 export type TxDirection = "expense" | "income" | "investment";
 
 /**

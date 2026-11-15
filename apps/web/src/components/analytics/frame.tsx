@@ -1,5 +1,6 @@
-import { OTHER } from "@money/shared";
+import { MASKED_MONEY, OTHER } from "@money/shared";
 import { type ReactNode, useCallback, useRef, useState } from "react";
+import { isHidden } from "../../lib/privacy";
 import type { Category } from "../../lib/queries";
 import { SectionHeader } from "../ui";
 
@@ -107,7 +108,9 @@ export function seriesOf(key: string, byId: Map<string, Category>): Series {
 export { shortDate, shortMonth } from "@money/shared";
 
 /** Compact money for axis ticks and tight labels: ₹950, ₹1.2k, ₹45k, ₹1.2L. */
+// Callers also use useMoney, so they re-render when balances are hidden or shown.
 export function compactMoney(minor: number): string {
+  if (isHidden()) return MASKED_MONEY;
   const r = Math.round(minor / 100);
   if (r >= 100_000) return `₹${trim(r / 100_000)}L`;
   if (r >= 1000) return `₹${trim(r / 1000)}k`;

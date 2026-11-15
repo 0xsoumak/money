@@ -67,16 +67,18 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
   const L = stack(left, k, GAP);
   const M = stack(middle, k, GAP);
   const spent = M.find((n) => n.label === "Spent");
+  // The category column has a gap between every bar, so at the income scale it can run past
+  // the bottom. Shrink it to fit when needed; ribbons taper from the Spent bar to each category.
+  const catNodes = flow.spending.map((s) => {
+    const series = seriesOf(s.key, byId);
+    return { label: series.name, amount: s.amount, fill: series.color };
+  });
+  const catTotal = catNodes.reduce((t, n) => t + n.amount, 0);
+  const catGaps = CAT_GAP * Math.max(catNodes.length - 1, 0);
+  const catK = catTotal > 0 ? Math.min(k, (H - catGaps) / catTotal) : k;
+  const catHeight = catTotal * catK + catGaps;
   const cats = spent
-    ? stack(
-        flow.spending.map((s) => {
-          const series = seriesOf(s.key, byId);
-          return { label: series.name, amount: s.amount, fill: series.color };
-        }),
-        k,
-        CAT_GAP,
-        Math.max(0, spent.y - 8),
-      )
+    ? stack(catNodes, catK, CAT_GAP, Math.max(0, Math.min(spent.y - 8, H - catHeight)))
     : [];
 
   const links = stackLinks(
@@ -96,7 +98,8 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
   const catLinks = spent
     ? cats.map((x) => {
         const sy = spent.y + x.from * k;
-        return { d: ribbon(X1 + NODE, sy, sy + x.h, X2, x.y, x.y + x.h), fill: fade(x.fill, 0.45) };
+        const sh = x.amount * k;
+        return { d: ribbon(X1 + NODE, sy, sy + sh, X2, x.y, x.y + x.h), fill: fade(x.fill, 0.45) };
       })
     : [];
   const catLabels = spreadLabels(

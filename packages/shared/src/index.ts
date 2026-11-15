@@ -5,6 +5,7 @@ export * from "./analytics";
 export * from "./analyticsReport";
 export * from "./budget";
 export * from "./dates";
+export * from "./entry";
 export * from "./errors";
 export * from "./group";
 export * from "./insights";
