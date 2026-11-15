@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useBudgetNudge } from "../lib/budgetNudge";
 import { isTyping, useMoney } from "../lib/hooks";
 import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
 import { DatePicker } from "./DatePicker";
@@ -37,6 +38,8 @@ interface Draft {
   date: string;
   note: string;
   editing: boolean;
+  /** The transaction as it was before this edit, so budget nudges count only the change. */
+  original: Tx | null;
 }
 
 interface QuickAddApi {
@@ -84,6 +87,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
   const { data: categories = [] } = useQuery(categoriesQuery);
   const save = useSaveTransaction();
   const remove = useDeleteTransaction();
+  const nudge = useBudgetNudge();
   const toast = useToast();
   const money = useMoney();
 
@@ -106,6 +110,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
         date: today(),
         note: "",
         editing: false,
+        original: null,
       });
     },
     [pickCategory],
@@ -120,6 +125,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
       date: tx.date,
       note: tx.note ?? "",
       editing: true,
+      original: tx,
     });
   }, []);
 
@@ -140,6 +146,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
     };
     const send = () =>
       save.mutate(vars, {
+        onSuccess: () => void nudge(vars, draft.original),
         onError: (err) =>
           toast.show(`Couldn't save: ${err.message}`, {
             tone: "error",
@@ -152,7 +159,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
       action: draft.editing ? undefined : { label: "Undo", onClick: () => remove.mutate(draft.id) },
     });
     close();
-  }, [draft, canSave, minor, save, remove, toast, money, close]);
+  }, [draft, canSave, minor, save, remove, toast, money, close, nudge]);
 
   // Keyboard entry: digits, ".", Backspace edit the amount; Enter saves (unless a button has focus).
   const open = draft !== null;

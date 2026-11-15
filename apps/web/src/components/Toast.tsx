@@ -5,7 +5,7 @@ import { tween } from "./motion";
 interface ToastItem {
   id: number;
   message: string;
-  tone: "default" | "error";
+  tone: "default" | "warning" | "error";
   action?: { label: string; onClick: () => void };
 }
 
@@ -72,7 +72,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               }}
               transition={tween.base}
               className={`pointer-events-auto flex w-full cursor-grab touch-pan-y active:cursor-grabbing max-w-md items-center gap-3 rounded-lg border-2 bg-surface px-4 py-3 text-[15px] font-semibold ${
-                t.tone === "error" ? "border-danger text-danger" : "border-line-strong"
+                t.tone === "error"
+                  ? "border-danger text-danger"
+                  : t.tone === "warning"
+                    ? "border-warning text-warning"
+                    : "border-line-strong"
               }`}
             >
               <span className="min-w-0 flex-1">{t.message}</span>

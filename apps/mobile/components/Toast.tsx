@@ -27,7 +27,7 @@ import { T } from "./T";
 interface ToastItem {
   id: number;
   message: string;
-  tone: "default" | "error";
+  tone: "default" | "warning" | "error";
   action?: { label: string; onClick: () => void };
 }
 
@@ -94,6 +94,7 @@ const DISMISS_AT = 80;
 
 function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
   const error = toast.tone === "error";
+  const tint = error ? c.danger : toast.tone === "warning" ? c.warning : null;
   const x = useSharedValue(0);
 
   // Swipe sideways to dismiss. Vertical drags are ignored so they don't fight scrolling.
@@ -125,9 +126,9 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => vo
         entering={FadeInDown.duration(duration.base).easing(ease)}
         exiting={FadeOut.duration(duration.fast)}
         layout={LinearTransition.duration(duration.base).easing(ease)}
-        style={[styles.toast, { borderColor: error ? c.danger : c.borderStrong }, drag]}
+        style={[styles.toast, { borderColor: tint ?? c.borderStrong }, drag]}
       >
-        <T variant="small" size={15} color={error ? c.danger : c.text} style={{ flex: 1 }}>
+        <T variant="small" size={15} color={tint ?? c.text} style={{ flex: 1 }}>
           {toast.message}
         </T>
         {toast.action ? (

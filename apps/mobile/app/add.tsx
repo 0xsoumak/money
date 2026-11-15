@@ -27,6 +27,7 @@ import { ModalScreen } from "../components/Screen";
 import { Label, T } from "../components/T";
 import { useToast } from "../components/Toast";
 import { Button, Field, IconButton } from "../components/ui";
+import { useBudgetNudge } from "../lib/budgetNudge";
 import { success, tap, warn } from "../lib/haptics";
 import { useMoney } from "../lib/hooks";
 import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
@@ -61,6 +62,7 @@ export default function Add() {
   const { data: categories = [] } = useQuery(categoriesQuery);
   const save = useSaveTransaction();
   const remove = useDeleteTransaction();
+  const nudge = useBudgetNudge();
 
   // For an edit, the transaction is already in the cache from the list the user tapped.
   const existing = useMemo(
@@ -129,17 +131,20 @@ export default function Add() {
       date,
       note: note.trim() || null,
     };
+    // mutateAsync, not mutate: this screen closes straight away, and mutate's own callbacks
+    // are dropped once it unmounts, which would swallow the error toast and the nudge.
     const send = () =>
-      save.mutate(vars, {
-        onError: (err) => {
+      save.mutateAsync(vars).then(
+        () => nudge(vars, existing),
+        (err: Error) => {
           warn();
           toast.show(`Couldn't save: ${err.message}`, {
             tone: "error",
             action: { label: "Retry", onClick: send },
           });
         },
-      });
-    send();
+      );
+    void send();
     void storage.set(lastKey(type), categoryId);
     success();
     toast.show(editing ? "Updated" : `Saved ${money(minor)}`, {
