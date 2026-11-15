@@ -103,11 +103,11 @@ export default function Investments() {
       ) : (
         <>
           {data && (
-            <Reveal i={0}>
+            <Reveal>
               <ShareBar items={data.byCategory} categories={categories} />
             </Reveal>
           )}
-          <Reveal i={1}>
+          <Reveal>
             <SectionHeader title="Last 6 months" />
             <View style={{ marginTop: 16 }}>
               {data ? (
@@ -122,7 +122,7 @@ export default function Investments() {
               )}
             </View>
           </Reveal>
-          <Reveal i={2}>
+          <Reveal>
             <SectionHeader title={monthTitle(month)} />
             <View style={{ marginTop: 16 }}>
               {thisMonth.length === 0 ? (

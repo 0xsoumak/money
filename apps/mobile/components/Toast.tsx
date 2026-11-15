@@ -9,9 +9,19 @@ import {
   useState,
 } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
+import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
+import Animated, {
+  FadeInDown,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { scheduleOnRN } from "react-native-worklets";
 import { c, radius } from "../lib/theme";
+import { duration, ease, timing } from "./motion";
 import { T } from "./T";
 
 interface ToastItem {
@@ -79,33 +89,63 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** How far (px) a toast must be dragged sideways before letting go dismisses it. */
+const DISMISS_AT = 80;
+
 function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }) {
   const error = toast.tone === "error";
+  const x = useSharedValue(0);
+
+  // Swipe sideways to dismiss. Vertical drags are ignored so they don't fight scrolling.
+  const pan = usePanGesture({
+    activeOffsetX: [-12, 12],
+    failOffsetY: [-12, 12],
+    onUpdate: (e) => {
+      x.value = e.translationX;
+    },
+    onDeactivate: (e) => {
+      if (Math.abs(e.translationX) > DISMISS_AT || Math.abs(e.velocityX) > 800) {
+        const dir = Math.sign(e.translationX || e.velocityX);
+        x.value = withTiming(dir * 400, timing.base);
+        scheduleOnRN(onDismiss);
+      } else {
+        x.value = withTiming(0, timing.base);
+      }
+    },
+  });
+
+  const drag = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+    opacity: 1 - Math.min(1, Math.abs(x.value) / 240),
+  }));
+
   return (
-    <Animated.View
-      entering={FadeInDown.springify().damping(15).stiffness(260)}
-      exiting={FadeOut.duration(150)}
-      layout={LinearTransition.springify()}
-      style={[styles.toast, { borderColor: error ? c.danger : c.borderStrong }]}
-    >
-      <T variant="small" size={15} color={error ? c.danger : c.text} style={{ flex: 1 }}>
-        {toast.message}
-      </T>
-      {toast.action ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            toast.action?.onClick();
-            onDismiss();
-          }}
-          style={styles.action}
-        >
-          <T variant="label" color={c.accent} size={13}>
-            {toast.action.label}
-          </T>
-        </Pressable>
-      ) : null}
-    </Animated.View>
+    <GestureDetector gesture={pan}>
+      <Animated.View
+        entering={FadeInDown.duration(duration.base).easing(ease)}
+        exiting={FadeOut.duration(duration.fast)}
+        layout={LinearTransition.duration(duration.base).easing(ease)}
+        style={[styles.toast, { borderColor: error ? c.danger : c.borderStrong }, drag]}
+      >
+        <T variant="small" size={15} color={error ? c.danger : c.text} style={{ flex: 1 }}>
+          {toast.message}
+        </T>
+        {toast.action ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              toast.action?.onClick();
+              onDismiss();
+            }}
+            style={styles.action}
+          >
+            <T variant="label" color={c.accent} size={13}>
+              {toast.action.label}
+            </T>
+          </Pressable>
+        ) : null}
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

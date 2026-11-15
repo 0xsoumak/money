@@ -146,15 +146,15 @@ export default function Overview() {
           />
         ) : (
           <>
-            <Reveal i={0}>
+            <Reveal>
               <StatGrid stats={stats} />
             </Reveal>
 
-            <Reveal i={1}>
+            <Reveal>
               <ShareBar items={expenses} categories={categories} left={left} />
             </Reveal>
 
-            <Reveal i={2}>
+            <Reveal>
               <SectionHeader title="Day by day" />
               <View style={{ marginTop: 16 }}>
                 <DailyBars
@@ -167,7 +167,7 @@ export default function Overview() {
               </View>
             </Reveal>
 
-            <Reveal i={3}>
+            <Reveal>
               <SectionHeader title="Last 6 months" />
               <View style={{ marginTop: 16 }}>
                 {trend.data ? (

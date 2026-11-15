@@ -52,7 +52,7 @@ export default function TabsLayout() {
               tabBarButton: () => (
                 <View style={{ flex: 1, alignItems: "center" }}>
                   <PressableScale
-                    scaleTo={0.88}
+                    scaleTo={0.94}
                     accessibilityRole="button"
                     accessibilityLabel="Add transaction"
                     onPress={() => {

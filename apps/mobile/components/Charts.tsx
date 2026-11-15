@@ -7,7 +7,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
@@ -15,7 +14,7 @@ import { select } from "../lib/haptics";
 import { useMoney } from "../lib/hooks";
 import { c } from "../lib/theme";
 import { BudgetStatus } from "./BlockMeter";
-import { PressableScale } from "./motion";
+import { PressableScale, timing } from "./motion";
 import { Label, T } from "./T";
 
 const CHART_H = 132;
@@ -23,11 +22,11 @@ const CHART_H = 132;
 const shortMonth = (m: string) =>
   new Date(`${m}-01T00:00:00`).toLocaleString("en", { month: "short" });
 
-/** A bar that grows from the baseline to `height` with a spring, after `delay` ms. */
+/** A bar that eases from the baseline to `height`, after `delay` ms. */
 function Bar({ height, color, delay }: { height: number; color: string; delay: number }) {
   const h = useSharedValue(0);
   useEffect(() => {
-    h.value = withDelay(delay, withSpring(height, { damping: 17, stiffness: 170 }));
+    h.value = withDelay(delay, withTiming(height, timing.slow));
   }, [height, delay, h]);
   const style = useAnimatedStyle(() => ({ height: h.value }));
   return (
@@ -347,7 +346,7 @@ export function BudgetRing({
 
   const progress = useSharedValue(0);
   useEffect(() => {
-    progress.value = withTiming(target, { duration: 800, easing: Easing.out(Easing.cubic) });
+    progress.value = withTiming(target, { duration: 600, easing: Easing.out(Easing.cubic) });
   }, [target, progress]);
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circ * (1 - progress.value),

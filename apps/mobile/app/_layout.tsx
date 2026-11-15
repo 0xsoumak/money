@@ -11,6 +11,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryErrorToasts } from "../components/QueryErrors";
 import { ToastProvider } from "../components/Toast";
@@ -30,17 +31,19 @@ export default function RootLayout() {
   });
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <SessionProvider>
-          <ToastProvider>
-            <QueryErrorToasts />
-            <StatusBar style="light" />
-            <Navigator ready={fontsLoaded || !!fontError} />
-          </ToastProvider>
-        </SessionProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: c.bg }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <SessionProvider>
+            <ToastProvider>
+              <QueryErrorToasts />
+              <StatusBar style="light" />
+              <Navigator ready={fontsLoaded || !!fontError} />
+            </ToastProvider>
+          </SessionProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

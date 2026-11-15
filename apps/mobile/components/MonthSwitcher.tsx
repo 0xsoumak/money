@@ -2,9 +2,10 @@ import { Feather } from "@expo/vector-icons";
 import { addMonths, currentMonth, monthTitle } from "@money/shared";
 import { useEffect, useRef } from "react";
 import { Pressable, View } from "react-native";
-import Animated, { SlideInLeft, SlideInRight } from "react-native-reanimated";
+import Animated, { FadeInLeft, FadeInRight } from "react-native-reanimated";
 import { useMonth } from "../lib/month";
 import { c } from "../lib/theme";
+import { duration, ease } from "./motion";
 import { T } from "./T";
 import { IconButton } from "./ui";
 
@@ -26,7 +27,7 @@ export function MonthSwitcher() {
       <View style={{ minWidth: 150, overflow: "hidden" }}>
         <Animated.View
           key={month}
-          entering={(forward ? SlideInRight : SlideInLeft).springify().damping(20).stiffness(260)}
+          entering={(forward ? FadeInRight : FadeInLeft).duration(duration.base).easing(ease)}
         >
           <T variant="label" style={{ textAlign: "center" }} accessibilityRole="header">
             {monthTitle(month)}

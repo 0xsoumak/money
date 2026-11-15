@@ -49,7 +49,7 @@ export function Button({
       accessibilityLabel={title}
       accessibilityState={{ disabled: !!off, busy: !!busy }}
       disabled={off}
-      scaleTo={0.96}
+      scaleTo={0.97}
       onPress={() => {
         tap();
         onPress();
@@ -95,7 +95,7 @@ export function IconButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={4}
-      scaleTo={0.86}
+      scaleTo={0.92}
       onPress={() => {
         tap();
         onPress();
