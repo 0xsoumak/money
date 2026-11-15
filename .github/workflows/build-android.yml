@@ -1,0 +1,31 @@
+# Builds a new Android APK on Expo's servers. Run it by hand (Actions → Build Android APK →
+# Run workflow) when the app's native side changed: a new native library, or app.json edits.
+# Everyday code changes don't need this; CI ships those as over-the-air updates.
+#
+# Needs the EXPO_TOKEN repository secret. The signing key must already exist on Expo, which
+# it does once you have run one build from your own machine (`pnpm build:apk`).
+
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # --no-wait: the build runs on Expo; the download link appears on expo.dev and by email.
+      - run: pnpm dlx eas-cli@27.6.0 build --platform android --profile production --non-interactive --no-wait

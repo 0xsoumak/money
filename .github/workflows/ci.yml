@@ -1,0 +1,104 @@
+# Checks every push and pull request. On main, once the checks pass, it ships:
+#   - web + API: applies new database migrations, builds the web app, deploys the Worker
+#   - mobile: publishes an over-the-air update, only when the mobile app or shared code changed
+#
+# Needs these repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   token with "Edit Cloudflare Workers" + D1 edit permissions
+#   CLOUDFLARE_ACCOUNT_ID  your Cloudflare account id
+#   EXPO_TOKEN             an Expo access token (expo.dev → Account settings → Access tokens)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Lint, typecheck, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # reads the pnpm version from package.json "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  changes:
+    name: What changed
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            mobile:
+              - 'apps/mobile/**'
+              - 'packages/shared/**'
+              - 'apps/api/src/**'   # the app's API types come from here
+
+  deploy-web:
+    name: Deploy web + API
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-web
+      cancel-in-progress: false # never cut a deploy (or a migration) off halfway
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Same steps as `pnpm ship`: migrations first, so the new code never meets an old schema.
+      - run: pnpm --filter @money/api db:migrate:remote
+      - run: pnpm --filter @money/web build
+      - run: pnpm --filter @money/api run deploy
+
+  update-mobile:
+    name: Publish mobile OTA update
+    needs: [check, changes, deploy-web] # after the API it talks to is live
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: update-mobile
+      cancel-in-progress: false
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # runtimeVersion uses the "fingerprint" policy: if this commit changed native code, the
+      # update is tagged with a new runtime that no installed APK has, so phones safely ignore
+      # it until you install a new build (see the "Build Android APK" workflow).
+      - run: pnpm dlx eas-cli@27.6.0 update --channel production --auto --non-interactive
