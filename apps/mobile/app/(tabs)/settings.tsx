@@ -10,17 +10,12 @@ import { Button, SectionHeader } from "../../components/ui";
 import { LOCK_DELAYS, useAppLock } from "../../lib/appLock";
 import { API_URL } from "../../lib/config";
 import { tap } from "../../lib/haptics";
-import { useSettings, useUpdateSettings } from "../../lib/queries";
 import { useSession } from "../../lib/session";
 import { c, radius } from "../../lib/theme";
-
-const CURRENCIES = ["INR", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "SGD", "AED"];
 
 export default function Settings() {
   const router = useRouter();
   const toast = useToast();
-  const settings = useSettings();
-  const update = useUpdateSettings();
   const { signOut } = useSession();
   const lock = useAppLock();
   const [bioBusy, setBioBusy] = useState(false);
@@ -31,12 +26,6 @@ export default function Settings() {
     setBioBusy(false);
     if (result.ok) toast.show(on ? "Fingerprint unlock on" : "Fingerprint unlock off");
   };
-
-  const save = (patch: Parameters<typeof update.mutate>[0]) =>
-    update.mutate(patch, {
-      onSuccess: () => toast.show("Saved"),
-      onError: (err) => toast.show(`Couldn't save: ${err.message}`, { tone: "error" }),
-    });
 
   return (
     <Screen>
@@ -74,24 +63,6 @@ export default function Settings() {
           <T variant="body">Investments</T>
           <Feather name="chevron-right" size={22} color={c.textMuted} />
         </Pressable>
-      </View>
-
-      <View style={{ gap: 14 }}>
-        <SectionHeader title="Money" />
-        <Label>Currency</Label>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {CURRENCIES.map((cur) => (
-            <Choice
-              key={cur}
-              label={cur}
-              selected={settings.currency === cur}
-              onPress={() => save({ currency: cur })}
-            />
-          ))}
-        </View>
-        <T variant="small" color={c.textMuted}>
-          Changing the currency only changes how amounts are shown. It does not convert anything.
-        </T>
       </View>
 
       {lock.supported ? (

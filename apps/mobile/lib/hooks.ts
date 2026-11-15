@@ -1,12 +1,10 @@
 import { formatMoney } from "@money/shared";
 import { useCallback } from "react";
-import { useSettings } from "./queries";
 
-/** Formats minor units using the saved currency and locale. */
+/** Formats minor units as rupees, Indian style (₹1,00,000). The app is INR-only. */
 export function useMoney() {
-  const { currency, locale } = useSettings();
   return useCallback(
-    (minor: number) => formatMoney(minor, { currency, locale }),
-    [currency, locale],
+    (minor: number) => formatMoney(minor, { currency: "INR", locale: "en-IN" }),
+    [],
   );
 }
