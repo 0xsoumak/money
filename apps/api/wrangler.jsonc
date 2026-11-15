@@ -14,6 +14,8 @@
   "vars": {
     "BETTER_AUTH_URL": "https://money-tracker.soumakkdutta.workers.dev"
   },
+  // Workers AI turns "spent 500 on dinner yesterday" into an entry. Free up to 10k neurons/day.
+  "ai": { "binding": "AI" },
   "d1_databases": [
     {
       "binding": "DB",

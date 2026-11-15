@@ -1,5 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import {
+  dayLabel,
+  ENTRY_TEXT_MAX,
   newId,
   parseAmount,
   pressKey,
@@ -23,7 +25,13 @@ import {
 } from "react";
 import { useBudgetNudge } from "../lib/budgetNudge";
 import { isTyping, useMoney } from "../lib/hooks";
-import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
+import {
+  categoriesQuery,
+  type Tx,
+  useAiEntry,
+  useDeleteTransaction,
+  useSaveTransaction,
+} from "../lib/queries";
 import { DatePicker } from "./DatePicker";
 import { BackspaceIcon, CloseIcon } from "./icons";
 import { tween } from "./motion";
@@ -90,6 +98,8 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
   const nudge = useBudgetNudge();
   const toast = useToast();
   const money = useMoney();
+  const ai = useAiEntry();
+  const [describe, setDescribe] = useState("");
 
   const pickCategory = useCallback(
     (type: TransactionType): string | null => {
@@ -102,6 +112,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
 
   const openNew = useCallback(
     (type: TransactionType = "expense") => {
+      setDescribe("");
       setDraft({
         id: newId(),
         type,
@@ -160,6 +171,27 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
     });
     close();
   }, [draft, canSave, minor, save, remove, toast, money, close, nudge]);
+
+  /** "spent 500 on dinner yesterday": the server asks the model and saves it; we offer Undo. */
+  const submitDescribe = useCallback(() => {
+    const text = describe.trim();
+    if (!draft || !text || ai.isPending) return;
+    ai.mutate(
+      { id: draft.id, text, today: today() },
+      {
+        onSuccess: ({ transaction: tx }) => {
+          const category = categories.find((x) => x.id === tx.categoryId);
+          const where = category ? ` · ${category.emoji} ${category.name}` : "";
+          toast.show(`Added ${money(tx.amount)}${where} · ${dayLabel(tx.date)}`, {
+            action: { label: "Undo", onClick: () => remove.mutate(tx.id) },
+          });
+          void nudge(tx, null);
+          close();
+        },
+        onError: (err) => toast.show(err.message, { tone: "error" }),
+      },
+    );
+  }, [describe, draft, ai, categories, toast, money, remove, nudge, close]);
 
   // Keyboard entry: digits, ".", Backspace edit the amount; Enter saves (unless a button has focus).
   const open = draft !== null;
@@ -252,6 +284,42 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                     ))}
                   </div>
                 </div>
+
+                {!draft.editing && (
+                  <form
+                    className="mt-4 flex gap-2 sm:mt-6"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      submitDescribe();
+                    }}
+                  >
+                    <input
+                      type="text"
+                      aria-label="Describe it"
+                      placeholder="Or type it: spent 500 on dinner yesterday"
+                      value={describe}
+                      maxLength={ENTRY_TEXT_MAX}
+                      disabled={ai.isPending}
+                      onChange={(e) => setDescribe(e.target.value)}
+                      // Enter here sends the sentence, not the amount form below.
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        submitDescribe();
+                      }}
+                      className={cx(fieldClass, "min-h-11 flex-1")}
+                    />
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      disabled={!describe.trim() || ai.isPending}
+                      className="min-h-11 shrink-0"
+                    >
+                      {ai.isPending ? "Adding…" : "Add"}
+                    </Button>
+                  </form>
+                )}
 
                 <div className="pt-4 sm:pt-8">
                   <p className="text-sm font-bold uppercase tracking-[0.12em] text-muted">
