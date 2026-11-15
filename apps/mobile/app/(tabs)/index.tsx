@@ -25,6 +25,7 @@ import { TransactionList } from "../../components/TransactionList";
 import { Button, EmptyState, IconButton, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney } from "../../lib/hooks";
 import { useMonth } from "../../lib/month";
+import { toggleHidden, useHidden } from "../../lib/privacy";
 import {
   analyticsQuery,
   categoriesQuery,
@@ -42,6 +43,7 @@ export default function Overview() {
   const qc = useQueryClient();
   const { month } = useMonth();
   const money = useMoney();
+  const hidden = useHidden();
   const deleteWithUndo = useDeleteWithUndo();
 
   const { data: categories = [] } = useQuery(categoriesQuery);
@@ -121,6 +123,13 @@ export default function Overview() {
         <View style={{ flex: 1 }}>
           <MonthSwitcher />
         </View>
+        <IconButton
+          label={hidden ? "Show balances" : "Hide balances"}
+          bordered
+          onPress={toggleHidden}
+        >
+          <Feather name={hidden ? "eye-off" : "eye"} size={20} color={c.text} />
+        </IconButton>
         <IconButton label="Settings" bordered onPress={() => router.push("/settings")}>
           <Feather name="settings" size={20} color={c.text} />
         </IconButton>

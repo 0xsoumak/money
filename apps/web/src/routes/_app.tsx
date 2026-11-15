@@ -1,9 +1,12 @@
 import { monthSchema } from "@money/shared";
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { motion } from "motion/react";
+import { useEffect } from "react";
 import { z } from "zod";
 import {
   ChartIcon,
+  EyeIcon,
+  EyeOffIcon,
   GridIcon,
   HomeIcon,
   ListIcon,
@@ -15,6 +18,8 @@ import {
 import { tween } from "../components/motion";
 import { QuickAddProvider, useQuickAdd } from "../components/QuickAdd";
 import { Button } from "../components/ui";
+import { isTyping } from "../lib/hooks";
+import { toggleHidden, useHidden } from "../lib/privacy";
 import { categoriesQuery, sessionQuery, settingsQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/_app")({
@@ -49,6 +54,35 @@ function AppLayout() {
     <QuickAddProvider>
       <Shell />
     </QuickAddProvider>
+  );
+}
+
+/** Eye toggle that masks every money value as ₹•••••. Shortcut: H. */
+function HideBalancesButton() {
+  const hidden = useHidden();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "h" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTyping(e.target) || document.querySelector("[role=dialog]")) return;
+      e.preventDefault();
+      toggleHidden();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <button
+      type="button"
+      onClick={toggleHidden}
+      aria-pressed={hidden}
+      aria-label={hidden ? "Show balances" : "Hide balances"}
+      title={hidden ? "Show balances (H)" : "Hide balances (H)"}
+      className="ml-auto inline-flex size-11 items-center justify-center rounded-lg text-muted transition-colors hover:text-ink sm:ml-0"
+    >
+      {hidden ? <EyeOffIcon /> : <EyeIcon />}
+    </button>
   );
 }
 
@@ -87,7 +121,8 @@ function Shell() {
               </Link>
             ))}
           </nav>
-          <Button onClick={() => openNew()} className="group ml-auto sm:ml-0">
+          <HideBalancesButton />
+          <Button onClick={() => openNew()} className="group">
             <span className="transition-transform duration-200 ease-[cubic-bezier(.2,0,0,1)] group-hover:rotate-90">
               <PlusIcon size={20} />
             </span>
