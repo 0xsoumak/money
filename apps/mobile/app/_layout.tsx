@@ -13,9 +13,11 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { LockScreen } from "../components/LockScreen";
 import { QueryErrorToasts } from "../components/QueryErrors";
 import { ToastProvider } from "../components/Toast";
 import { queryClient } from "../lib/api";
+import { AppLockProvider, useAppLock } from "../lib/appLock";
 import { SessionProvider, useSession } from "../lib/session";
 import { c } from "../lib/theme";
 
@@ -35,11 +37,15 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <SessionProvider>
-            <ToastProvider>
-              <QueryErrorToasts />
-              <StatusBar style="light" />
-              <Navigator ready={fontsLoaded || !!fontError} />
-            </ToastProvider>
+            <AppLockProvider>
+              <ToastProvider>
+                <QueryErrorToasts />
+                <StatusBar style="light" />
+                <Navigator ready={fontsLoaded || !!fontError} />
+              </ToastProvider>
+              {/* Last, so it covers the screens and any toasts. */}
+              <LockScreen />
+            </AppLockProvider>
           </SessionProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
@@ -49,7 +55,9 @@ export default function RootLayout() {
 
 function Navigator({ ready }: { ready: boolean }) {
   const { isLoading, signedIn } = useSession();
-  const loaded = ready && !isLoading;
+  const lock = useAppLock();
+  // Wait for the lock preference too, so a locked app never flashes its contents at launch.
+  const loaded = ready && !isLoading && lock.ready;
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync().catch(() => {});
