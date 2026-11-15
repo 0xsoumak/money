@@ -14,28 +14,53 @@ Tokens live in [packages/shared/src/tokens.ts](../packages/shared/src/tokens.ts)
 5. **Color is never the only signal.** Over budget shows `₹60 over` in words as well as red.
 6. **Fast over pretty.** Quick add is three taps. Every screen is judged by how quickly the user gets back to their day.
 
-## Visualizations: clean and simple
+## Visualizations
 
-A small set of kinds, so everything reads at a glance.
+Two pages, two jobs. The **Overview** answers "how am I doing this month" in five seconds. The **Analytics** page is where the data gets explored. Both use the same tokens, the same category colors and the same flat, sharp shapes.
 
-| Visual          | Used for                         | Rules                                                                                                                                                                                                                                                                                  |
-| --------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Block meter** | Budget progress, month progress  | 10 equal blocks, filled left to right. Neutral until 80%, then `warning`, over 100% `danger`. Label with words (`₹1,680 left`, `₹60 over`).                                                                                                                                            |
-| **Share bar**   | Where this month's money went    | One bar, one segment per category, widths proportional to amount. Legend below with name and amount. Includes a dashed "left to spend" segment when a budget exists.                                                                                                                   |
-| **Ranked list** | Category breakdown, top spending | Sorted high to low, name and amount on each row, a bar only if it adds clarity.                                                                                                                                                                                                        |
-| **Day bars**    | Each day's spending this month   | One bar per day on a shared baseline, ink at 70%. Today is lime, future days are flat ghost stubs. Biggest day labelled; hover shows the day and amount. A dashed line marks the daily pace that lands on the overall budget.                                                          |
-| **Month bars**  | The last 6 months of spending    | One bar per month, amount labelled above, short month below. The viewed month is lime. Clicking a bar opens that month.                                                                                                                                                                |
-| **Budget ring** | Budgets on the overview          | One progress ring per budget in a card grid, percent in the middle, status in words and exact figures below. Same state colors as the block meter. Over budget: faded full ring plus a solid second lap for the overspend. Not a donut: budgets are independent, not parts of a whole. |
-| **Stat strip**  | Context for the hero number      | Four cells: daily average, on pace for (or days spent, for past months), last month, biggest day. Each has a one-line hint in words.                                                                                                                                                   |
+### Overview: clean and simple
 
-Rules for all of them:
+| Visual              | Used for                        | Rules                                                                                                                                                                  |
+| ------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Stat strip**      | Context for the hero number     | Four cells: daily average, on pace for (or days spent, for past months), last month, biggest day. Each has a one-line hint in words.                                   |
+| **Share bar**       | Where this month's money went   | One bar, one segment per category, widths proportional to amount. Legend below with name and amount. Includes a dashed "left to spend" segment when a budget exists.   |
+| **Needs attention** | Budgets at 80% or more          | One block-meter row per budget in warning or over, worst first. The rest are summed up in words ("4 other budgets on track"). The full list lives on the Budgets page. |
+| **Block meter**     | Budget progress, month progress | 10 equal blocks, filled left to right. Neutral until 80%, then `warning`, over 100% `danger`. Label with words (`₹1,680 left`, `₹60 over`).                            |
+| **Ranked list**     | Category breakdown              | Sorted high to low, name and amount on each row, a bar only if it adds clarity.                                                                                        |
+| **Month bars**      | Investments, by month           | One bar per month, amount labelled above, short month below. The viewed month is lime. Clicking a bar opens that month.                                                |
 
-- **No pie or donut charts, no axes, no gridlines, no 3D.** If a chart needs a legend lookup to read, it is too complex.
-- **Label directly.** The value sits on or beside the thing it describes. No hover-only information.
-- **Numbers first.** Every visual has its exact figure next to it.
-- **Same category, same color, everywhere.** Use `categoryColor(key, scheme)`.
-- **Animate on change only**: meters fill in on first show and when the value changes (about 400 ms), nothing loops.
-- **Trend over time**: bar-per-month, labelled directly, no more than 12 points. No axes or gridlines.
+Overview rules: no pie or donut charts, no axes, no gridlines, no 3D. Label directly; no hover-only information. Every visual has its exact figure next to it. One insight card links through to Analytics.
+
+### Analytics: rich, still on-brand
+
+The math lives in `packages/shared/src/analytics.ts` (tested); the web charts in `apps/web/src/components/analytics/`. Layout uses `d3-scale` and `d3-shape` for math only; every mark is our own SVG drawn with tokens.
+
+| Chart                 | Shows                                                       | Notes                                                                    |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Money flow**        | Income → spent / invested / kept → spending by category     | Ribbons to scale. Kept is lime; money drawn from savings is `danger`.    |
+| **Spend curve**       | Running total vs last month, the usual month and the budget | Like-for-like: a running month compares with the same day of last month. |
+| **Movers**            | Each category, last month vs this month                     | Slope chart, change labelled in words with a sign.                       |
+| **Year heatmap**      | Every day in the range                                      | One hue (lime) dim to bright, five levels; today outlined.               |
+| **Category river**    | Monthly mix of categories                                   | Streamgraph over full months only; labelled at the right edge.           |
+| **Weekday rhythm**    | Average spend per weekday                                   | Days with no spending count, so it's a true average.                     |
+| **Savings rate**      | Invested ÷ income per month                                 | Latest month lime; dashed average.                                       |
+| **Transaction sizes** | Every expense in the last 90 days as a dot                  | Log scale, beeswarm, lime median line.                                   |
+| **Repeat spends**     | Notes that recur                                            | "Monthly" tag when seen once a month for 3+ months.                      |
+
+Analytics rules:
+
+- **Every chart leads with a sentence** that says what it shows, with the number in it.
+- **Minimal axes are allowed**: faint gridlines and small tick labels in `textFaint`. Never a second y-axis.
+- **Hover adds detail; it never hides the point.** Tooltips give exact figures; the chart still reads without them.
+- **At most six series.** Anything beyond the top five is folded into "Other" (slate).
+- **Direct labels on every categorical chart.** Some category pairs (mint/pink, teal/pink) are hard to tell apart with colour blindness, so a label, never colour alone, names each series.
+- **Text never wears a series colour**: values and labels use text tokens; the mark beside them carries the colour.
+
+Rules for both pages:
+
+- **Same category, same color, everywhere.** Use `categoryColor(key, scheme)` (web: `var(--cat-<key>)`).
+- **Animate on change only**: marks fade or draw in on first show and when the value changes (about 300–600 ms), nothing loops.
+- **Amounts in lists are signed**: `−` in red for spending, `+` in green for income, `−` in ink for investing (`signedAmount`).
 
 ## Typography
 
@@ -54,7 +79,7 @@ Build these once per platform (web with Tailwind + Base UI/React Aria, mobile wi
 | `CategoryPill`              | Emoji + name; selected state fills with the category color. Scrolls horizontally on phone.     |
 | `TransactionRow`            | Color bar, title, category, amount. Swipe to delete on mobile, hover actions on web.           |
 | `DayGroup`                  | Uppercase day label with total and a 2px rule, then rows.                                      |
-| `BlockMeter`                | The 10-block meter with state colors.                                                          |
+| `BlockMeter`                | The 10-block meter with state colors. `BudgetRow` pairs it with a name and status.             |
 | `ShareBar`                  | Proportional segmented bar plus legend.                                                        |
 | `MonthSwitcher`             | Previous, label, next. Keyboard arrows on web, swipe on mobile.                                |
 | `Sheet` / `Dialog`          | Bottom sheet on mobile, centered dialog on web. Spring motion.                                 |

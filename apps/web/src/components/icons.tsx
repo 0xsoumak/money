@@ -88,6 +88,11 @@ export const TrendIcon = () => (
   </Icon>
 );
 /** Six dots: "grab here to drag". Filled, so it reads at small sizes. */
+export const ChartIcon = () => (
+  <Icon>
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </Icon>
+);
 export const GripIcon = () => (
   <svg aria-hidden="true" width={18} height={18} viewBox="0 0 24 24" fill="currentColor">
     <circle cx="9" cy="6" r="1.7" />

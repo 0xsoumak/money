@@ -1,8 +1,19 @@
-import { addMonths, budgetProgress, monthInsights, overviewStats, today } from "@money/shared";
+import {
+  addMonths,
+  analyticsWindow,
+  budgetProgress,
+  dailyExpenses,
+  monthInsights,
+  overviewStats,
+  today,
+  weekdayAverages,
+  weekendRatio,
+} from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BudgetRing } from "../../components/BudgetRing";
-import { DailyBars, MonthTrend, StatStrip } from "../../components/Charts";
+import { useMemo } from "react";
+import { BudgetRow } from "../../components/BlockMeter";
+import { StatStrip } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { CountUp, Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
@@ -10,17 +21,23 @@ import { ShareBar } from "../../components/ShareBar";
 import { TransactionList } from "../../components/TransactionList";
 import { Button, cx, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
-import { categoriesQuery, summaryQuery, transactionsQuery, trendQuery } from "../../lib/queries";
+import {
+  analyticsQuery,
+  categoriesQuery,
+  summaryQuery,
+  transactionsQuery,
+  trendQuery,
+} from "../../lib/queries";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
 export const Route = createFileRoute("/_app/")({
   component: Overview,
 });
 
-const RECENT = 8;
+const RECENT = 5;
 
 function Overview() {
-  const { month, setMonth } = useMonth();
+  const { month } = useMonth();
   const money = useMoney();
   const { openNew } = useQuickAdd();
   const deleteWithUndo = useDeleteWithUndo();
@@ -53,6 +70,18 @@ function Overview() {
       (a, b) => budgetProgress(b.spent, b.limit).ratio - budgetProgress(a.spent, a.limit).ratio,
     );
   const hasBudgets = overall !== null || categoryBudgets.length > 0;
+  // Only budgets at 80% or more make the overview; the rest are summed up in words.
+  const atRisk = [
+    ...(overall !== null ? [{ key: "overall", name: "Overall", limit: overall, spent }] : []),
+    ...categoryBudgets.map(({ c, limit, spent: s }) => ({
+      key: c.id,
+      name: `${c.emoji} ${c.name}`,
+      limit,
+      spent: s,
+    })),
+  ].filter((b) => budgetProgress(b.spent, b.limit).state !== "ok");
+  const budgetCount = (overall !== null ? 1 : 0) + categoryBudgets.length;
+  const onTrack = budgetCount - atRisk.length;
 
   // ── Daily figures for the charts and stat strip ──
   const todayDate = today();
@@ -65,6 +94,18 @@ function Overview() {
   });
   const prevSpent = trend.data?.find((t) => t.month === addMonths(month, -1))?.spent ?? 0;
   const stats = overviewStats(ins, { spent, prevSpent, overallBudget: overall, money });
+
+  // One line from the Analytics page, as a way in.
+  const analytics = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
+  const teaser = useMemo(() => {
+    if (!analytics.data) return null;
+    const { dates } = analyticsWindow(month, 3, todayDate);
+    const r = weekendRatio(weekdayAverages(dailyExpenses(analytics.data.rows), dates));
+    if (r === null) return null;
+    if (r >= 1.15) return `Weekends cost you ${r.toFixed(1).replace(/\.0$/, "")}× a weekday.`;
+    if (r <= 0.87) return "You spend more on weekdays than weekends.";
+    return "Your spending is even across the week.";
+  }, [analytics.data, month, todayDate]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -173,33 +214,44 @@ function Overview() {
               />
             </Reveal>
 
-            <Reveal className="grid gap-x-10 gap-y-8 lg:grid-cols-[3fr_2fr]">
+            {!loading && (
               <section>
-                <SectionHeader title="Day by day" />
-                <div className="mt-5">
-                  <DailyBars
-                    month={month}
-                    totals={ins.daily}
-                    todayDate={todayDate}
-                    dailyBudget={ins.dailyBudget ?? undefined}
-                  />
-                </div>
+                <SectionHeader
+                  title="Needs attention"
+                  right={
+                    <Link
+                      to="/budgets"
+                      search={(prev: { month?: string }) => ({ month: prev.month })}
+                      className="-my-3 inline-flex min-h-11 items-center text-sm font-bold uppercase tracking-wider text-accent"
+                    >
+                      {hasBudgets ? "Manage" : "Set up"}
+                    </Link>
+                  }
+                />
+                {!hasBudgets ? (
+                  <p className="border-b border-line py-5 text-muted">
+                    Set a monthly budget to see how much you have left to spend.
+                  </p>
+                ) : atRisk.length === 0 ? (
+                  <p className="border-b border-line py-5 text-muted">
+                    {budgetCount === 1
+                      ? "Your budget is on track."
+                      : `All ${budgetCount} budgets on track.`}
+                  </p>
+                ) : (
+                  <>
+                    {atRisk.map((b) => (
+                      <BudgetRow key={b.key} name={b.name} spent={b.spent} limit={b.limit} />
+                    ))}
+                    {onTrack > 0 && (
+                      <p className="pt-3 text-sm text-muted">
+                        {onTrack} other {onTrack === 1 ? "budget" : "budgets"} on track
+                      </p>
+                    )}
+                  </>
+                )}
               </section>
-              <section>
-                <SectionHeader title="Last 6 months" />
-                <div className="mt-5">
-                  {trend.data ? (
-                    <MonthTrend
-                      months={trend.data.map((t) => ({ month: t.month, value: t.spent }))}
-                      current={month}
-                      onPick={setMonth}
-                    />
-                  ) : (
-                    <Skeleton className="h-[188px]" />
-                  )}
-                </div>
-              </section>
-            </Reveal>
+            )}
 
             <section>
               <SectionHeader
@@ -224,36 +276,22 @@ function Overview() {
                 />
               </div>
             </section>
+            <Link
+              to="/analytics"
+              search={(prev: { month?: string }) => ({ month: prev.month })}
+              className="group flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border-2 border-line-strong px-6 py-5 transition-colors hover:border-accent"
+            >
+              <span>
+                <Label className="text-[13px]">From your analytics</Label>
+                <span className="mt-1.5 block text-2xl font-bold tracking-[-0.02em]">
+                  {teaser ?? "See where your money really goes."}
+                </span>
+              </span>
+              <span className="inline-flex min-h-12 items-center rounded-lg bg-accent px-5 text-sm font-bold uppercase tracking-wider text-on-accent">
+                Open analytics →
+              </span>
+            </Link>
           </>
-        )}
-
-        {!loading && (
-          <section>
-            <SectionHeader
-              title="Budgets"
-              right={
-                <Link
-                  to="/budgets"
-                  search={(prev: { month?: string }) => ({ month: prev.month })}
-                  className="-my-3 inline-flex min-h-11 items-center text-sm font-bold uppercase tracking-wider text-accent"
-                >
-                  {hasBudgets ? "Manage" : "Set up"}
-                </Link>
-              }
-            />
-            {hasBudgets ? (
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                {overall !== null && <BudgetRing name="Overall" spent={spent} limit={overall} />}
-                {categoryBudgets.map(({ c, limit, spent: s }) => (
-                  <BudgetRing key={c.id} name={`${c.emoji} ${c.name}`} spent={s} limit={limit} />
-                ))}
-              </div>
-            ) : (
-              <p className="border-b border-line py-5 text-muted">
-                Set a monthly budget to see how much you have left to spend.
-              </p>
-            )}
-          </section>
         )}
       </div>
     </div>

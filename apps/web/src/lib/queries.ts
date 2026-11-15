@@ -69,6 +69,16 @@ export const investmentsQuery = (month: string) =>
     queryFn: () => fetchInvestments(month),
   });
 
+const fetchAnalytics = async (month: string) =>
+  unwrap(await api.analytics.$get({ query: { month } }));
+
+/** Every transaction in the 13 months ending at `month`; the Analytics page computes from these. */
+export const analyticsQuery = (month: string) =>
+  queryOptions({
+    queryKey: ["analytics", month],
+    queryFn: () => fetchAnalytics(month),
+  });
+
 export const settingsQuery = queryOptions({
   queryKey: ["settings"],
   queryFn: async () => (await unwrap(await api.settings.$get())).settings,
@@ -96,6 +106,7 @@ const refresh = (qc: QC) =>
   Promise.all([
     qc.invalidateQueries({ queryKey: ["transactions"] }),
     qc.invalidateQueries({ queryKey: ["summary"] }),
+    qc.invalidateQueries({ queryKey: ["analytics"] }),
   ]);
 
 export function useSaveTransaction() {
