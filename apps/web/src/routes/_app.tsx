@@ -7,7 +7,6 @@ import {
   ChartIcon,
   EyeIcon,
   EyeOffIcon,
-  GridIcon,
   HomeIcon,
   ListIcon,
   MeterIcon,
@@ -39,13 +38,13 @@ export const Route = createFileRoute("/_app")({
 });
 
 // Phones show the five `phone` tabs; Investments opens from the Overview's Invested figure.
+// Categories live under Settings.
 const NAV = [
   { to: "/", label: "Overview", tab: "Overview", Icon: HomeIcon, phone: true },
   { to: "/analytics", label: "Analytics", tab: "Analytics", Icon: ChartIcon, phone: true },
   { to: "/transactions", label: "Transactions", tab: "Activity", Icon: ListIcon, phone: true },
   { to: "/budgets", label: "Budgets", tab: "Budgets", Icon: MeterIcon, phone: true },
   { to: "/investments", label: "Investments", tab: "Invest", Icon: TrendIcon, phone: false },
-  { to: "/categories", label: "Categories", tab: "Categories", Icon: GridIcon, phone: false },
   { to: "/settings", label: "Settings", tab: "Settings", Icon: SlidersIcon, phone: true },
 ] as const;
 

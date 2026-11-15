@@ -8,7 +8,7 @@ import {
   TYPE_PLURAL,
 } from "@money/shared";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Reorder, useDragControls } from "motion/react";
 import { type FormEvent, type KeyboardEvent, useState } from "react";
 import { CloseIcon, GripIcon, PlusIcon } from "../../components/icons";
@@ -94,7 +94,15 @@ function CategoriesPage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-10">
-      <h1 className="text-5xl font-bold tracking-[-0.04em]">Categories</h1>
+      <div className="flex flex-col gap-3">
+        <Link
+          to="/settings"
+          className="self-start text-sm font-bold uppercase tracking-[0.08em] text-muted hover:text-ink"
+        >
+          ← Settings
+        </Link>
+        <h1 className="text-5xl font-bold tracking-[-0.04em]">Categories</h1>
+      </div>
 
       {isPending ? null : (
         <>
