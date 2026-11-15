@@ -12,7 +12,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { BudgetRow } from "../../components/BlockMeter";
+import { BudgetRing } from "../../components/BudgetRing";
 import { StatStrip } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { CountUp, Reveal } from "../../components/motion";
@@ -240,9 +240,11 @@ function Overview() {
                   </p>
                 ) : (
                   <>
-                    {atRisk.map((b) => (
-                      <BudgetRow key={b.key} name={b.name} spent={b.spent} limit={b.limit} />
-                    ))}
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {atRisk.map((b) => (
+                        <BudgetRing key={b.key} name={b.name} spent={b.spent} limit={b.limit} />
+                      ))}
+                    </div>
                     {onTrack > 0 && (
                       <p className="pt-3 text-sm text-muted">
                         {onTrack} other {onTrack === 1 ? "budget" : "budgets"} on track
