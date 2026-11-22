@@ -8,6 +8,9 @@ export default defineConfig(async () => {
     plugins: [
       cloudflareTest({
         wrangler: { configPath: "./wrangler.jsonc" },
+        // The AI binding only exists remotely, which would need a Cloudflare login (and fails in CI).
+        // Tests never call the model, so keep everything local.
+        remoteBindings: false,
         miniflare: {
           bindings: {
             TEST_MIGRATIONS: migrations,
