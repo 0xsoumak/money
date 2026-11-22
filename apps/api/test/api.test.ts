@@ -439,3 +439,37 @@ describe("budgets", () => {
     expect((await (await api("/api/budgets")).json<Json>()).budgets).toEqual([]);
   });
 });
+
+// The model itself isn't called in tests (Workers AI only runs remotely); the parsing of its
+// replies is covered in packages/shared/src/entry.test.ts. These cover what happens around it.
+describe("ai entry", () => {
+  it("rejects empty or overlong text before asking the model", async () => {
+    for (const text of ["", "   ", "x".repeat(201)]) {
+      const res = await api("/api/ai/entry", {
+        method: "POST",
+        json: { id: newId(), text, today: "2026-11-15" },
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("rejects a sentence with no amount without asking the model", async () => {
+    const res = await api("/api/ai/entry", {
+      method: "POST",
+      json: { id: newId(), text: "dinner with friends", today: "2026-11-15" },
+    });
+    expect(res.status).toBe(422);
+    expect((await res.json<Json>()).error).toMatch(/amount/i);
+  });
+
+  it("returns the already-saved row when a request is retried", async () => {
+    const id = newId();
+    await api(`/api/transactions/${id}`, { method: "PUT", json: expense({ amount: 50000 }) });
+    const res = await api("/api/ai/entry", {
+      method: "POST",
+      json: { id, text: "spent 500 on dinner", today: "2026-11-15" },
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json<Json>()).transaction).toMatchObject({ id, amount: 50000 });
+  });
+});

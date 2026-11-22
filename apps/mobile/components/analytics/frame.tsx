@@ -1,9 +1,10 @@
 // Mobile twin of apps/web/src/components/analytics/frame.tsx. Keep the two in step.
-import { fonts, OTHER } from "@money/shared";
+import { fonts, MASKED_MONEY, OTHER } from "@money/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type GestureResponderEvent, type LayoutChangeEvent, View } from "react-native";
 import { Text as SvgText } from "react-native-svg";
 import { select } from "../../lib/haptics";
+import { isHidden } from "../../lib/privacy";
 import type { Category } from "../../lib/queries";
 import { c, cat } from "../../lib/theme";
 import { T } from "../T";
@@ -199,7 +200,9 @@ export const fade = (color: string, opacity: number) => mix(c.bg, color, opacity
 export { shortDate, shortMonth } from "@money/shared";
 
 /** Compact money for ticks and tight labels: ₹950, ₹1.2k, ₹45k, ₹1.2L. */
+// Callers also use useMoney, so they re-render when balances are hidden or shown.
 export function compactMoney(minor: number): string {
+  if (isHidden()) return MASKED_MONEY;
   const r = Math.round(minor / 100);
   if (r >= 100_000) return `₹${trim(r / 100_000)}L`;
   if (r >= 1000) return `₹${trim(r / 1000)}k`;

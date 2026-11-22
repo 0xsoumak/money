@@ -18,7 +18,6 @@ const row = (
 ): AnalyticsRow => ({ date, amount, categoryId, type, note });
 
 const money = (minor: number) => `₹${minor / 100}`;
-const nameOf = (key: string) => key.toUpperCase();
 
 describe("labels", () => {
   it("formats months and dates without timezones", () => {
@@ -53,13 +52,12 @@ describe("analyticsReport", () => {
   });
 
   it("writes one headline per chart", () => {
-    const h = analyticsHeadlines(a, money, nameOf);
+    const h = analyticsHeadlines(a, money);
     expect(h.flow).toEqual([
       { text: "You kept " },
       { text: "94%", accent: true },
       { text: " of what came in." },
     ]);
-    expect(h.movers).toBe("FUN up ₹20, FOOD down ₹10.");
     expect(h.curve).toBe("₹10 more than this point last month.");
   });
 });

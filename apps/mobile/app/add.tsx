@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import {
   dayLabel,
+  ENTRY_TEXT_MAX,
   newId,
   parseAmount,
   pressKey,
@@ -30,7 +31,13 @@ import { Button, Field, IconButton } from "../components/ui";
 import { useBudgetNudge } from "../lib/budgetNudge";
 import { success, tap, warn } from "../lib/haptics";
 import { useMoney } from "../lib/hooks";
-import { categoriesQuery, type Tx, useDeleteTransaction, useSaveTransaction } from "../lib/queries";
+import {
+  categoriesQuery,
+  type Tx,
+  useAiEntry,
+  useDeleteTransaction,
+  useSaveTransaction,
+} from "../lib/queries";
 import { storage } from "../lib/storage";
 import { c, cat, radius } from "../lib/theme";
 
@@ -63,6 +70,8 @@ export default function Add() {
   const save = useSaveTransaction();
   const remove = useDeleteTransaction();
   const nudge = useBudgetNudge();
+  const ai = useAiEntry();
+  const [describe, setDescribe] = useState("");
 
   // For an edit, the transaction is already in the cache from the list the user tapped.
   const existing = useMemo(
@@ -153,6 +162,29 @@ export default function Add() {
     router.back();
   };
 
+  /** "spent 500 on dinner yesterday": the server asks the model and saves it; we offer Undo. */
+  const submitDescribe = () => {
+    const text = describe.trim();
+    if (!text || ai.isPending) return;
+    tap();
+    ai.mutateAsync({ id, text, today: today() }).then(
+      ({ transaction: tx }) => {
+        const category = categories.find((x) => x.id === tx.categoryId);
+        const where = category ? ` · ${category.emoji} ${category.name}` : "";
+        success();
+        toast.show(`Added ${money(tx.amount)}${where} · ${dayLabel(tx.date)}`, {
+          action: { label: "Undo", onClick: () => remove.mutate(tx.id) },
+        });
+        void nudge(tx, undefined);
+        router.back();
+      },
+      (err: Error) => {
+        warn();
+        toast.show(err.message, { tone: "error" });
+      },
+    );
+  };
+
   const pickDate = () => {
     tap();
     if (Platform.OS === "android") {
@@ -218,6 +250,32 @@ export default function Add() {
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
+          {!editing && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Field
+                  placeholder="Or type it: 500 dinner yesterday"
+                  accessibilityLabel="Describe it"
+                  value={describe}
+                  onChangeText={setDescribe}
+                  maxLength={ENTRY_TEXT_MAX}
+                  editable={!ai.isPending}
+                  returnKeyType="send"
+                  onSubmitEditing={submitDescribe}
+                  style={{ minHeight: 48 }}
+                />
+              </View>
+              <Button
+                title={ai.isPending ? "Adding" : "Add"}
+                variant="outline"
+                height={48}
+                busy={ai.isPending}
+                disabled={!describe.trim() || ai.isPending}
+                onPress={submitDescribe}
+              />
+            </View>
+          )}
+
           <View>
             <Label>
               {editing ? "Editing" : "New"} · {type}

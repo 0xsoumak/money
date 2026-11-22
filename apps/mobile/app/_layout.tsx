@@ -18,6 +18,7 @@ import { QueryErrorToasts } from "../components/QueryErrors";
 import { ToastProvider } from "../components/Toast";
 import { queryClient } from "../lib/api";
 import { AppLockProvider, useAppLock } from "../lib/appLock";
+import { usePrivacyReady } from "../lib/privacy";
 import { SessionProvider, useSession } from "../lib/session";
 import { c } from "../lib/theme";
 
@@ -56,8 +57,9 @@ export default function RootLayout() {
 function Navigator({ ready }: { ready: boolean }) {
   const { isLoading, signedIn } = useSession();
   const lock = useAppLock();
-  // Wait for the lock preference too, so a locked app never flashes its contents at launch.
-  const loaded = ready && !isLoading && lock.ready;
+  const privacyReady = usePrivacyReady();
+  // Wait for the lock and hide-balances preferences too, so nothing private flashes at launch.
+  const loaded = ready && !isLoading && lock.ready && privacyReady;
 
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync().catch(() => {});

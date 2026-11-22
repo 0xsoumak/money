@@ -4,6 +4,7 @@ import {
   type CategoryCreate,
   type CategoryUpdate,
   DEFAULT_SETTINGS,
+  type EntryRequest,
   type Settings,
   type TransactionInput,
 } from "@money/shared";
@@ -132,6 +133,18 @@ export function useSaveTransaction() {
     onError: (_e, _v, ctx) => {
       for (const [key, data] of ctx?.previous ?? []) qc.setQueryData(key, data);
     },
+    onSettled: () => refresh(qc),
+  });
+}
+
+/**
+ * "spent 500 on dinner yesterday" → saved by the server via Workers AI.
+ * Not optimistic: the fields aren't known until the model has read the sentence.
+ */
+export function useAiEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (json: EntryRequest) => unwrap(await api.ai.entry.$post({ json })),
     onSettled: () => refresh(qc),
   });
 }
