@@ -113,6 +113,9 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
   return (
     <View
       onLayout={onLayout}
+      // Fixed height: the Svg only mounts after width is measured, and without this the box
+      // stays 0 tall and the next section draws over the chart.
+      style={{ height: H + 8 }}
       accessible
       accessibilityRole="image"
       accessibilityLabel={`Income ${money(flow.income)} went to spending ${money(flow.spent)}, investing ${money(flow.invested)}, kept ${money(flow.kept)}. ${cats.map((x) => `${x.label} ${money(x.amount)}`).join(", ")}.`}

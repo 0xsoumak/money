@@ -119,8 +119,8 @@ export default function Overview() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <MonthSwitcher />
         </View>
         <IconButton
