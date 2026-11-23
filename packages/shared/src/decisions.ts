@@ -6,28 +6,84 @@
  * Pure functions over plain rows, shared so web and mobile say exactly the same thing.
  * Amounts are minor units. Dates are "YYYY-MM-DD", months "YYYY-MM".
  *
- * Comparisons are like for like: on the 23rd, this month so far is compared with what
- * earlier months had reached by their 23rd, not with whole months. Months before the
- * first one with anything logged are ignored, so a new user isn't compared with zeros.
+ * How it stays honest:
+ * - Like for like: on the 23rd, this month so far is compared with what earlier months had
+ *   reached by their 23rd, not with whole months.
+ * - Fixed costs (categories marked fixed: rent, EMIs, family support) are split out. Verdicts
+ *   are about flexible spending, the part your choices change.
+ * - "Usual" is a typical range (median, middle half), not a mean one odd month can drag.
+ * - Months before anything was logged are ignored, and every verdict says how much history
+ *   it rests on. Thin logging is flagged, since missing entries look like spending less.
  */
 import { type AnalyticsRow, monthsEnding, runningTotals } from "./analytics";
 import { shortMonth } from "./analyticsReport";
 import { addMonths, daysInMonth, monthOf } from "./dates";
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
-const avg = (xs: number[]) => (xs.length ? sum(xs) / xs.length : null);
 const daysOf = (m: string) => daysInMonth(Number(m.slice(0, 4)), Number(m.slice(5, 7)));
 const dayOf = (date: string) => Number(date.slice(8, 10));
 
-/** Movements smaller than this (₹500) aren't worth calling out. */
+/** Differences smaller than this (₹500) aren't worth calling out. */
 const NOTABLE = 50_000;
-/** How many earlier months "usual" is based on for category comparisons. */
+/** How many earlier months category comparisons use. */
 const RECENT = 3;
+/** Months of history before a comparison counts as more than an early read. */
+const SOLID = 3;
+/** Pace warnings wait this many days; before that a projection is mostly noise. */
+const SETTLE_DAYS = 7;
+/** Below this share of days with any entry, logging looks incomplete. */
+const THIN = 0.3;
+
+// ── Typical range ───────────────────────────────────────────────────────────
+
+/** A typical value and the range around it. */
+export interface Range {
+  low: number;
+  mid: number;
+  high: number;
+  /** How many months it's based on. */
+  n: number;
+}
+
+function quantile(sorted: number[], p: number): number {
+  const i = (sorted.length - 1) * p;
+  const lo = Math.floor(i);
+  const hi = Math.ceil(i);
+  return Math.round(
+    (sorted[lo] as number) + ((sorted[hi] as number) - (sorted[lo] as number)) * (i - lo),
+  );
+}
+
+/** Median with the middle half around it; with fewer than four values, lowest to highest. */
+export function typicalRange(values: number[]): Range | null {
+  if (values.length === 0) return null;
+  const s = [...values].sort((a, b) => a - b);
+  const wide = s.length < 4;
+  return {
+    low: wide ? (s[0] as number) : quantile(s, 0.25),
+    mid: quantile(s, 0.5),
+    high: wide ? (s.at(-1) as number) : quantile(s, 0.75),
+    n: s.length,
+  };
+}
+
+/** Where a value sits against a range, with some slack so tiny differences read as usual. */
+export function against(value: number, r: Range): "above" | "below" | "within" {
+  const slack = Math.max(NOTABLE, r.mid * 0.1);
+  if (value > r.high + slack) return "above";
+  if (value < r.low - slack) return "below";
+  return "within";
+}
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export interface MonthTotals {
   month: string;
   income: number;
+  /** fixed + flexible. */
   spent: number;
+  fixed: number;
+  flexible: number;
   invested: number;
   /** income − spent − invested; negative when savings were drawn on. */
   left: number;
@@ -38,12 +94,14 @@ export interface Mover {
   key: string;
   /** This month so far. */
   now: number;
-  /** Average of recent months, at the same point in the month. */
+  /** Typical of recent months, at the same point in the month. */
   usual: number;
   diff: number;
 }
 
 export type Steadiness = "steady" | "uneven" | "irregular" | "none" | "early";
+/** How much history a comparison rests on. */
+export type Confidence = "none" | "early" | "solid";
 
 export interface CategoryBudget {
   key: string;
@@ -76,14 +134,27 @@ export interface Decisions {
   history: MonthTotals[];
   /** The month being viewed, so far. */
   current: MonthTotals;
+  confidence: Confidence;
+  /** Whether any category is marked fixed. */
+  hasFixed: boolean;
+  logging: {
+    /** Days of this month (so far) with at least one entry. */
+    loggedDays: number;
+    /** Which days, 1-based, for a day strip. */
+    logged: boolean[];
+    thin: boolean;
+  };
   spending: {
-    /** Average spent in earlier months by this day of the month; null without history. */
-    usualByNow: number | null;
-    /** Average spent in a whole earlier month; null without history. */
-    usualMonth: number | null;
-    /** Where this month is likely to land: so far, plus what usually comes after this day. */
-    projected: number;
-    /** Categories that moved most against recent months, largest first. */
+    /** Flexible spending typical of earlier months by this day; null without history. */
+    usualByNow: Range | null;
+    verdict: "above" | "below" | "within" | null;
+    /** Whole-month totals (fixed + flexible) of earlier months. */
+    usualMonth: Range | null;
+    /** Fixed costs in a typical earlier month. */
+    usualFixed: number | null;
+    /** Where this month is likely to land, as a range. */
+    projected: Range;
+    /** Flexible categories that moved most against recent months, largest first. */
     movers: Mover[];
   };
   investing: {
@@ -91,8 +162,8 @@ export interface Decisions {
     rate: number | null;
     /** The same over the history months; null without income there. */
     usualRate: number | null;
-    /** Average invested per history month; null without history. */
-    usualAmount: number | null;
+    /** Typical invested per history month. */
+    usual: Range | null;
   };
   consistency: {
     /** Months looked at: the history plus this month once it's over or has an investment. */
@@ -117,35 +188,53 @@ export interface Decisions {
   };
 }
 
-function totalsFor(rows: AnalyticsRow[], month: string, upToDay = 31): MonthTotals {
+// ── Computation ─────────────────────────────────────────────────────────────
+
+function totalsFor(
+  rows: AnalyticsRow[],
+  month: string,
+  fixedIds: ReadonlySet<string>,
+  upToDay = 31,
+): MonthTotals {
   let income = 0;
-  let spent = 0;
+  let fixed = 0;
+  let flexible = 0;
   let invested = 0;
   for (const r of rows) {
     if (monthOf(r.date) !== month || dayOf(r.date) > upToDay) continue;
     if (r.type === "income") income += r.amount;
     else if (r.type === "investment") invested += r.amount;
-    else spent += r.amount;
+    else if (fixedIds.has(r.categoryId)) fixed += r.amount;
+    else flexible += r.amount;
   }
-  return { month, income, spent, invested, left: income - spent - invested };
+  const spent = fixed + flexible;
+  return { month, income, spent, fixed, flexible, invested, left: income - spent - invested };
 }
 
-/** Expense total per category per month, for categories and same-point comparisons. */
-function categoryDaily(rows: AnalyticsRow[]) {
-  const out = new Map<string, Map<string, number>>();
+/** Date → amount maps: one per category, and one for all flexible spending. */
+function dailyMaps(rows: AnalyticsRow[], fixedIds: ReadonlySet<string>) {
+  const byCategory = new Map<string, Map<string, number>>();
+  const flexible = new Map<string, number>();
   for (const r of rows) {
     if (r.type !== "expense") continue;
-    let m = out.get(r.categoryId);
-    if (!m) out.set(r.categoryId, (m = new Map()));
+    let m = byCategory.get(r.categoryId);
+    if (!m) byCategory.set(r.categoryId, (m = new Map()));
     m.set(r.date, (m.get(r.date) ?? 0) + r.amount);
+    if (!fixedIds.has(r.categoryId)) flexible.set(r.date, (flexible.get(r.date) ?? 0) + r.amount);
   }
-  return out;
+  return { byCategory, flexible };
 }
 
-/** Spent in `month` by `day` (clamped to the month's length), from a date → amount map. */
+/** Spent in `month` by `day` (clamped to the month's length). */
 function byDay(daily: Map<string, number>, month: string, day: number): number {
   const totals = runningTotals(daily, month);
-  return totals[Math.min(day, totals.length) - 1] ?? 0;
+  return day <= 0 ? 0 : (totals[Math.min(day, totals.length) - 1] ?? 0);
+}
+
+/** Spent in `month` after `day`. */
+function afterDay(daily: Map<string, number>, month: string, day: number): number {
+  const totals = runningTotals(daily, month);
+  return (totals.at(-1) ?? 0) - byDay(daily, month, day);
 }
 
 export function decisions(input: {
@@ -154,8 +243,11 @@ export function decisions(input: {
   range: number;
   todayDate: string;
   budgets: Budgets;
+  /** Categories marked fixed. */
+  fixedIds?: ReadonlySet<string>;
 }): Decisions {
   const { rows, month, range, todayDate, budgets } = input;
+  const fixedIds = input.fixedIds ?? new Set<string>();
   const days = daysOf(month);
   const running = monthOf(todayDate) === month;
   const elapsed = running ? dayOf(todayDate) : todayDate < `${month}-01` ? 0 : days;
@@ -168,43 +260,59 @@ export function decisions(input: {
   const historyMonths = monthsEnding(addMonths(month, -1), range).filter(
     (m) => first !== null && m >= first,
   );
-  const history = historyMonths.map((m) => totalsFor(rows, m));
-  const current = totalsFor(rows, month, elapsed);
+  const history = historyMonths.map((m) => totalsFor(rows, m, fixedIds));
+  const current = totalsFor(rows, month, fixedIds, elapsed);
+  const confidence: Confidence =
+    history.length === 0 ? "none" : history.length < SOLID ? "early" : "solid";
+
+  // ── Logging ──
+  const logged = Array.from({ length: elapsed }, () => false);
+  for (const r of rows) {
+    if (monthOf(r.date) === month && dayOf(r.date) <= elapsed) logged[dayOf(r.date) - 1] = true;
+  }
+  const loggedDays = logged.filter(Boolean).length;
+  const thin = elapsed >= SETTLE_DAYS && loggedDays / elapsed < THIN;
 
   // ── Spending ──
-  const daily = new Map<string, number>();
-  for (const r of rows)
-    if (r.type === "expense") daily.set(r.date, (daily.get(r.date) ?? 0) + r.amount);
-  const usualByNow = avg(historyMonths.map((m) => byDay(daily, m, elapsed)));
-  const usualMonth = avg(history.map((h) => h.spent));
-  // What usually still comes after this day; without history, carry today's pace forward.
-  const usualRest = avg(
-    historyMonths.map((m) => {
-      const t = runningTotals(daily, m);
-      return (t.at(-1) ?? 0) - (t[Math.min(elapsed, t.length) - 1] ?? 0);
-    }),
-  );
-  const projected =
-    elapsed >= days
-      ? current.spent
-      : usualRest !== null
-        ? current.spent + usualRest
-        : elapsed > 0
-          ? Math.round((current.spent / elapsed) * days)
-          : 0;
+  const daily = dailyMaps(rows, fixedIds);
+  const usualByNow = typicalRange(historyMonths.map((m) => byDay(daily.flexible, m, elapsed)));
+  const verdict = usualByNow ? against(current.flexible, usualByNow) : null;
+  const usualMonth = typicalRange(history.map((h) => h.spent));
+  const usualFixed = typicalRange(history.map((h) => h.fixed))?.mid ?? null;
 
-  const perCategory = categoryDaily(rows);
+  // Fixed costs land once a month: expect at least the usual amount. Flexible spending adds
+  // what earlier months spent after this day, or carries today's pace on without history.
+  const fixedEnd = Math.max(current.fixed, running ? (usualFixed ?? 0) : 0);
+  const rest = typicalRange(historyMonths.map((m) => afterDay(daily.flexible, m, elapsed)));
+  const flexEnd = (extra: number) => current.flexible + extra;
+  const projected: Range =
+    elapsed >= days
+      ? { low: current.spent, mid: current.spent, high: current.spent, n: history.length }
+      : rest
+        ? {
+            low: fixedEnd + flexEnd(rest.low),
+            mid: fixedEnd + flexEnd(rest.mid),
+            high: fixedEnd + flexEnd(rest.high),
+            n: rest.n,
+          }
+        : (() => {
+            const pace =
+              elapsed > 0 ? Math.round((current.flexible / elapsed) * days) : current.flexible;
+            return { low: fixedEnd + pace, mid: fixedEnd + pace, high: fixedEnd + pace, n: 0 };
+          })();
+
   const recent = historyMonths.slice(-RECENT);
   const movers: Mover[] =
     recent.length === 0
       ? []
-      : [...perCategory]
+      : [...daily.byCategory]
+          .filter(([key]) => !fixedIds.has(key))
           .map(([key, d]) => {
             const now = byDay(d, month, elapsed);
-            const usual = Math.round(sum(recent.map((m) => byDay(d, m, elapsed))) / recent.length);
+            const usual = typicalRange(recent.map((m) => byDay(d, m, elapsed)))?.mid ?? 0;
             return { key, now, usual, diff: now - usual };
           })
-          .filter((m) => Math.abs(m.diff) >= NOTABLE)
+          .filter((m) => Math.abs(m.diff) >= Math.max(NOTABLE, m.usual * 0.25))
           .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
           .slice(0, 5);
 
@@ -213,7 +321,7 @@ export function decisions(input: {
   const investing = {
     rate: current.income > 0 ? current.invested / current.income : null,
     usualRate: hIncome > 0 ? sum(history.map((h) => h.invested)) / hIncome : null,
-    usualAmount: avg(history.map((h) => h.invested)),
+    usual: typicalRange(history.map((h) => h.invested)),
   };
 
   // A running month only counts once something is invested: it isn't missed yet.
@@ -224,12 +332,9 @@ export function decisions(input: {
   const hits = consMonths.filter((m) => m.invested > 0);
   let streak = 0;
   for (let i = consMonths.length - 1; i >= 0 && (consMonths[i]?.invested ?? 0) > 0; i--) streak++;
-  const amounts = hits.map((m) => m.invested);
-  const mean = avg(amounts) ?? 0;
-  const cv =
-    amounts.length > 1 && mean > 0
-      ? Math.sqrt(sum(amounts.map((a) => (a - mean) ** 2)) / amounts.length) / mean
-      : 0;
+  // "Uneven" when the middle half of amounts spans more than the typical amount itself.
+  const amounts = typicalRange(hits.map((m) => m.invested));
+  const swings = !!amounts && amounts.n >= 3 && amounts.high - amounts.low > amounts.mid;
   const steadiness: Steadiness =
     consMonths.length < 2
       ? "early"
@@ -237,7 +342,7 @@ export function decisions(input: {
         ? "none"
         : hits.length / consMonths.length < 0.75
           ? "irregular"
-          : cv > 0.6
+          : swings
             ? "uneven"
             : "steady";
 
@@ -251,24 +356,19 @@ export function decisions(input: {
           counted: history.length,
         }
       : null;
-  // A round, slightly generous figure from the last few months.
+  // A round figure at the top of the usual range, so a normal month fits.
   const suggested =
-    usualMonth !== null && usualMonth > 0 ? Math.ceil(usualMonth / 100_000) * 100_000 : null;
+    usualMonth && usualMonth.high > 0 ? Math.ceil(usualMonth.high / 100_000) * 100_000 : null;
   const categories: CategoryBudget[] = Object.entries(budgets.byCategory)
     .map(([key, limit]) => {
-      const d = perCategory.get(key) ?? new Map<string, number>();
+      const d = daily.byCategory.get(key) ?? new Map<string, number>();
       const spent = byDay(d, month, elapsed);
-      const rest = avg(
-        recent.map((m) => {
-          const t = runningTotals(d, m);
-          return (t.at(-1) ?? 0) - (t[Math.min(elapsed, t.length) - 1] ?? 0);
-        }),
-      );
+      const after = typicalRange(recent.map((m) => afterDay(d, m, elapsed)))?.mid;
       const projectedCat =
         elapsed >= days
           ? spent
-          : rest !== null
-            ? spent + Math.round(rest)
+          : after !== undefined
+            ? spent + after
             : elapsed > 0
               ? Math.round((spent / elapsed) * days)
               : 0;
@@ -283,12 +383,17 @@ export function decisions(input: {
     days,
     history,
     current,
-    spending: { usualByNow, usualMonth, projected, movers },
+    confidence,
+    hasFixed: fixedIds.size > 0,
+    logging: { loggedDays, logged, thin },
+    spending: { usualByNow, verdict, usualMonth, usualFixed, projected, movers },
     investing,
     consistency: { months: consMonths, investedMonths: hits.length, streak, steadiness },
     budget: { overall, suggested, categories },
   };
 }
+
+// ── What to do ──────────────────────────────────────────────────────────────
 
 type Money = (minor: number) => string;
 const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -297,16 +402,28 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 /**
  * Up to four things worth doing, most pressing first. Each is one sentence that states
  * the fact and what to do about it. `name` turns a category id into its name.
+ * With thin logging, nothing is praised: missing entries would look like good behaviour.
  */
 export function decisionActions(d: Decisions, money: Money, name: (id: string) => string) {
   const out: (Action & { rank: number })[] = [];
   const left = d.days - d.elapsed;
+  const settled = d.elapsed >= SETTLE_DAYS;
   const o = d.budget.overall;
+  const p = d.spending.projected;
+
+  if (d.logging.thin) {
+    out.push({
+      id: "thin",
+      rank: 0,
+      tone: "warn",
+      text: `You've logged entries on ${d.logging.loggedDays} of ${plural(d.elapsed, "day")} this month. If some spending is missing, everything here looks better than it is.`,
+    });
+  }
 
   if (d.current.left < 0 && (d.current.income > 0 || !d.running)) {
     out.push({
       id: "shortfall",
-      rank: 0,
+      rank: 1,
       tone: "warn",
       text: `You've spent and invested ${money(-d.current.left)} more than you earned this month, so it's coming from savings.`,
     });
@@ -317,61 +434,61 @@ export function decisionActions(d: Decisions, money: Money, name: (id: string) =
     if (room <= 0) {
       out.push({
         id: "budget-over",
-        rank: 1,
+        rank: 2,
         tone: "warn",
         text: `You're ${money(-room)} over your ${money(o.limit)} budget with ${plural(left, "day")} to go. Hold off on anything that can wait.`,
       });
-    } else if (d.spending.projected > o.limit) {
+    } else if (settled && p.mid > o.limit) {
       out.push({
         id: "budget-pace",
-        rank: 1,
+        rank: 2,
         tone: "warn",
-        text: `At your usual pace you'll finish about ${money(d.spending.projected - o.limit)} over budget. Keeping to ${money(Math.floor(room / left))} a day for the next ${plural(left, "day")} keeps you within it.`,
+        text: `At your usual pace you'll finish about ${money(p.mid - o.limit)} over budget. Keeping to ${money(Math.floor(room / left))} a day for the next ${plural(left, "day")} keeps you within it.`,
       });
-    } else {
+    } else if (settled && p.high <= o.limit) {
       out.push({
         id: "budget-ok",
-        rank: 5,
+        rank: 6,
         tone: "good",
-        text: `On track for your budget: about ${money(o.limit - d.spending.projected)} to spare at month end.`,
+        text: `On track for your budget, with about ${money(o.limit - p.mid)} to spare at month end.`,
       });
     }
   } else if (!o && d.budget.suggested !== null) {
     out.push({
       id: "budget-set",
-      rank: 3,
+      rank: 4,
       tone: "info",
-      text: `Set a monthly budget. You've averaged ${money(d.spending.usualMonth ?? 0)} a month, so ${money(d.budget.suggested)} is a realistic start.`,
+      text: `Set a monthly budget. ${money(d.budget.suggested)} would cover a normal month for you.`,
     });
   }
 
   const up = d.spending.movers.find((m) => m.diff > 0);
-  const extra = d.spending.usualByNow !== null ? d.current.spent - d.spending.usualByNow : null;
-  if (up && extra !== null && extra > 0) {
+  if (d.spending.verdict === "above" && d.spending.usualByNow) {
+    const extra = d.current.flexible - d.spending.usualByNow.high;
     out.push({
-      id: "mover",
-      rank: 2,
+      id: "flexible-up",
+      rank: 3,
       tone: "warn",
-      text: `${name(up.key)} is ${money(up.diff)} above usual for this point in the month${
-        up.diff >= extra * 0.5 ? ", most of why spending is up" : ""
-      }.`,
+      text: up
+        ? `Flexible spending is above your usual range, mostly ${name(up.key)}: ${money(up.diff)} more than usual by now.`
+        : `Flexible spending is ${money(extra)} above your usual range for this point in the month.`,
     });
-  } else if (extra !== null && extra < -NOTABLE) {
+  } else if (d.spending.verdict === "below" && d.spending.usualByNow) {
     out.push({
-      id: "spend-down",
-      rank: 6,
+      id: "flexible-down",
+      rank: 7,
       tone: "good",
-      text: `You've spent ${money(-extra)} less than usual by this point. Consider moving some of it to investments.`,
+      text: `Flexible spending is ${money(d.spending.usualByNow.low - d.current.flexible)} below your usual range. A good month to invest a little more.`,
     });
   }
 
   const inv = d.investing;
-  if (d.running && d.current.invested === 0 && (inv.usualAmount ?? 0) > 0) {
+  if (d.running && d.current.invested === 0 && inv.usual && inv.usual.mid > 0) {
     out.push({
       id: "invest-missing",
-      rank: 2,
+      rank: 3,
       tone: "info",
-      text: `Nothing invested yet this month. You usually put in ${money(inv.usualAmount ?? 0)}.`,
+      text: `Nothing invested yet this month. You usually put in about ${money(inv.usual.mid)}.`,
     });
   } else if (
     inv.rate !== null &&
@@ -381,7 +498,7 @@ export function decisionActions(d: Decisions, money: Money, name: (id: string) =
   ) {
     out.push({
       id: "invest-low",
-      rank: 4,
+      rank: 5,
       tone: "info",
       text: `You invested ${pct(inv.rate)} of income, below your usual ${pct(inv.usualRate)}.`,
     });
@@ -392,29 +509,39 @@ export function decisionActions(d: Decisions, money: Money, name: (id: string) =
     const missed = c.months.filter((m) => m.invested === 0).map((m) => shortMonth(m.month));
     out.push({
       id: "irregular",
-      rank: 4,
+      rank: 5,
       tone: "info",
       text: `You invested in ${c.investedMonths} of ${c.months.length} months (missed ${missed.join(", ")}). A fixed monthly SIP date makes it automatic.`,
     });
   } else if (c.steadiness === "none" && c.months.length >= 2) {
     out.push({
       id: "invest-start",
-      rank: 3,
+      rank: 4,
       tone: "info",
       text: "No investments in this period. Even a small fixed amount each month builds the habit.",
     });
   }
 
-  if (d.history.length === 0) {
+  if (!d.hasFixed && d.current.spent > 0) {
+    out.push({
+      id: "mark-fixed",
+      rank: 4,
+      tone: "info",
+      text: "Mark your fixed costs (rent, EMIs, family support) on the Categories page, so comparisons focus on what you can change.",
+    });
+  }
+
+  if (d.confidence === "none") {
     out.push({
       id: "early",
-      rank: 7,
+      rank: 8,
       tone: "info",
       text: "Comparisons start once a full month is logged. Until then this page shows this month only.",
     });
   }
 
   return out
+    .filter((a) => !(d.logging.thin && a.tone === "good"))
     .sort((a, b) => a.rank - b.rank)
     .slice(0, 4)
     .map(({ rank: _rank, ...a }) => a);

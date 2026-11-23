@@ -29,6 +29,13 @@
       "when": 1794362075735,
       "tag": "0003_investments",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795455778892,
+      "tag": "0004_fixed_costs",
+      "breakpoints": true
     }
   ]
 }

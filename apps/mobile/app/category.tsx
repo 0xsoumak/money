@@ -67,6 +67,7 @@ export default function CategoryModal() {
   const [name, setName] = useState(existing?.name ?? "");
   const [emoji, setEmoji] = useState(existing?.emoji ?? "📦");
   const [color, setColor] = useState<CategoryColor>((existing?.color as CategoryColor) ?? "slate");
+  const [fixed, setFixed] = useState(existing?.fixed ?? false);
 
   const busy = create.isPending || update.isPending;
   const valid = name.trim().length > 0 && emoji.trim().length > 0;
@@ -80,8 +81,8 @@ export default function CategoryModal() {
   };
   const submit = () => {
     if (!valid) return;
-    if (existing) update.mutate({ id: existing.id, name: name.trim(), emoji, color }, done);
-    else create.mutate({ name: name.trim(), emoji, color, kind }, done);
+    if (existing) update.mutate({ id: existing.id, name: name.trim(), emoji, color, fixed }, done);
+    else create.mutate({ name: name.trim(), emoji, color, kind, fixed }, done);
   };
 
   return (
@@ -165,6 +166,50 @@ export default function CategoryModal() {
             ))}
           </View>
         </View>
+
+        {/* Only spending can be fixed; income and investments aren't compared that way. */}
+        {kind === "expense" && (
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: fixed }}
+            onPress={() => {
+              tap();
+              setFixed(!fixed);
+            }}
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 12,
+              padding: 14,
+              borderRadius: radius.lg,
+              borderWidth: 2,
+              borderColor: c.border,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 24,
+                borderRadius: 12,
+                padding: 2,
+                marginTop: 2,
+                backgroundColor: fixed ? c.accent : c.surfaceStrong,
+                alignItems: fixed ? "flex-end" : "flex-start",
+              }}
+            >
+              <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.bg }} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <T variant="body" size={16}>
+                Fixed cost
+              </T>
+              <T variant="small" color={c.textMuted}>
+                Rent, EMIs, family support. Paid every month whatever you decide, so Analytics
+                compares the rest.
+              </T>
+            </View>
+          </Pressable>
+        )}
 
         <View style={{ flex: 1 }} />
         <Button title="Save" onPress={submit} disabled={!valid} busy={busy} />

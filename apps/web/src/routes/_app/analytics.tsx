@@ -4,11 +4,10 @@ import {
   type Decisions,
   decisionActions,
   decisions,
-  shortMonth,
   today,
 } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   ActionList,
@@ -18,11 +17,12 @@ import {
   BudgetPlan,
   CashflowTable,
   InvestStrip,
+  Key,
   MonthBars,
   Movers,
   Question,
-  type RefLine,
 } from "../../components/analytics/Decisions";
+import { compactMoney } from "../../components/analytics/frame";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
@@ -37,24 +37,29 @@ export const Route = createFileRoute("/_app/analytics")({
 type Money = (minor: number) => string;
 const pct = (r: number) => `${Math.round(r * 100)}%`;
 
-/** One sentence per question; the evidence sits underneath. */
+// One sentence per question; the evidence sits underneath.
+
 function spendingAnswer(d: Decisions, money: Money): string {
-  const usual = d.spending.usualByNow;
-  if (usual === null) return `${money(d.current.spent)} spent${d.running ? " so far" : ""}.`;
-  const diff = d.current.spent - usual;
-  const when = d.running ? "by this point in the month" : "than a usual month";
-  if (Math.abs(diff) < Math.max(50_000, usual * 0.05)) return `About your usual ${when}.`;
-  return d.running
-    ? `${money(Math.abs(diff))} ${diff > 0 ? "more" : "less"} than usual ${when}.`
-    : `${money(Math.abs(diff))} ${diff > 0 ? "more" : "less"} ${when}.`;
+  const u = d.spending.usualByNow;
+  if (!u)
+    return `${money(d.current.spent)} spent${d.running ? " so far" : ""}. Nothing earlier to compare with yet.`;
+  const when = d.running ? " for this point in the month" : "";
+  switch (d.spending.verdict) {
+    case "above":
+      return `Flexible spending is ${money(d.current.flexible - u.high)} above your usual range${when}.`;
+    case "below":
+      return `Flexible spending is ${money(u.low - d.current.flexible)} below your usual range${when}.`;
+    default:
+      return `Flexible spending is within your usual range${when}.`;
+  }
 }
 
 function investingAnswer(d: Decisions, money: Money): string {
   const { rate, usualRate } = d.investing;
   if (rate === null)
     return d.current.invested > 0
-      ? `${money(d.current.invested)} invested, no income logged to compare with.`
-      : "Nothing invested and no income logged.";
+      ? `${money(d.current.invested)} invested. Log income to see the share.`
+      : "Nothing invested, and no income logged.";
   const base = `${pct(rate)} of your income went to investments`;
   if (usualRate === null) return `${base}.`;
   return `${base}, ${rate >= usualRate ? "at or above" : "below"} your usual ${pct(usualRate)}.`;
@@ -62,16 +67,16 @@ function investingAnswer(d: Decisions, money: Money): string {
 
 function regularityAnswer(d: Decisions): string {
   const c = d.consistency;
-  const of = `${c.investedMonths} of the last ${c.months.length} ${c.months.length === 1 ? "month" : "months"}`;
+  const of = `${c.investedMonths} of the last ${c.months.length} months`;
   switch (c.steadiness) {
     case "early":
-      return "Too early to tell. This builds up month by month.";
+      return "Too early to tell. Check back after another month.";
     case "none":
-      return `No investments in ${of.replace(/^0 of /, "")}.`;
+      return `Nothing invested in the last ${c.months.length} months.`;
     case "irregular":
-      return `You invested in ${of}. That's irregular.`;
+      return `Irregular: you invested in ${of}.`;
     case "uneven":
-      return `You invest every month, but the amounts swing a lot.`;
+      return "You invest every month, but the amounts swing a lot.";
     case "steady":
       return `Steady: you invested in ${of}${c.streak > 2 ? `, a ${c.streak}-month streak` : ""}.`;
   }
@@ -79,14 +84,13 @@ function regularityAnswer(d: Decisions): string {
 
 function cashflowAnswer(d: Decisions, money: Money): string {
   const rows = [...d.history, d.current].filter((r) => r.income > 0);
-  if (rows.length === 0) return "Log your income to see how much of it you keep.";
+  if (rows.length === 0) return "Log your income to see what's left each month.";
   const short = rows.filter((r) => r.left < 0).length;
-  const kept =
-    rows.reduce((t, r) => t + (r.income - r.spent), 0) / rows.reduce((t, r) => t + r.income, 0);
   if (short > 0)
     return `In ${short} of ${rows.length} months you spent and invested more than you earned.`;
-  const left = d.current.left;
-  return `You keep ${pct(kept)} of what you earn${d.current.income > 0 ? `; ${money(left)} is unallocated this month` : ""}.`;
+  return d.current.income > 0
+    ? `You live within your income. ${money(d.current.left)} is left unallocated this month.`
+    : "You live within your income.";
 }
 
 function planAnswer(d: Decisions, money: Money): string {
@@ -94,9 +98,11 @@ function planAnswer(d: Decisions, money: Money): string {
   if (!o) return "No budget yet, so there's nothing to measure against.";
   if (d.current.spent > o.limit) return `${money(d.current.spent - o.limit)} over budget.`;
   if (!d.running) return `Within budget, with ${money(o.limit - d.current.spent)} to spare.`;
-  return d.spending.projected > o.limit
-    ? `Heading about ${money(d.spending.projected - o.limit)} over budget.`
-    : `On track, with about ${money(o.limit - d.spending.projected)} to spare.`;
+  if (d.elapsed < 7) return "Too early in the month to call. Check back after the first week.";
+  const p = d.spending.projected;
+  return p.mid > o.limit
+    ? `Likely to finish about ${money(p.mid - o.limit)} over budget.`
+    : `On track, with about ${money(o.limit - p.mid)} to spare.`;
 }
 
 function Analytics() {
@@ -111,6 +117,10 @@ function Analytics() {
   const q = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
   const byId = useMemo(
     () => new Map<string, Category>(categories.map((c) => [c.id, c])),
+    [categories],
+  );
+  const fixedIds = useMemo(
+    () => new Set(categories.filter((c) => c.fixed).map((c) => c.id)),
     [categories],
   );
 
@@ -128,9 +138,10 @@ function Analytics() {
               overall: budgets?.overall ?? null,
               byCategory: budgets?.categories ?? {},
             },
+            fixedIds,
           })
         : null,
-    [q.data, range, todayDate, budgets],
+    [q.data, range, todayDate, budgets, fixedIds],
   );
   const actions = useMemo(
     () => (d ? decisionActions(d, money, (id) => byId.get(id)?.name ?? "A category") : []),
@@ -138,47 +149,23 @@ function Analytics() {
   );
 
   const all = d ? [...d.history, d.current] : [];
+  const isNow = (m: { month: string }) => m.month === d?.month;
   const spendBars: Bar[] = all.map((m) => ({
     month: m.month,
-    value: m.spent,
-    current: m === d?.current,
-    projected: m === d?.current && d.running ? d.spending.projected : undefined,
+    parts: [
+      { value: m.fixed, className: "bg-line-strong/30" },
+      { value: m.flexible, className: isNow(m) ? "bg-accent" : "bg-ink/55" },
+    ],
+    current: isNow(m),
+    projected: isNow(m) && d?.running ? d.spending.projected.mid : undefined,
   }));
-  const spendLines: RefLine[] = [
-    ...(d?.spending.usualMonth
-      ? [
-          {
-            value: d.spending.usualMonth,
-            label: "Usual",
-            className: "border-line-strong/50 text-muted",
-          },
-        ]
-      : []),
-    ...(d?.budget.overall
-      ? [
-          {
-            value: d.budget.overall.limit,
-            label: "Budget",
-            className: "border-danger/60 text-danger",
-          },
-        ]
-      : []),
-  ];
   const investBars: Bar[] = all.map((m) => ({
     month: m.month,
-    value: m.invested,
-    current: m === d?.current,
+    parts: [{ value: m.invested, className: isNow(m) ? "bg-accent" : "bg-ink/55" }],
+    current: isNow(m),
     sub: m.income > 0 ? pct(m.invested / m.income) : undefined,
   }));
-  const investLines: RefLine[] = d?.investing.usualAmount
-    ? [
-        {
-          value: d.investing.usualAmount,
-          label: "Usual",
-          className: "border-line-strong/50 text-muted",
-        },
-      ]
-    : [];
+  const usualMonth = d?.spending.usualMonth;
 
   return (
     <div className="flex flex-col gap-8">
@@ -194,30 +181,35 @@ function Analytics() {
           <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
             <div>
               <Label>
-                {d && d.history.length > 0
-                  ? `Compared with ${shortMonth(d.history[0]?.month ?? "")}–${shortMonth(d.history.at(-1)?.month ?? "")}`
-                  : "This month"}
+                {d
+                  ? d.confidence === "none"
+                    ? "This month only"
+                    : `Compared with your last ${d.history.length} ${d.history.length === 1 ? "month" : "months"}`
+                  : " "}
               </Label>
               <h1 className="mt-2 text-[56px] font-bold leading-[0.9] tracking-[-0.06em] sm:text-[80px]">
                 Analytics
               </h1>
             </div>
-            <fieldset className="flex gap-[3px] rounded-[10px] border-2 border-line p-[3px]">
+            <fieldset className="flex items-center gap-2">
               <legend className="sr-only">Compare with the last</legend>
-              {ANALYTICS_RANGES.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  aria-pressed={range === r}
-                  onClick={() => setRange(r)}
-                  className={cx(
-                    "min-h-11 min-w-14 cursor-pointer rounded-[7px] px-3 text-sm font-bold transition-colors",
-                    range === r ? "bg-ink text-bg" : "text-muted hover:text-ink",
-                  )}
-                >
-                  {r}M
-                </button>
-              ))}
+              <span className="text-sm text-muted">Compare with</span>
+              <span className="flex gap-[3px] rounded-[10px] border-2 border-line p-[3px]">
+                {ANALYTICS_RANGES.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    aria-pressed={range === r}
+                    onClick={() => setRange(r)}
+                    className={cx(
+                      "min-h-11 min-w-14 cursor-pointer rounded-[7px] px-3 text-sm font-bold transition-colors",
+                      range === r ? "bg-ink text-bg" : "text-muted hover:text-ink",
+                    )}
+                  >
+                    {r}M
+                  </button>
+                ))}
+              </span>
             </fieldset>
           </div>
           {d ? <AnswerCards items={answers(d, money)} /> : <Skeleton className="h-[118px]" />}
@@ -249,35 +241,61 @@ function Analytics() {
                 <Question
                   id="spending"
                   title="Am I spending more or less?"
-                  note="Spending per month"
                   answer={spendingAnswer(d, money)}
                 >
-                  <MonthBars bars={spendBars} lines={spendLines} verb="spent" />
+                  <MonthBars
+                    bars={spendBars}
+                    band={usualMonth && d.confidence !== "none" ? usualMonth : null}
+                    limit={d.budget.overall?.limit}
+                    verb="spent"
+                    legend={
+                      <>
+                        <Key swatch="bg-line-strong/30">Fixed</Key>
+                        <Key swatch="bg-ink/55">Flexible</Key>
+                        {usualMonth && d.confidence !== "none" && (
+                          <Key swatch="bg-ink/[0.12]">
+                            Usual month {compactMoney(usualMonth.low)}–
+                            {compactMoney(usualMonth.high)}
+                          </Key>
+                        )}
+                        {d.budget.overall && (
+                          <Key swatch="border-t-2 border-dashed border-danger/70 h-0">Budget</Key>
+                        )}
+                      </>
+                    }
+                  />
+                  {!d.hasFixed && (
+                    <p className="text-sm text-muted">
+                      Rent, EMIs or family support in here?{" "}
+                      <Link to="/categories" className="font-semibold text-ink underline">
+                        Mark them as fixed
+                      </Link>{" "}
+                      so they don't count as overspending.
+                    </p>
+                  )}
                 </Question>
-                <Question
-                  id="changes"
-                  title="What changed"
-                  note={d.history.length ? "vs last 3 months, same point" : undefined}
-                  answer={
-                    d.history.length === 0
-                      ? "Shows up once there's an earlier month to compare with."
-                      : d.spending.movers.length
-                        ? "The categories that moved the most."
-                        : "Nothing unusual."
-                  }
-                >
-                  <Movers d={d} byId={byId} />
-                </Question>
+                {d.spending.movers.length > 0 && (
+                  <Question
+                    id="changes"
+                    title="What changed"
+                    answer="Flexible categories furthest from usual."
+                  >
+                    <Movers d={d} byId={byId} />
+                  </Question>
+                )}
               </Reveal>
 
               <Reveal className="grid gap-x-12 gap-y-12 lg:grid-cols-[3fr_2fr]">
                 <Question
                   id="investing"
                   title="Am I investing enough?"
-                  note="Invested · % of income"
                   answer={investingAnswer(d, money)}
                 >
-                  <MonthBars bars={investBars} lines={investLines} verb="invested" />
+                  <MonthBars
+                    bars={investBars}
+                    verb="invested"
+                    legend={<span>Under each month: share of income invested</span>}
+                  />
                 </Question>
                 <Question
                   id="regularity"

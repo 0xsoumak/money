@@ -9,14 +9,9 @@ import { catTint, cx } from "../ui";
 import { compactMoney, shortMonth } from "./frame";
 
 const pct = (r: number) => `${Math.round(r * 100)}%`;
-const signedPct = (r: number) => `${r >= 0 ? "+" : "−"}${Math.abs(Math.round(r * 100))}%`;
 
 type Tone = "warn" | "good" | "info";
-const toneText: Record<Tone, string> = {
-  warn: "text-danger",
-  good: "text-accent",
-  info: "",
-};
+const toneText: Record<Tone, string> = { warn: "text-danger", good: "text-accent", info: "" };
 
 // ── Answer cards ────────────────────────────────────────────────────────────
 
@@ -28,28 +23,34 @@ interface Answer {
   href: string;
 }
 
-/** The four questions, answered in one number each. Each card jumps to its section. */
+/** The four questions, answered in a word or a number. Each card jumps to its section. */
 export function answers(d: Decisions, money: (m: number) => string): Answer[] {
+  const early = d.confidence === "early" ? " · early read" : "";
   const s = d.spending;
-  const spend: Answer =
-    s.usualByNow && s.usualByNow > 0
-      ? (() => {
-          const r = d.current.spent / s.usualByNow - 1;
-          return {
-            question: "Spending vs usual",
-            value: Math.abs(r) < 0.05 ? "About usual" : signedPct(r),
-            detail: `${money(d.current.spent)} so far · usually ${money(s.usualByNow)}${d.running ? " by now" : ""}`,
-            tone: r > 0.1 ? "warn" : r < -0.05 ? "good" : "info",
-            href: "#spending",
-          };
-        })()
-      : {
-          question: "Spending",
-          value: money(d.current.spent),
-          detail: d.running ? "so far · nothing to compare yet" : "nothing earlier to compare",
-          tone: "info",
-          href: "#spending",
-        };
+  const u = s.usualByNow;
+  const spend: Answer = u
+    ? {
+        question: "Flexible spending",
+        value: { above: "Above usual", below: "Below usual", within: "Usual" }[
+          s.verdict ?? "within"
+        ],
+        detail: `${money(d.current.flexible)} · usually ${u.low === u.high ? money(u.mid) : `${compactMoney(u.low)}–${compactMoney(u.high)}`}${d.running ? " by now" : ""}${early}`,
+        // Never praise spending when logging is thin: missing entries look like saving.
+        tone:
+          s.verdict === "above"
+            ? "warn"
+            : s.verdict === "below" && !d.logging.thin
+              ? "good"
+              : "info",
+        href: "#spending",
+      }
+    : {
+        question: "Spending",
+        value: money(d.current.spent),
+        detail: d.running ? "so far · nothing to compare yet" : "nothing earlier to compare",
+        tone: "info",
+        href: "#spending",
+      };
 
   const inv = d.investing;
   const invest: Answer = {
@@ -59,18 +60,14 @@ export function answers(d: Decisions, money: (m: number) => string): Answer[] {
       inv.rate === null
         ? "no income logged this month"
         : inv.usualRate !== null
-          ? `of income · usually ${pct(inv.usualRate)}`
+          ? `of income · usually ${pct(inv.usualRate)}${early}`
           : "of income",
     tone:
-      inv.rate === null
+      inv.rate === null || inv.usualRate === null
         ? "info"
-        : inv.usualRate !== null
-          ? inv.rate >= inv.usualRate
-            ? "good"
-            : "warn"
-          : inv.rate >= 0.2
-            ? "good"
-            : "info",
+        : inv.rate >= inv.usualRate
+          ? "good"
+          : "warn",
     href: "#investing",
   };
 
@@ -78,30 +75,27 @@ export function answers(d: Decisions, money: (m: number) => string): Answer[] {
   const missed = c.months.filter((m) => m.invested === 0).map((m) => shortMonth(m.month));
   const regular: Answer = {
     question: "Investing regularity",
-    value: c.months.length ? `${c.investedMonths} of ${c.months.length}` : "–",
+    value: c.steadiness === "early" ? "Too early" : `${c.investedMonths} of ${c.months.length}`,
     detail: {
       steady: "months · steady",
       uneven: "months · amounts swing a lot",
       irregular: `months · missed ${missed.slice(-3).join(", ")}`,
       none: "months · nothing invested",
-      early: "too early to tell",
+      early: "needs another month",
     }[c.steadiness],
     tone: c.steadiness === "steady" ? "good" : c.steadiness === "early" ? "info" : "warn",
     href: "#regularity",
   };
 
   const o = d.budget.overall;
+  const over = o && d.current.spent > o.limit;
+  const overPace = o && d.running && d.elapsed >= 7 && s.projected.mid > o.limit;
   const budget: Answer = o
     ? {
         question: "Budget",
-        value:
-          d.current.spent > o.limit
-            ? "Over"
-            : d.running && s.projected > o.limit
-              ? "Over pace"
-              : "On track",
-        detail: `${money(d.current.spent)} of ${money(o.limit)}${d.running ? ` · ~${money(s.projected)} by month end` : ""}`,
-        tone: d.current.spent > o.limit || (d.running && s.projected > o.limit) ? "warn" : "good",
+        value: over ? "Over" : overPace ? "Over pace" : "On track",
+        detail: `${money(d.current.spent)} of ${money(o.limit)}`,
+        tone: over || overPace ? "warn" : d.logging.thin ? "info" : "good",
         href: "#plan",
       }
     : {
@@ -142,11 +136,7 @@ export function AnswerCards({ items }: { items: Answer[] }) {
 
 // ── What to do ──────────────────────────────────────────────────────────────
 
-const actionDot: Record<Tone, string> = {
-  warn: "bg-danger",
-  good: "bg-accent",
-  info: "bg-muted",
-};
+const actionDot: Record<Tone, string> = { warn: "bg-danger", good: "bg-accent", info: "bg-muted" };
 
 export function ActionList({ actions }: { actions: Action[] }) {
   if (actions.length === 0) return null;
@@ -172,64 +162,71 @@ export function ActionList({ actions }: { actions: Action[] }) {
 
 export interface Bar {
   month: string;
-  value: number;
-  /** Drawn as an outline above the bar: where a running month is likely to end. */
+  /** Stacked bottom to top. The total is labelled above the bar. */
+  parts: { value: number; className: string }[];
+  /** Outline above the bar: where a running month is likely to end. */
   projected?: number;
   /** A second line under the month name, e.g. "43%". */
   sub?: string;
   current?: boolean;
 }
 
-export interface RefLine {
-  value: number;
-  label: string;
-  className: string;
-}
-
 const BARS_H = 150;
 
-/** One bar per month, labelled directly, with optional reference lines (average, budget). */
+/**
+ * One bar per month, labelled directly. Optionally a shaded band for the usual range
+ * and a line for a limit. Kept to those few marks so it reads at a glance.
+ */
 export function MonthBars({
   bars,
-  lines = [],
+  band,
+  limit,
   verb,
+  legend,
 }: {
   bars: Bar[];
-  lines?: RefLine[];
+  band?: { low: number; high: number } | null;
+  limit?: number | null;
   /** For screen readers: "Oct: spent ₹40,000". */
   verb: string;
+  legend?: ReactNode;
 }) {
   const money = useMoney();
+  const total = (b: Bar) => b.parts.reduce((t, p) => t + p.value, 0);
   const max = Math.max(
     1,
-    ...bars.map((b) => Math.max(b.value, b.projected ?? 0)),
-    ...lines.map((l) => l.value),
+    ...bars.map((b) => Math.max(total(b), b.projected ?? 0)),
+    band?.high ?? 0,
+    limit ?? 0,
   );
   const h = (v: number) => (v / max) * BARS_H;
 
   return (
-    <figure className="m-0">
-      <div className="relative" style={{ height: BARS_H + 22 }}>
-        {lines.map((l) => (
+    <figure className="m-0 flex flex-col gap-2">
+      <div className="relative" style={{ height: BARS_H + 20 }}>
+        {band && (
           <div
-            key={l.label}
             aria-hidden="true"
-            className={cx("absolute inset-x-0 border-t-2 border-dashed", l.className)}
-            style={{ bottom: h(l.value) }}
-          >
-            <span className="absolute right-0 -top-5 bg-bg pl-1.5 text-xs font-semibold">
-              {l.label} {compactMoney(l.value)}
-            </span>
-          </div>
-        ))}
+            className="absolute inset-x-0 bg-ink/[0.07]"
+            style={{ bottom: h(band.low), height: Math.max(2, h(band.high) - h(band.low)) }}
+          />
+        )}
+        {limit ? (
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 border-t-2 border-dashed border-danger/70"
+            style={{ bottom: h(limit) }}
+          />
+        ) : null}
         <ul className="absolute inset-0 flex items-end gap-1.5 sm:gap-2">
           {bars.map((b) => {
-            const ghost = b.projected && b.projected > b.value ? b.projected : 0;
+            const value = total(b);
+            const ghost = b.projected && b.projected > value ? b.projected : 0;
             return (
               <li
                 key={b.month}
                 className="flex h-full min-w-0 flex-1 flex-col items-stretch justify-end"
-                aria-label={`${shortMonth(b.month)}: ${verb} ${money(b.value)}${ghost ? `, heading for ${money(ghost)}` : ""}`}
+                aria-label={`${shortMonth(b.month)}: ${verb} ${money(value)}${ghost ? `, likely ${money(ghost)} by month end` : ""}`}
               >
                 <span
                   className={cx(
@@ -237,33 +234,35 @@ export function MonthBars({
                     b.current ? "text-ink" : "text-muted",
                   )}
                 >
-                  {b.value > 0 ? compactMoney(b.value) : "–"}
+                  {value > 0 ? compactMoney(value) : "–"}
                 </span>
-                <div
-                  className="relative flex flex-col justify-end"
-                  style={{ height: h(Math.max(b.value, ghost)) }}
-                >
-                  {ghost > 0 && (
-                    <span
-                      className="absolute inset-x-0 top-0 rounded-t-[4px] border-2 border-b-0 border-dashed border-accent/60"
-                      style={{ height: h(ghost - b.value) }}
-                    />
-                  )}
+                {ghost > 0 && (
                   <span
-                    className={cx(
-                      "block w-full rounded-t-[4px]",
-                      ghost > 0 && "rounded-t-none",
-                      b.current ? "bg-accent" : "bg-surface-strong",
-                    )}
-                    style={{ height: Math.max(h(b.value), b.value > 0 ? 3 : 1) }}
+                    className="block rounded-t-[4px] border-2 border-b-0 border-dashed border-line-strong/50"
+                    style={{ height: h(ghost - value) }}
                   />
+                )}
+                <div
+                  className={cx(
+                    "flex flex-col-reverse overflow-hidden",
+                    !ghost && "rounded-t-[4px]",
+                  )}
+                >
+                  {b.parts.map((p, i) => (
+                    <span
+                      key={i}
+                      className={cx("block w-full", p.className)}
+                      style={{ height: p.value > 0 ? Math.max(h(p.value), 2) : 0 }}
+                    />
+                  ))}
                 </div>
+                {value === 0 && <span className="block h-px w-full bg-line-strong/30" />}
               </li>
             );
           })}
         </ul>
       </div>
-      <ul className="mt-2 flex gap-1.5 text-xs font-semibold text-muted sm:gap-2">
+      <ul className="flex gap-1.5 text-xs font-semibold text-muted sm:gap-2">
         {bars.map((b) => (
           <li key={b.month} className={cx("min-w-0 flex-1 text-center", b.current && "text-ink")}>
             <span className="block truncate">{shortMonth(b.month)}</span>
@@ -271,18 +270,31 @@ export function MonthBars({
           </li>
         ))}
       </ul>
+      {legend && (
+        <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted">
+          {legend}
+        </figcaption>
+      )}
     </figure>
+  );
+}
+
+/** One legend entry: a small swatch and a word. */
+export function Key({ swatch, children }: { swatch: string; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span aria-hidden="true" className={cx("inline-block h-2.5 w-3.5 rounded-sm", swatch)} />
+      {children}
+    </span>
   );
 }
 
 // ── What changed ────────────────────────────────────────────────────────────
 
-/** Categories that moved most against recent months, as plain rows. */
+/** Flexible categories that moved most against recent months, as plain rows. */
 export function Movers({ d, byId }: { d: Decisions; byId: Map<string, Category> }) {
   const money = useMoney();
-  if (d.history.length === 0) return null;
-  if (d.spending.movers.length === 0)
-    return <p className="text-muted">No category is far from its usual level.</p>;
+  if (d.spending.movers.length === 0) return null;
   return (
     <ul className="flex flex-col">
       {d.spending.movers.map((m) => {
@@ -319,7 +331,7 @@ export function Movers({ d, byId }: { d: Decisions; byId: Map<string, Category> 
 /** One cell per month: invested (with the amount) or missed. */
 export function InvestStrip({ d }: { d: Decisions }) {
   const months = d.consistency.months;
-  if (months.length === 0) return <p className="text-muted">Nothing to show yet.</p>;
+  if (months.length === 0) return null;
   return (
     <ul
       className="grid gap-1.5"
@@ -355,51 +367,35 @@ export function InvestStrip({ d }: { d: Decisions }) {
 export function CashflowTable({ rows, running }: { rows: MonthTotals[]; running: boolean }) {
   const money = useMoney();
   const last = rows.length - 1;
+  const cell = (v: number) => (v ? money(v) : "–");
   return (
     <div className="-mx-1 overflow-x-auto px-1">
-      <table className="w-full min-w-[32rem] border-collapse text-right tabular-nums">
+      <table className="w-full min-w-[28rem] border-collapse text-right tabular-nums">
         <thead>
-          <tr className="border-b-2 border-line-strong text-[13px] font-bold uppercase tracking-[0.1em] text-muted">
+          <tr className="border-b-2 border-line-strong text-[13px] uppercase tracking-[0.1em] text-muted">
             <th className="py-2 text-left font-bold">Month</th>
             <th className="py-2 font-bold">Earned</th>
             <th className="py-2 font-bold">Spent</th>
             <th className="py-2 font-bold">Invested</th>
             <th className="py-2 font-bold">Left</th>
-            <th
-              className="py-2 font-bold"
-              title="Share of income not spent (invested or left over)"
-            >
-              Kept
-            </th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => {
-            const kept = r.income > 0 ? (r.income - r.spent) / r.income : null;
-            return (
-              <tr
-                key={r.month}
-                className={cx("border-b border-line", i === last && "font-semibold")}
-              >
-                <td className="py-2.5 text-left">
-                  {shortMonth(r.month)}
-                  {i === last && running && (
-                    <span className="ml-1.5 text-xs text-muted">so far</span>
-                  )}
-                </td>
-                <td className="py-2.5">{r.income ? money(r.income) : "–"}</td>
-                <td className="py-2.5">{r.spent ? money(r.spent) : "–"}</td>
-                <td className="py-2.5 text-accent">{r.invested ? money(r.invested) : "–"}</td>
-                <td className={cx("py-2.5", r.left < 0 && "text-danger")}>
-                  {r.left < 0 ? "−" : ""}
-                  {money(Math.abs(r.left))}
-                </td>
-                <td className={cx("py-2.5", kept !== null && kept < 0 && "text-danger")}>
-                  {kept === null ? "–" : pct(kept)}
-                </td>
-              </tr>
-            );
-          })}
+          {rows.map((r, i) => (
+            <tr key={r.month} className={cx("border-b border-line", i === last && "font-semibold")}>
+              <td className="py-2.5 text-left">
+                {shortMonth(r.month)}
+                {i === last && running && <span className="ml-1.5 text-xs text-muted">so far</span>}
+              </td>
+              <td className="py-2.5">{cell(r.income)}</td>
+              <td className="py-2.5">{cell(r.spent)}</td>
+              <td className="py-2.5 text-accent">{cell(r.invested)}</td>
+              <td className={cx("py-2.5", r.left < 0 && "text-danger")}>
+                {r.left < 0 ? "−" : ""}
+                {money(Math.abs(r.left))}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
@@ -408,7 +404,7 @@ export function CashflowTable({ rows, running }: { rows: MonthTotals[]; running:
 
 // ── Plan ────────────────────────────────────────────────────────────────────
 
-/** Spent vs a limit, with a tick where an even pace would be today and an outline to the projection. */
+/** Spent vs a limit, with a tick where an even pace would be today and an outline to the likely end. */
 function PaceBar({
   spent,
   limit,
@@ -422,7 +418,6 @@ function PaceBar({
 }) {
   const scale = Math.max(limit, spent, projected);
   const w = (v: number) => `${Math.min(100, (v / scale) * 100)}%`;
-  const over = spent > limit;
   return (
     <div className="relative h-3 rounded-full bg-surface">
       {projected > spent && (
@@ -432,10 +427,12 @@ function PaceBar({
         />
       )}
       <span
-        className={cx("absolute inset-y-0 left-0 rounded-full", over ? "bg-danger" : "bg-accent")}
+        className={cx(
+          "absolute inset-y-0 left-0 rounded-full",
+          spent > limit ? "bg-danger" : "bg-accent",
+        )}
         style={{ width: w(spent) }}
       />
-      {/* The limit, when the scale runs past it. */}
       {scale > limit && (
         <span className="absolute -inset-y-1 w-0.5 bg-ink" style={{ left: w(limit) }} />
       )}
@@ -456,25 +453,24 @@ export function BudgetPlan({ d, byId }: { d: Decisions; byId: Map<string, Catego
   const even = (limit: number) => (d.running ? Math.round((limit * d.elapsed) / d.days) : null);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       {o ? (
         <div className="flex flex-col gap-2.5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-            <span className="font-semibold">Monthly budget</span>
+            <span className="font-semibold">All spending</span>
             <span className="text-sm text-muted">
               {money(d.current.spent)} of {money(o.limit)}
-              {d.running && ` · heading for ${money(d.spending.projected)}`}
             </span>
           </div>
           <PaceBar
             spent={d.current.spent}
             limit={o.limit}
-            projected={d.running ? d.spending.projected : d.current.spent}
+            projected={d.running ? d.spending.projected.mid : d.current.spent}
             expected={even(o.limit)}
           />
           {o.counted > 0 && (
             <p className="text-sm text-muted">
-              Stayed within it in {o.within} of the last {o.counted}{" "}
+              Within budget in {o.within} of the last {o.counted}{" "}
               {o.counted === 1 ? "month" : "months"}.
             </p>
           )}
@@ -484,7 +480,7 @@ export function BudgetPlan({ d, byId }: { d: Decisions; byId: Map<string, Catego
           <p className="text-[15px]">
             No monthly budget yet.
             {d.budget.suggested !== null &&
-              ` Based on your spending, ${money(d.budget.suggested)} is a realistic start.`}
+              ` ${money(d.budget.suggested)} would cover a normal month for you.`}
           </p>
           <Link
             to="/budgets"
@@ -523,14 +519,12 @@ export function BudgetPlan({ d, byId }: { d: Decisions; byId: Map<string, Catego
       )}
 
       {d.running && (o || d.budget.categories.length > 0) && (
-        <p className="flex items-center gap-2 text-[13px] text-faint">
-          <span aria-hidden="true" className="inline-block h-3 w-0.5 rounded bg-muted" /> where an
-          even pace puts you today
-          <span
-            aria-hidden="true"
-            className="ml-3 inline-block h-2.5 w-5 rounded-full border-2 border-dashed border-line-strong/40"
-          />{" "}
-          likely month end
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className="inline-block h-3 w-0.5 rounded bg-muted" />
+            even pace today
+          </span>
+          <Key swatch="border-2 border-dashed border-line-strong/40">likely month end</Key>
         </p>
       )}
     </div>
@@ -542,21 +536,18 @@ export function Question({
   id,
   title,
   answer,
-  note,
   children,
 }: {
   id: string;
   title: string;
   answer: ReactNode;
-  note?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <section id={id} aria-label={title} className="flex min-w-0 scroll-mt-6 flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-3 border-b-2 border-line-strong pb-2">
-        <h2 className="text-sm font-bold uppercase tracking-[0.12em]">{title}</h2>
-        {note && <span className="text-sm text-muted">{note}</span>}
-      </div>
+      <h2 className="border-b-2 border-line-strong pb-2 text-sm font-bold uppercase tracking-[0.12em]">
+        {title}
+      </h2>
       <p className="text-xl font-bold tracking-[-0.02em] text-balance sm:text-2xl">{answer}</p>
       {children}
     </section>

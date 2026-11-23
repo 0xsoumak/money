@@ -59,6 +59,24 @@ describe("categories", () => {
     expect((await unarchived.json<Json>()).category.archivedAt).toBeNull();
   });
 
+  it("stores whether a category is a fixed cost", async () => {
+    const created = await api("/api/categories", {
+      method: "POST",
+      json: { name: "EMI", emoji: "🏦", color: "sky", kind: "expense", fixed: true },
+    });
+    const { category } = await created.json<Json>();
+    expect(category.fixed).toBe(true);
+    const patched = await api(`/api/categories/${category.id}`, {
+      method: "PATCH",
+      json: { fixed: false },
+    });
+    expect((await patched.json<Json>()).category.fixed).toBe(false);
+    // Rent & Home starts out fixed (migration 0004); new categories default to flexible.
+    const { categories } = await (await api("/api/categories")).json<Json>();
+    expect(categories.find((c: Json) => c.name === "Rent & Home").fixed).toBe(true);
+    expect(categories.find((c: Json) => c.name === "Groceries").fixed).toBe(false);
+  });
+
   it("refuses a second active category with the same name and kind", async () => {
     const make = (name: string, kind = "expense") =>
       api("/api/categories", { method: "POST", json: { name, emoji: "🍵", color: "mint", kind } });

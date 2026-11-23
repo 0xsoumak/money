@@ -291,6 +291,11 @@ function CategoryRow({
       >
         <Swatch category={category} />
         <span className="min-w-0 flex-1 truncate text-lg font-semibold">{category.name}</span>
+        {category.fixed && (
+          <span className="shrink-0 rounded-md bg-surface px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-muted">
+            Fixed
+          </span>
+        )}
       </button>
       <Button variant="ghost" className="min-h-11" onClick={onArchive}>
         Archive
@@ -307,6 +312,7 @@ function CategoryDialog({ editing, onClose }: { editing: Editing | null; onClose
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("📦");
   const [color, setColor] = useState<CategoryColor>("slate");
+  const [fixed, setFixed] = useState(false);
   const [seeded, setSeeded] = useState<Editing | null>(null);
 
   // Reset the form whenever the dialog opens for a new target.
@@ -316,10 +322,12 @@ function CategoryDialog({ editing, onClose }: { editing: Editing | null; onClose
       setName(editing.category.name);
       setEmoji(editing.category.emoji);
       setColor(editing.category.color as CategoryColor);
+      setFixed(editing.category.fixed);
     } else if (editing) {
       setName("");
       setEmoji("📦");
       setColor("slate");
+      setFixed(false);
     }
   }
 
@@ -334,10 +342,13 @@ function CategoryDialog({ editing, onClose }: { editing: Editing | null; onClose
       onError: (err: Error) => toast.show(err.message, { tone: "error" }),
     };
     if (editing.mode === "new") {
-      create.mutate({ name: name.trim(), emoji: emoji.trim(), color, kind: editing.kind }, done);
+      create.mutate(
+        { name: name.trim(), emoji: emoji.trim(), color, kind: editing.kind, fixed },
+        done,
+      );
     } else {
       update.mutate(
-        { id: editing.category.id, name: name.trim(), emoji: emoji.trim(), color },
+        { id: editing.category.id, name: name.trim(), emoji: emoji.trim(), color, fixed },
         done,
       );
     }
@@ -413,6 +424,39 @@ function CategoryDialog({ editing, onClose }: { editing: Editing | null; onClose
                 ))}
               </div>
             </div>
+
+            {/* Only spending can be fixed; income and investments aren't compared that way. */}
+            {(editing?.mode === "edit" ? editing.category.kind : editing?.kind) === "expense" && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={fixed}
+                onClick={() => setFixed(!fixed)}
+                className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-line p-3.5 text-left"
+              >
+                <span
+                  aria-hidden="true"
+                  className={cx(
+                    "mt-0.5 flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors",
+                    fixed ? "bg-accent" : "bg-surface-strong",
+                  )}
+                >
+                  <span
+                    className={cx(
+                      "size-5 rounded-full bg-bg transition-transform",
+                      fixed && "translate-x-4",
+                    )}
+                  />
+                </span>
+                <span className="flex flex-col gap-0.5">
+                  <span className="font-semibold">Fixed cost</span>
+                  <span className="text-sm text-muted">
+                    Rent, EMIs, family support. Paid every month whatever you decide, so Analytics
+                    compares the rest.
+                  </span>
+                </span>
+              </button>
+            )}
 
             <Button type="submit" disabled={!valid || busy} className="h-14">
               {busy ? "Saving…" : "Save"}

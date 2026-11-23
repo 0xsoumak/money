@@ -150,6 +150,11 @@ export default function Categories() {
                         <T variant="body" numberOfLines={1} style={{ flex: 1 }}>
                           {x.name}
                         </T>
+                        {x.fixed ? (
+                          <T variant="label" size={11} color={c.textMuted}>
+                            Fixed
+                          </T>
+                        ) : null}
                       </Pressable>
                       {reordering ? (
                         <View style={{ flexDirection: "row" }}>
