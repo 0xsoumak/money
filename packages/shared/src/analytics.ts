@@ -21,7 +21,7 @@ export const ANALYTICS_MONTHS = 13;
 export const ANALYTICS_RANGES = [3, 6, 12] as const;
 export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
-/** Series beyond this many are folded into "Other" so colors stay distinguishable. */
+/** Series beyond this many are folded into one "The rest" series so colors stay distinguishable. */
 export const MAX_SERIES = 6;
 export const OTHER = "other";
 

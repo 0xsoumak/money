@@ -246,43 +246,7 @@ export default function Add() {
           <IconButton label="Close" bordered onPress={() => router.back()}>
             <Feather name="x" size={20} color={c.text} />
           </IconButton>
-          {/* In AI mode the model works out expense, income or invest from the sentence. */}
-          <View
-            style={{ flexDirection: "row", gap: 6, opacity: aiMode ? 0 : 1 }}
-            pointerEvents={aiMode ? "none" : "auto"}
-            accessibilityElementsHidden={aiMode}
-          >
-            {TRANSACTION_TYPES.map((t) => (
-              <Pressable
-                key={t}
-                accessibilityRole="button"
-                accessibilityState={{ selected: type === t }}
-                onPress={() => switchType(t)}
-                style={{
-                  minHeight: 44,
-                  paddingHorizontal: 16,
-                  justifyContent: "center",
-                  borderRadius: radius.lg,
-                  borderWidth: 2,
-                  borderColor: type === t ? c.text : "rgba(244,244,240,0.25)",
-                  backgroundColor: type === t ? c.text : "transparent",
-                }}
-              >
-                <T variant="label" size={13} color={type === t ? c.bg : c.textMuted}>
-                  {TYPE_LABEL[t]}
-                </T>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ gap: 16, paddingBottom: 12 }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-        >
+          {/* First choice: type it in yourself, or describe it and let the AI fill it in. */}
           {!editing && (
             <View
               accessibilityRole="tablist"
@@ -305,8 +269,8 @@ export default function Add() {
                     accessibilityState={{ selected: on }}
                     onPress={() => setMode(m)}
                     style={{
-                      flex: 1,
                       minHeight: 44,
+                      paddingHorizontal: 18,
                       flexDirection: "row",
                       alignItems: "center",
                       justifyContent: "center",
@@ -317,14 +281,50 @@ export default function Add() {
                   >
                     {m === "ai" ? <Feather name="zap" size={14} color={fg} /> : null}
                     <T variant="label" size={13} color={fg}>
-                      {m === "ai" ? "Describe with AI" : "Manual"}
+                      {m === "ai" ? "AI" : "Manual"}
                     </T>
                   </Pressable>
                 );
               })}
             </View>
           )}
+        </View>
 
+        {/* Then the type. In AI mode the model works it out from the sentence. */}
+        {!aiMode && (
+          <View style={{ flexDirection: "row", gap: 6, paddingTop: 8, paddingBottom: 8 }}>
+            {TRANSACTION_TYPES.map((t) => (
+              <Pressable
+                key={t}
+                accessibilityRole="button"
+                accessibilityState={{ selected: type === t }}
+                onPress={() => switchType(t)}
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: radius.lg,
+                  borderWidth: 2,
+                  borderColor: type === t ? c.text : "rgba(244,244,240,0.25)",
+                  backgroundColor: type === t ? c.text : "transparent",
+                }}
+              >
+                <T variant="label" size={13} color={type === t ? c.bg : c.textMuted}>
+                  {TYPE_LABEL[t]}
+                </T>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ gap: 16, paddingBottom: 12 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
           {aiMode ? (
             <View style={{ gap: 10 }}>
               <Label>What happened?</Label>

@@ -297,12 +297,45 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                   <Dialog.Title className="sr-only">
                     {draft.editing ? "Edit transaction" : "New transaction"}
                   </Dialog.Title>
-                  {/* In AI mode the model works out expense, income or invest from the sentence. */}
-                  <div
-                    className={cx("flex gap-1.5", aiMode && "invisible")}
-                    role="group"
-                    aria-label="Type"
-                  >
+                  {/* First choice: type it in yourself, or describe it and let the AI fill it in. */}
+                  {!draft.editing && (
+                    <div
+                      className="grid grid-cols-2 gap-1 rounded-xl bg-surface p-1"
+                      role="tablist"
+                      aria-label="Entry mode"
+                    >
+                      {(["manual", "ai"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          role="tab"
+                          aria-selected={mode === m}
+                          onClick={() => setMode(m)}
+                          className={cx(
+                            "flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-5 text-sm font-bold uppercase tracking-wider transition-colors",
+                            mode === m
+                              ? m === "ai"
+                                ? "bg-accent text-on-accent"
+                                : "bg-ink text-bg"
+                              : "text-muted hover:text-ink",
+                          )}
+                        >
+                          {m === "ai" ? (
+                            <>
+                              <span aria-hidden="true">✦</span> AI
+                            </>
+                          ) : (
+                            "Manual"
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Then the type. In AI mode the model works it out from the sentence. */}
+                {!aiMode && (
+                  <div className="mt-4 grid grid-cols-3 gap-1.5" role="group" aria-label="Type">
                     {TRANSACTION_TYPES.map((t) => (
                       <button
                         key={t}
@@ -313,47 +346,13 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                           refocusAmount();
                         }}
                         className={cx(
-                          "min-h-11 cursor-pointer rounded-lg px-4 text-sm font-bold uppercase tracking-wider",
+                          "min-h-11 cursor-pointer rounded-lg px-2 text-sm font-bold uppercase tracking-wider",
                           draft.type === t
                             ? "bg-ink text-bg"
                             : "border-2 border-line-strong/25 text-muted",
                         )}
                       >
                         {TYPE_LABEL[t]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {!draft.editing && (
-                  <div
-                    className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-surface p-1 sm:mt-5"
-                    role="tablist"
-                    aria-label="Entry mode"
-                  >
-                    {(["manual", "ai"] as const).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        role="tab"
-                        aria-selected={mode === m}
-                        onClick={() => setMode(m)}
-                        className={cx(
-                          "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg text-sm font-bold uppercase tracking-wider transition-colors",
-                          mode === m
-                            ? m === "ai"
-                              ? "bg-accent text-on-accent"
-                              : "bg-ink text-bg"
-                            : "text-muted hover:text-ink",
-                        )}
-                      >
-                        {m === "ai" ? (
-                          <>
-                            <span aria-hidden="true">✦</span> Describe with AI
-                          </>
-                        ) : (
-                          "Manual"
-                        )}
                       </button>
                     ))}
                   </div>

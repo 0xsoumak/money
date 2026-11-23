@@ -13,6 +13,8 @@ const GAP = 14;
 const CAT_GAP = 18;
 
 interface Node {
+  /** Unique within its column; labels can repeat (a category may share a name). */
+  key: string;
   label: string;
   amount: number;
   fill: string;
@@ -42,13 +44,19 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
   const [onLayout, w] = useWidth();
 
   const left: Node[] = [
-    { label: "Income", amount: flow.income, fill: c.text },
-    { label: "From savings", amount: flow.shortfall, fill: c.danger, tone: c.danger },
+    { key: "income", label: "Income", amount: flow.income, fill: c.text },
+    {
+      key: "shortfall",
+      label: "From savings",
+      amount: flow.shortfall,
+      fill: c.danger,
+      tone: c.danger,
+    },
   ].filter((n) => n.amount > 0);
   const middle: Node[] = [
-    { label: "Spent", amount: flow.spent, fill: c.text },
-    { label: "Invested", amount: flow.invested, fill: c.text },
-    { label: "Kept", amount: flow.kept, fill: c.accent, tone: c.accent },
+    { key: "spent", label: "Spent", amount: flow.spent, fill: c.text },
+    { key: "invested", label: "Invested", amount: flow.invested, fill: c.text },
+    { key: "kept", label: "Kept", amount: flow.kept, fill: c.accent, tone: c.accent },
   ].filter((n) => n.amount > 0);
   const total = left.reduce((t, n) => t + n.amount, 0);
 
@@ -71,7 +79,7 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
   // the bottom. Shrink it to fit when needed; ribbons taper from the Spent bar to each category.
   const catNodes = flow.spending.map((s) => {
     const series = seriesOf(s.key, byId);
-    return { label: series.name, amount: s.amount, fill: series.color };
+    return { key: s.key, label: series.name, amount: s.amount, fill: series.color };
   });
   const catTotal = catNodes.reduce((t, n) => t + n.amount, 0);
   const catGaps = CAT_GAP * Math.max(catNodes.length - 1, 0);
@@ -131,7 +139,7 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
             ...cats.map((n) => ({ ...n, x: X2 })),
           ].map((n) => (
             <Rect
-              key={`${n.x}-${n.label}`}
+              key={`${n.x}-${n.key}`}
               x={n.x}
               y={n.y}
               width={NODE}
@@ -141,13 +149,13 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
             />
           ))}
           {L.map((n) => (
-            <Label key={n.label} x={X0 + NODE + 8} y={n.y + 14} size={10} weight={700} halo>
+            <Label key={n.key} x={X0 + NODE + 8} y={n.y + 14} size={10} weight={700} halo>
               {n.label.toUpperCase()}
             </Label>
           ))}
           {L.map((n) => (
             <Label
-              key={`${n.label}-v`}
+              key={`${n.key}-v`}
               x={X0 + NODE + 8}
               y={n.y + 32}
               size={15}
@@ -161,7 +169,7 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
           {M.map((n) => {
             const cy = n.y + n.h / 2;
             return (
-              <G key={n.label}>
+              <G key={n.key}>
                 <Label x={X1 + NODE + 6} y={cy - 4} size={10} weight={700} halo>
                   {`${n.label.toUpperCase()}${pct(n.amount)}`}
                 </Label>
@@ -179,7 +187,7 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
             );
           })}
           {catLabels.map((x) => (
-            <G key={x.label}>
+            <G key={x.key}>
               <Label x={X2 + NODE + 8} y={x.y} size={12} weight={600} fill={c.text}>
                 {x.label.length > 11 ? `${x.label.slice(0, 10)}…` : x.label}
               </Label>

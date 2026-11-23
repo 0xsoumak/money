@@ -5,11 +5,35 @@ import {
   idSchema,
   newId,
 } from "@money/shared";
-import { asc, eq, max } from "drizzle-orm";
+import { and, asc, eq, isNull, max, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { categories } from "../db/schema";
 import { idParam, validate } from "../lib/validate";
 import type { AppEnv } from "../types";
+
+type Db = AppEnv["Variables"]["db"];
+
+/**
+ * An active category of this kind already using this name (ignoring case and spaces at the
+ * ends), other than `except`. Two pickers chips reading "Coffee" can't be told apart.
+ */
+async function nameTaken(db: Db, kind: string, name: string, except?: string) {
+  const row = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(
+      and(
+        eq(categories.kind, kind as "expense"),
+        isNull(categories.archivedAt),
+        sql`lower(trim(${categories.name})) = ${name.trim().toLowerCase()}`,
+        except ? ne(categories.id, except) : undefined,
+      ),
+    )
+    .get();
+  return !!row;
+}
+
+const taken = (name: string) => `You already have a category called “${name.trim()}”.`;
 
 export const categoriesRoute = new Hono<AppEnv>()
   /** All categories, including archived ones (clients hide those from pickers). */
@@ -25,6 +49,8 @@ export const categoriesRoute = new Hono<AppEnv>()
   .post("/", validate("json", categoryCreateSchema), async (c) => {
     const input = c.req.valid("json");
     const db = c.get("db");
+    if (await nameTaken(db, input.kind, input.name))
+      return c.json({ error: taken(input.name) }, 409);
     // Without an explicit order, a new category goes to the end of its kind.
     let sortOrder = input.sortOrder;
     if (sortOrder === undefined) {
@@ -65,8 +91,17 @@ export const categoriesRoute = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid("param");
       const { archived, ...fields } = c.req.valid("json");
-      const [row] = await c
-        .get("db")
+      const db = c.get("db");
+      // Renaming, or bringing one back from the archive, mustn't make a second of the same name.
+      if (fields.name !== undefined || archived === false) {
+        const current = await db.query.categories.findFirst({ where: eq(categories.id, id) });
+        if (!current) return c.json({ error: "Category not found" }, 404);
+        const name = fields.name ?? current.name;
+        const active = archived === false || !current.archivedAt;
+        if (active && (await nameTaken(db, current.kind, name, id)))
+          return c.json({ error: taken(name) }, 409);
+      }
+      const [row] = await db
         .update(categories)
         .set({
           ...fields,

@@ -178,7 +178,8 @@ export interface Series {
 
 /** Name and color for a series key: a category id, or OTHER. Same category, same color, everywhere. */
 export function seriesOf(key: string, byId: Map<string, Category>): Series {
-  if (key === OTHER) return { key, name: "Other", color: cat("slate") };
+  // Not "Other": that is a real category name too, and two "Other" rows read as a bug.
+  if (key === OTHER) return { key, name: "The rest", color: cat("slate") };
   const x = byId.get(key);
   return { key, name: x ? x.name : "Unknown", color: cat(x?.color ?? "slate") };
 }
