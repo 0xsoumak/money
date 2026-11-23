@@ -1,26 +1,28 @@
 import {
   ANALYTICS_RANGES,
   type AnalyticsRange,
-  addMonths,
-  analyticsHeadlines,
-  analyticsKpis,
-  analyticsReport,
-  type HeadlinePart,
-  monthTitle,
-  shortDate,
+  type Decisions,
+  decisionActions,
+  decisions,
   shortMonth,
   today,
 } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ChartSection } from "../../components/analytics/frame";
-import { MoneyFlow } from "../../components/analytics/MoneyFlow";
-import { SavingsRate } from "../../components/analytics/SavingsRate";
-import { SpendCurve } from "../../components/analytics/SpendCurve";
-import { WeekdayBars } from "../../components/analytics/WeekdayBars";
-import { YearHeatmap } from "../../components/analytics/YearHeatmap";
-import { StatStrip } from "../../components/Charts";
+import {
+  ActionList,
+  AnswerCards,
+  answers,
+  type Bar,
+  BudgetPlan,
+  CashflowTable,
+  InvestStrip,
+  MonthBars,
+  Movers,
+  Question,
+  type RefLine,
+} from "../../components/analytics/Decisions";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
@@ -32,29 +34,76 @@ export const Route = createFileRoute("/_app/analytics")({
   component: Analytics,
 });
 
-/** A headline whose accent parts are shown in lime. */
-function Headline({ parts }: { parts: HeadlinePart[] | null }) {
-  if (!parts) return null;
-  return (
-    <>
-      {parts.map((p) =>
-        p.accent ? (
-          <span key={p.text} className="text-accent">
-            {p.text}
-          </span>
-        ) : (
-          p.text
-        ),
-      )}
-    </>
-  );
+type Money = (minor: number) => string;
+const pct = (r: number) => `${Math.round(r * 100)}%`;
+
+/** One sentence per question; the evidence sits underneath. */
+function spendingAnswer(d: Decisions, money: Money): string {
+  const usual = d.spending.usualByNow;
+  if (usual === null) return `${money(d.current.spent)} spent${d.running ? " so far" : ""}.`;
+  const diff = d.current.spent - usual;
+  const when = d.running ? "by this point in the month" : "than a usual month";
+  if (Math.abs(diff) < Math.max(50_000, usual * 0.05)) return `About your usual ${when}.`;
+  return d.running
+    ? `${money(Math.abs(diff))} ${diff > 0 ? "more" : "less"} than usual ${when}.`
+    : `${money(Math.abs(diff))} ${diff > 0 ? "more" : "less"} ${when}.`;
+}
+
+function investingAnswer(d: Decisions, money: Money): string {
+  const { rate, usualRate } = d.investing;
+  if (rate === null)
+    return d.current.invested > 0
+      ? `${money(d.current.invested)} invested, no income logged to compare with.`
+      : "Nothing invested and no income logged.";
+  const base = `${pct(rate)} of your income went to investments`;
+  if (usualRate === null) return `${base}.`;
+  return `${base}, ${rate >= usualRate ? "at or above" : "below"} your usual ${pct(usualRate)}.`;
+}
+
+function regularityAnswer(d: Decisions): string {
+  const c = d.consistency;
+  const of = `${c.investedMonths} of the last ${c.months.length} ${c.months.length === 1 ? "month" : "months"}`;
+  switch (c.steadiness) {
+    case "early":
+      return "Too early to tell. This builds up month by month.";
+    case "none":
+      return `No investments in ${of.replace(/^0 of /, "")}.`;
+    case "irregular":
+      return `You invested in ${of}. That's irregular.`;
+    case "uneven":
+      return `You invest every month, but the amounts swing a lot.`;
+    case "steady":
+      return `Steady: you invested in ${of}${c.streak > 2 ? `, a ${c.streak}-month streak` : ""}.`;
+  }
+}
+
+function cashflowAnswer(d: Decisions, money: Money): string {
+  const rows = [...d.history, d.current].filter((r) => r.income > 0);
+  if (rows.length === 0) return "Log your income to see how much of it you keep.";
+  const short = rows.filter((r) => r.left < 0).length;
+  const kept =
+    rows.reduce((t, r) => t + (r.income - r.spent), 0) / rows.reduce((t, r) => t + r.income, 0);
+  if (short > 0)
+    return `In ${short} of ${rows.length} months you spent and invested more than you earned.`;
+  const left = d.current.left;
+  return `You keep ${pct(kept)} of what you earn${d.current.income > 0 ? `; ${money(left)} is unallocated this month` : ""}.`;
+}
+
+function planAnswer(d: Decisions, money: Money): string {
+  const o = d.budget.overall;
+  if (!o) return "No budget yet, so there's nothing to measure against.";
+  if (d.current.spent > o.limit) return `${money(d.current.spent - o.limit)} over budget.`;
+  if (!d.running) return `Within budget, with ${money(o.limit - d.current.spent)} to spare.`;
+  return d.spending.projected > o.limit
+    ? `Heading about ${money(d.spending.projected - o.limit)} over budget.`
+    : `On track, with about ${money(o.limit - d.spending.projected)} to spare.`;
 }
 
 function Analytics() {
   const { month } = useMonth();
   const money = useMoney();
   const { openNew } = useQuickAdd();
-  const [range, setRange] = useState<AnalyticsRange>(12);
+  const [range, setRange] = useState<AnalyticsRange>(6);
   const todayDate = today();
 
   const { data: categories = [] } = useQuery(categoriesQuery);
@@ -64,18 +113,72 @@ function Analytics() {
     () => new Map<string, Category>(categories.map((c) => [c.id, c])),
     [categories],
   );
-  // While the next month loads, the previous month's rows stay up (dimmed). Compute for the
-  // month those rows belong to, not the new one, or the charts briefly show it as empty.
-  const dataMonth = q.data?.to ?? month;
-  const a = useMemo(
-    () => (q.data ? analyticsReport(q.data.rows, q.data.to, range, todayDate) : null),
-    [q.data, range, todayDate],
-  );
-  const h = useMemo(() => (a ? analyticsHeadlines(a, money) : null), [a, money]);
 
-  const budget = summary.data?.budget.overall ?? null;
-  const prev = addMonths(dataMonth, -1);
-  const lastDate = a?.win.dates.at(-1);
+  const budgets = summary.data?.budget;
+  const d = useMemo(
+    () =>
+      q.data
+        ? decisions({
+            rows: q.data.rows,
+            // While the next month loads, keep computing for the month the rows belong to.
+            month: q.data.to,
+            range,
+            todayDate,
+            budgets: {
+              overall: budgets?.overall ?? null,
+              byCategory: budgets?.categories ?? {},
+            },
+          })
+        : null,
+    [q.data, range, todayDate, budgets],
+  );
+  const actions = useMemo(
+    () => (d ? decisionActions(d, money, (id) => byId.get(id)?.name ?? "A category") : []),
+    [d, money, byId],
+  );
+
+  const all = d ? [...d.history, d.current] : [];
+  const spendBars: Bar[] = all.map((m) => ({
+    month: m.month,
+    value: m.spent,
+    current: m === d?.current,
+    projected: m === d?.current && d.running ? d.spending.projected : undefined,
+  }));
+  const spendLines: RefLine[] = [
+    ...(d?.spending.usualMonth
+      ? [
+          {
+            value: d.spending.usualMonth,
+            label: "Usual",
+            className: "border-line-strong/50 text-muted",
+          },
+        ]
+      : []),
+    ...(d?.budget.overall
+      ? [
+          {
+            value: d.budget.overall.limit,
+            label: "Budget",
+            className: "border-danger/60 text-danger",
+          },
+        ]
+      : []),
+  ];
+  const investBars: Bar[] = all.map((m) => ({
+    month: m.month,
+    value: m.invested,
+    current: m === d?.current,
+    sub: m.income > 0 ? pct(m.invested / m.income) : undefined,
+  }));
+  const investLines: RefLine[] = d?.investing.usualAmount
+    ? [
+        {
+          value: d.investing.usualAmount,
+          label: "Usual",
+          className: "border-line-strong/50 text-muted",
+        },
+      ]
+    : [];
 
   return (
     <div className="flex flex-col gap-8">
@@ -83,7 +186,7 @@ function Analytics() {
       <div
         aria-busy={q.isPlaceholderData}
         className={cx(
-          "flex flex-col gap-14 transition-opacity duration-300",
+          "flex flex-col gap-12 transition-opacity duration-300",
           q.isPlaceholderData && "pointer-events-none opacity-35",
         )}
       >
@@ -91,14 +194,16 @@ function Analytics() {
           <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
             <div>
               <Label>
-                Last {range} months{lastDate ? ` · to ${shortDate(lastDate)}` : ""}
+                {d && d.history.length > 0
+                  ? `Compared with ${shortMonth(d.history[0]?.month ?? "")}–${shortMonth(d.history.at(-1)?.month ?? "")}`
+                  : "This month"}
               </Label>
-              <h1 className="mt-2 text-[56px] font-bold leading-[0.9] tracking-[-0.06em] sm:text-[80px] md:text-[96px]">
+              <h1 className="mt-2 text-[56px] font-bold leading-[0.9] tracking-[-0.06em] sm:text-[80px]">
                 Analytics
               </h1>
             </div>
             <fieldset className="flex gap-[3px] rounded-[10px] border-2 border-line p-[3px]">
-              <legend className="sr-only">Range</legend>
+              <legend className="sr-only">Compare with the last</legend>
               {ANALYTICS_RANGES.map((r) => (
                 <button
                   key={r}
@@ -115,7 +220,7 @@ function Analytics() {
               ))}
             </fieldset>
           </div>
-          {a ? <StatStrip stats={analyticsKpis(a, money)} /> : <Skeleton className="h-[118px]" />}
+          {d ? <AnswerCards items={answers(d, money)} /> : <Skeleton className="h-[118px]" />}
         </section>
 
         {q.isPending ? (
@@ -123,42 +228,80 @@ function Analytics() {
         ) : q.data?.rows.length === 0 ? (
           <EmptyState
             title="Nothing to analyse yet"
-            hint="Charts fill in as you log expenses, income and investments."
+            hint="This page fills in as you log expenses, income and investments."
             action={<Button onClick={() => openNew()}>Add expense</Button>}
           />
         ) : (
-          a &&
-          h && (
+          d && (
             <>
-              <Reveal>
-                <ChartSection
-                  title={`Where ${monthTitle(dataMonth).split(" ")[0]}'s money went`}
-                  note="Income → what happened to it"
-                  headline={<Headline parts={h.flow} />}
+              {actions.length > 0 && (
+                <Reveal>
+                  <section aria-label="What to do" className="flex flex-col gap-4">
+                    <h2 className="border-b-2 border-line-strong pb-2 text-sm font-bold uppercase tracking-[0.12em]">
+                      What to do
+                    </h2>
+                    <ActionList actions={actions} />
+                  </section>
+                </Reveal>
+              )}
+
+              <Reveal className="grid gap-x-12 gap-y-12 lg:grid-cols-[3fr_2fr]">
+                <Question
+                  id="spending"
+                  title="Am I spending more or less?"
+                  note="Spending per month"
+                  answer={spendingAnswer(d, money)}
                 >
-                  <MoneyFlow flow={a.flow} byId={byId} />
-                </ChartSection>
+                  <MonthBars bars={spendBars} lines={spendLines} verb="spent" />
+                </Question>
+                <Question
+                  id="changes"
+                  title="What changed"
+                  note={d.history.length ? "vs last 3 months, same point" : undefined}
+                  answer={
+                    d.history.length === 0
+                      ? "Shows up once there's an earlier month to compare with."
+                      : d.spending.movers.length
+                        ? "The categories that moved the most."
+                        : "Nothing unusual."
+                  }
+                >
+                  <Movers d={d} byId={byId} />
+                </Question>
+              </Reveal>
+
+              <Reveal className="grid gap-x-12 gap-y-12 lg:grid-cols-[3fr_2fr]">
+                <Question
+                  id="investing"
+                  title="Am I investing enough?"
+                  note="Invested · % of income"
+                  answer={investingAnswer(d, money)}
+                >
+                  <MonthBars bars={investBars} lines={investLines} verb="invested" />
+                </Question>
+                <Question
+                  id="regularity"
+                  title="Am I investing regularly?"
+                  answer={regularityAnswer(d)}
+                >
+                  <InvestStrip d={d} />
+                </Question>
               </Reveal>
 
               <Reveal>
-                <ChartSection title="Spend curve" note="Running total" headline={h.curve}>
-                  <SpendCurve curve={a.curve} budget={budget} />
-                </ChartSection>
+                <Question
+                  id="cashflow"
+                  title="Am I living within my income?"
+                  answer={cashflowAnswer(d, money)}
+                >
+                  <CashflowTable rows={all} running={d.running} />
+                </Question>
               </Reveal>
 
               <Reveal>
-                <ChartSection title={`Every day, last ${range} months`} headline={h.days}>
-                  <YearHeatmap dates={a.win.dates} daily={a.daily} todayDate={todayDate} />
-                </ChartSection>
-              </Reveal>
-
-              <Reveal className="grid gap-x-12 gap-y-14 lg:grid-cols-2">
-                <ChartSection title="Weekday rhythm" note="Average per day" headline={h.weekdays}>
-                  <WeekdayBars averages={a.weekdays} />
-                </ChartSection>
-                <ChartSection title="Savings rate" note="Invested ÷ income" headline={h.savings}>
-                  <SavingsRate months={a.savings} />
-                </ChartSection>
+                <Question id="plan" title="Am I sticking to my plan?" answer={planAnswer(d, money)}>
+                  <BudgetPlan d={d} byId={byId} />
+                </Question>
               </Reveal>
             </>
           )
