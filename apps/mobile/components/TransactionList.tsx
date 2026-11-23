@@ -1,16 +1,16 @@
 import { groupByDay, signedAmount, type TransactionType } from "@money/shared";
-import { Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
   LayoutAnimationConfig,
   LinearTransition,
 } from "react-native-reanimated";
+import { select } from "../lib/haptics";
 import { useMoney } from "../lib/hooks";
 import type { Category, Tx } from "../lib/queries";
 import { c, cat, catTint, radius } from "../lib/theme";
 import { duration, ease } from "./motion";
-import { SwipeRow } from "./SwipeRow";
 import { T } from "./T";
 import { SectionHeader } from "./ui";
 
@@ -27,7 +27,7 @@ const AMOUNT: Record<TransactionType, { sign: string; color: string }> = {
 
 /**
  * Transactions grouped by day, newest first.
- * Tap a row (or swipe it right) to edit it; swipe it left to delete it.
+ * Tap a row to edit it; long press it to delete it.
  */
 export function TransactionList({
   transactions,
@@ -92,79 +92,86 @@ export function TransactionList({
                       exiting={FadeOut.duration(duration.fast)}
                       layout={LinearTransition.duration(duration.base).easing(ease)}
                     >
-                      <SwipeRow onEdit={() => onEdit(tx)} onDelete={() => onDelete(tx)}>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Edit ${title}, ${verb} ${money(tx.amount)}`}
-                          accessibilityHint="Swipe left to delete"
-                          accessibilityActions={[{ name: "delete", label: "Delete" }]}
-                          onAccessibilityAction={(e) => {
-                            if (e.nativeEvent.actionName === "delete") onDelete(tx);
-                          }}
-                          onPress={() => onEdit(tx)}
-                          style={({ pressed }) => ({
-                            minHeight: 64,
-                            flexDirection: "row",
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Edit ${title}, ${verb} ${money(tx.amount)}`}
+                        accessibilityHint="Long press to delete"
+                        accessibilityActions={[{ name: "delete", label: "Delete" }]}
+                        onAccessibilityAction={(e) => {
+                          if (e.nativeEvent.actionName === "delete") onDelete(tx);
+                        }}
+                        onPress={() => onEdit(tx)}
+                        // Long press to delete, after a confirm; the toast that follows offers Undo.
+                        onLongPress={() => {
+                          select();
+                          Alert.alert(`Delete ${title}?`, `${money(tx.amount)} · ${catName}`, [
+                            { text: "Cancel", style: "cancel" },
+                            { text: "Delete", style: "destructive", onPress: () => onDelete(tx) },
+                          ]);
+                        }}
+                        delayLongPress={400}
+                        style={({ pressed }) => ({
+                          minHeight: 64,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 14,
+                          paddingVertical: 8,
+                          borderRadius: radius.lg,
+                          backgroundColor: pressed ? c.surface : c.bg,
+                        })}
+                      >
+                        <View
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 12,
                             alignItems: "center",
-                            gap: 14,
-                            paddingVertical: 8,
-                            borderRadius: radius.lg,
-                            backgroundColor: pressed ? c.surface : c.bg,
-                          })}
+                            justifyContent: "center",
+                            borderWidth: 1.5,
+                            ...catTint(category?.color ?? "slate"),
+                          }}
                         >
-                          <View
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 12,
-                              alignItems: "center",
-                              justifyContent: "center",
-                              borderWidth: 1.5,
-                              ...catTint(category?.color ?? "slate"),
-                            }}
-                          >
-                            <T variant="body" size={20}>
-                              {category?.emoji ?? "?"}
-                            </T>
-                          </View>
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <T variant="body" size={16} numberOfLines={1}>
-                              {title}
-                            </T>
-                            {hasNote ? (
+                          <T variant="body" size={20}>
+                            {category?.emoji ?? "?"}
+                          </T>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <T variant="body" size={16} numberOfLines={1}>
+                            {title}
+                          </T>
+                          {hasNote ? (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 6,
+                                marginTop: 2,
+                              }}
+                            >
                               <View
                                 style={{
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  marginTop: 2,
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: 4,
+                                  backgroundColor: color,
                                 }}
+                              />
+                              <T
+                                variant="caption"
+                                color={c.textMuted}
+                                numberOfLines={1}
+                                style={{ flexShrink: 1 }}
                               >
-                                <View
-                                  style={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: 4,
-                                    backgroundColor: color,
-                                  }}
-                                />
-                                <T
-                                  variant="caption"
-                                  color={c.textMuted}
-                                  numberOfLines={1}
-                                  style={{ flexShrink: 1 }}
-                                >
-                                  {catName}
-                                </T>
-                              </View>
-                            ) : null}
-                          </View>
-                          <T variant="rowAmount" size={18} color={amount.color}>
-                            {amount.sign}
-                            {money(tx.amount)}
-                          </T>
-                        </Pressable>
-                      </SwipeRow>
+                                {catName}
+                              </T>
+                            </View>
+                          ) : null}
+                        </View>
+                        <T variant="rowAmount" size={18} color={amount.color}>
+                          {amount.sign}
+                          {money(tx.amount)}
+                        </T>
+                      </Pressable>
                     </Animated.View>
                   );
                 })}
