@@ -40,7 +40,7 @@ import {
   useSaveTransaction,
 } from "../lib/queries";
 import { storage } from "../lib/storage";
-import { c, cat, radius } from "../lib/theme";
+import { c, catTint, radius } from "../lib/theme";
 
 const lastKey = (type: TransactionType) => `mt:lastCategory:${type}`;
 
@@ -446,14 +446,18 @@ export default function Add() {
                           paddingHorizontal: 14,
                           borderRadius: radius.lg,
                           borderWidth: 2,
-                          borderColor: selected ? cat(x.color) : "rgba(244,244,240,0.25)",
-                          backgroundColor: selected ? cat(x.color) : "transparent",
+                          ...(selected
+                            ? catTint(x.color)
+                            : {
+                                borderColor: "rgba(244,244,240,0.25)",
+                                backgroundColor: "transparent",
+                              }),
                         }}
                       >
                         <T variant="body" size={15}>
                           {x.emoji}
                         </T>
-                        <T variant="body" size={15} color={selected ? c.onAccent : c.text}>
+                        <T variant="body" size={15} color={c.text}>
                           {x.name}
                         </T>
                       </PressableScale>

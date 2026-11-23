@@ -16,6 +16,7 @@ import { tween } from "../../components/motion";
 import { useToast } from "../../components/Toast";
 import {
   Button,
+  catTint,
   cx,
   EmptyState,
   fieldClass,
@@ -174,8 +175,8 @@ function Swatch({ category }: { category: Pick<Category, "emoji" | "color"> }) {
   return (
     <span
       aria-hidden="true"
-      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-xl"
-      style={{ backgroundColor: `var(--cat-${category.color})` }}
+      className="flex size-11 shrink-0 items-center justify-center rounded-xl border-[1.5px] text-xl"
+      style={catTint(category.color)}
     >
       {category.emoji}
     </span>

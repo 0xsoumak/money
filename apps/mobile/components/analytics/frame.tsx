@@ -184,21 +184,10 @@ export function seriesOf(key: string, byId: Map<string, Category>): Series {
   return { key, name: x ? x.name : "Unknown", color: cat(x?.color ?? "slate") };
 }
 
-/** Blend two #rrggbb colors: t = 0 gives `a`, 1 gives `b`. RN has no color-mix(). */
-export function mix(a: string, b: string, t: number): string {
-  const p = (h: string, i: number) => Number.parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
-  const ch = (i: number) =>
-    Math.round(p(a, i) + (p(b, i) - p(a, i)) * t)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${ch(0)}${ch(1)}${ch(2)}`;
-}
-
-/** A #rrggbb color at the given opacity, blended over the background. */
-export const fade = (color: string, opacity: number) => mix(c.bg, color, opacity);
-
 /** Short month and date labels live in shared so every platform words them alike. */
 export { shortDate, shortMonth } from "@money/shared";
+/** Color blending lives with the theme; re-exported for the charts. */
+export { fade, mix } from "../../lib/theme";
 
 /** Compact money for ticks and tight labels: ₹950, ₹1.2k, ₹45k, ₹1.2L. */
 // Callers also use useMoney, so they re-render when balances are hidden or shown.

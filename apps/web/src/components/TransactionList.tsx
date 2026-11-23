@@ -5,7 +5,7 @@ import type { Category, Tx } from "../lib/queries";
 import { TrashIcon } from "./icons";
 import { tween } from "./motion";
 import { useQuickAdd } from "./QuickAdd";
-import { cx, IconButton, SectionHeader } from "./ui";
+import { catTint, cx, IconButton, SectionHeader } from "./ui";
 
 /**
  * How each amount reads in a list. Spending is the common case, so it stays plain ink
@@ -81,11 +81,8 @@ export function TransactionList({ transactions, categories, onDelete }: Props) {
                       >
                         <span
                           aria-hidden="true"
-                          className="flex size-11 shrink-0 items-center justify-center rounded-xl text-xl"
-                          style={{
-                            backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`,
-                            boxShadow: `inset 0 0 0 1.5px color-mix(in srgb, ${color} 35%, transparent)`,
-                          }}
+                          className="flex size-11 shrink-0 items-center justify-center rounded-xl border-[1.5px] text-xl"
+                          style={catTint(cat?.color ?? "slate")}
                         >
                           {cat?.emoji ?? "?"}
                         </span>

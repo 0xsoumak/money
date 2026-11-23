@@ -36,7 +36,7 @@ import { DatePicker } from "./DatePicker";
 import { BackspaceIcon, CloseIcon } from "./icons";
 import { tween } from "./motion";
 import { useToast } from "./Toast";
-import { Button, cx, fieldClass, IconButton } from "./ui";
+import { Button, catTint, cx, fieldClass, IconButton } from "./ui";
 
 interface Draft {
   id: string;
@@ -470,18 +470,10 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                             }}
                             className={cx(
                               "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 px-3.5 text-[15px] font-semibold",
-                              selected
-                                ? "text-on-accent"
-                                : "border-line-strong/25 transition-colors hover:border-line-strong/60",
+                              !selected &&
+                                "border-line-strong/25 transition-colors hover:border-line-strong/60",
                             )}
-                            style={
-                              selected
-                                ? {
-                                    backgroundColor: `var(--cat-${c.color})`,
-                                    borderColor: `var(--cat-${c.color})`,
-                                  }
-                                : undefined
-                            }
+                            style={selected ? catTint(c.color) : undefined}
                           >
                             <span aria-hidden="true">{c.emoji}</span>
                             {c.name}

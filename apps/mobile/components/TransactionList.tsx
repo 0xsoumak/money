@@ -8,8 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMoney } from "../lib/hooks";
 import type { Category, Tx } from "../lib/queries";
-import { c, cat, radius } from "../lib/theme";
-import { fade } from "./analytics/frame";
+import { c, cat, catTint, radius } from "../lib/theme";
 import { duration, ease } from "./motion";
 import { SwipeRow } from "./SwipeRow";
 import { T } from "./T";
@@ -120,9 +119,8 @@ export function TransactionList({
                               borderRadius: 12,
                               alignItems: "center",
                               justifyContent: "center",
-                              backgroundColor: fade(color, 0.18),
                               borderWidth: 1.5,
-                              borderColor: fade(color, 0.35),
+                              ...catTint(category?.color ?? "slate"),
                             }}
                           >
                             <T variant="body" size={20}>
