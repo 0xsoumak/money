@@ -71,11 +71,6 @@ export const MeterIcon = () => (
     <path d="M3 21h18" />
   </Icon>
 );
-export const GridIcon = () => (
-  <Icon size={22}>
-    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
-  </Icon>
-);
 export const SlidersIcon = () => (
   <Icon size={22}>
     <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />

@@ -19,10 +19,12 @@ export function InvestJars({ jars, onPick }: { jars: Jar[]; onPick?: (month: str
   const money = useMoney();
   const max = Math.max(1, ...jars.map((j) => j.invested));
   const pct = (r: number) => `${Math.round(r * 100)}%`;
+  // Twelve jars are narrow: print amounts only on this month and the fullest one.
+  const dense = jars.length > 6;
 
   return (
     <ul
-      className="grid gap-2 sm:gap-3"
+      className={cx("grid", dense ? "gap-1.5 sm:gap-2" : "gap-2 sm:gap-3")}
       style={{ gridTemplateColumns: `repeat(${jars.length}, minmax(0, 1fr))` }}
     >
       {jars.map((j) => {
@@ -44,7 +46,11 @@ export function InvestJars({ jars, onPick }: { jars: Jar[]; onPick?: (month: str
                   empty ? "text-faint" : "text-ink",
                 )}
               >
-                {empty ? "–" : compactMoney(j.invested)}
+                {empty
+                  ? "–"
+                  : !dense || j.current || j.invested === max
+                    ? compactMoney(j.invested)
+                    : " "}
               </span>
               <span
                 className={cx(

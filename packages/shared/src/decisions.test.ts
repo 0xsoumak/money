@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnalyticsRow } from "./analytics";
-import { against, decisionActions, decisions, typicalRange } from "./decisions";
+import { against, decisions, typicalRange } from "./decisions";
 
 const row = (
   date: string,
@@ -9,8 +9,6 @@ const row = (
   categoryId = "food",
 ): AnalyticsRow => ({ date, type, categoryId, amount: rupees * 100, note: null });
 
-const money = (m: number) => `₹${Math.round(m / 100)}`;
-const name = (id: string) => id[0]?.toUpperCase() + id.slice(1);
 const none = { overall: null, byCategory: {} };
 /** Something logged every day up to `day`, so logging never reads as thin. */
 const everyDay = (month: string, day: number) =>
@@ -150,73 +148,6 @@ describe("decisions", () => {
   });
 });
 
-describe("decisionActions", () => {
-  it("leads with drawing on savings, then the budget pace", () => {
-    const rows = [
-      ...everyDay("2026-11", 20),
-      row("2026-10-03", "expense", 20_000),
-      row("2026-10-25", "expense", 10_000), // what usually comes late in the month
-      row("2026-11-01", "income", 10_000),
-      row("2026-11-03", "expense", 18_000),
-    ];
-    const d = decisions({
-      rows,
-      month: "2026-11",
-      range: 3,
-      todayDate: "2026-11-20",
-      budgets: { overall: 25_000_00, byCategory: {} },
-      fixedIds: new Set(["rent"]),
-    });
-    const actions = decisionActions(d, money, name);
-    expect(actions[0]?.id).toBe("shortfall");
-    expect(actions[1]?.id).toBe("budget-pace");
-    expect(actions[1]?.text).toContain("₹700 a day for the next 10 days");
-  });
-
-  it("holds pace warnings for the first week", () => {
-    const rows = [
-      ...everyDay("2026-11", 3),
-      row("2026-10-25", "expense", 30_000),
-      row("2026-11-02", "expense", 5000),
-    ];
-    const d = decisions({
-      rows,
-      month: "2026-11",
-      range: 3,
-      todayDate: "2026-11-03",
-      budgets: { overall: 25_000_00, byCategory: {} },
-      fixedIds: new Set(["rent"]),
-    });
-    expect(decisionActions(d, money, name).map((a) => a.id)).not.toContain("budget-pace");
-  });
-
-  it("praises nothing when logging is thin", () => {
-    const rows = [row("2026-10-05", "expense", 50_000), row("2026-11-02", "expense", 100)];
-    const d = decisions({
-      rows,
-      month: "2026-11",
-      range: 3,
-      todayDate: "2026-11-20",
-      budgets: none,
-      fixedIds: new Set(["rent"]),
-    });
-    const actions = decisionActions(d, money, name);
-    expect(actions[0]?.id).toBe("thin");
-    expect(actions.some((a) => a.tone === "good")).toBe(false);
-  });
-
-  it("asks to mark fixed costs when none are", () => {
-    const d = decisions({
-      rows: [...everyDay("2026-11", 20), row("2026-11-02", "expense", 100)],
-      month: "2026-11",
-      range: 3,
-      todayDate: "2026-11-20",
-      budgets: none,
-    });
-    expect(decisionActions(d, money, name).map((a) => a.id)).toContain("mark-fixed");
-  });
-});
-
 describe("decisions: charts", () => {
   it("gives this month's running total and the usual running total for every day", () => {
     const rows = [
@@ -254,7 +185,7 @@ describe("decisions: charts", () => {
     expect(d.spending.pace.current).toEqual([0, 0, 50_000, 50_000]);
   });
 
-  it("compares every flexible category, not only the notable ones, biggest first", () => {
+  it("only notable flexible categories count as movers", () => {
     const rows = [
       row("2026-10-03", "expense", 1000, "food"),
       row("2026-10-03", "expense", 100, "fun"),
@@ -271,7 +202,6 @@ describe("decisions: charts", () => {
       budgets: none,
       fixedIds: new Set(["rent"]),
     });
-    expect(d.spending.byCategory.map((c) => c.key)).toEqual(["food", "fun"]);
     expect(d.spending.movers.map((c) => c.key)).toEqual(["food"]);
   });
 });

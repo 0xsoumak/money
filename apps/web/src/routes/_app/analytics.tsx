@@ -22,6 +22,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { type HeroStat, HeroStats } from "../../components/analytics/HeroStats";
 import { CategoryDonut, RateGauge } from "../../components/charts/Explore";
 import { alpha, C } from "../../components/charts/echarts";
 import { InvestJars, type Jar } from "../../components/charts/InvestJars";
@@ -79,11 +80,17 @@ function investingTakeaway(d: Decisions): Takeaway {
     rate !== null ? `${pct(rate)} of income` : `${compactMoney(d.current.invested)} invested`;
   const regular =
     c.steadiness === "early" ? "" : ` · ${c.investedMonths} of ${c.months.length} months`;
+  const investedNow = d.current.invested > 0;
+  // Starting (or restarting) is worth encouraging, not a red mark for the months before.
+  if (investedNow && c.investedMonths === 1 && c.months.length > 1)
+    return [`${head} · your first month investing`, "good"];
   const tone: Tone =
     c.steadiness === "steady"
       ? "good"
       : c.steadiness === "irregular" || c.steadiness === "none"
-        ? "warn"
+        ? investedNow
+          ? "info"
+          : "warn"
         : "info";
   return [head + regular, tone];
 }
@@ -317,6 +324,67 @@ function Sections({
   const topShare = share[0];
   const { stats } = extra;
 
+  const hero = useMemo<HeroStat[]>(() => {
+    const f = extra.flow;
+    const c = d.current;
+    const spent: HeroStat = {
+      label: d.running ? "Spent so far" : "Spent",
+      value: money(c.spent),
+      sub: spendText,
+      tone: spendTone,
+    };
+    const p = d.spending.projected.mid;
+    const budget = limitValue ?? null;
+    const outlook: HeroStat = d.running
+      ? {
+          label: "Likely by month end",
+          value: money(p),
+          ...(budget !== null
+            ? p > budget
+              ? { sub: `${compactMoney(p - budget)} over budget`, tone: "warn" as const }
+              : { sub: `${compactMoney(budget - p)} under budget`, tone: "good" as const }
+            : d.spending.usualMonth
+              ? { sub: `Usually ${compactMoney(d.spending.usualMonth.mid)}` }
+              : {}),
+        }
+      : {
+          label: "Per day",
+          value: money(Math.round(c.spent / Math.max(1, d.days))),
+          sub: `Spent on ${stats.spentDays} of ${extra.counted} days`,
+        };
+    const kept: HeroStat =
+      f.income === 0
+        ? { label: "Kept", value: "–", sub: "No income logged" }
+        : f.shortfall > 0
+          ? {
+              label: "From savings",
+              value: money(f.shortfall),
+              sub: "Out went more than came in",
+              tone: "warn",
+            }
+          : {
+              label: "Kept",
+              value: money(f.kept),
+              sub: `${pct(f.kept / f.income)} of ${compactMoney(f.income)} income`,
+              tone: f.kept > 0 ? "good" : "info",
+            };
+    const invested: HeroStat = {
+      label: "Invested",
+      dot: C.accent,
+      value: money(c.invested),
+      sub:
+        d.investing.rate !== null
+          ? `${pct(d.investing.rate)} of income`
+          : c.invested > 0
+            ? "No income logged"
+            : d.running
+              ? "Nothing yet this month"
+              : "Nothing this month",
+      tone: c.invested > 0 ? "good" : "info",
+    };
+    return [spent, outlook, kept, invested];
+  }, [d, extra, money, spendText, spendTone, limitValue, stats]);
+
   return (
     <>
       {d.logging.thin && (
@@ -328,6 +396,8 @@ function Sections({
           </span>
         </p>
       )}
+
+      <HeroStats stats={hero} />
 
       {(extra.flow.income > 0 || extra.flow.spent > 0) && (
         <Reveal>

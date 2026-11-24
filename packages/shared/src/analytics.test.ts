@@ -12,7 +12,6 @@ import {
   runningTotals,
   savingsRates,
   spendCurve,
-  spendingSplit,
   stackLinks,
   topWithOther,
   weekdayAverages,
@@ -195,25 +194,6 @@ describe("savingsRates", () => {
 
 /** An expense in rupees. */
 const r = (date: string, categoryId: string, rupees: number) => row(date, rupees * 100, categoryId);
-
-describe("spendingSplit", () => {
-  it("splits one month's spending into fixed and flexible categories, high to low", () => {
-    const rows = [
-      r("2026-11-01", "rent", 20_000),
-      r("2026-11-02", "food", 300),
-      r("2026-11-03", "fun", 500),
-      r("2026-11-04", "food", 400),
-      r("2026-10-04", "food", 9_000),
-    ];
-    expect(spendingSplit(rows, "2026-11", new Set(["rent"]))).toEqual({
-      fixed: [{ key: "rent", amount: 2_000_000 }],
-      flexible: [
-        { key: "food", amount: 70_000 },
-        { key: "fun", amount: 50_000 },
-      ],
-    });
-  });
-});
 
 describe("categoryShare", () => {
   it("totals categories over the given months and folds the smallest", () => {

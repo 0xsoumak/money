@@ -315,27 +315,6 @@ export function savingsRates(rows: AnalyticsRow[], months: string[]): SavingsMon
 
 // ── Categories ──────────────────────────────────────────────────────────────
 
-/** One month's spending by category, fixed costs apart from flexible, each high to low. */
-export function spendingSplit(
-  rows: AnalyticsRow[],
-  month: string,
-  fixedIds: ReadonlySet<string>,
-): { fixed: Ranked[]; flexible: Ranked[] } {
-  const fixed = new Map<string, number>();
-  const flexible = new Map<string, number>();
-  for (const r of rows) {
-    if (!isExpense(r) || monthOf(r.date) !== month) continue;
-    const m = fixedIds.has(r.categoryId) ? fixed : flexible;
-    m.set(r.categoryId, (m.get(r.categoryId) ?? 0) + r.amount);
-  }
-  const sorted = (m: Map<string, number>) =>
-    [...m]
-      .filter(([, v]) => v > 0)
-      .map(([key, amount]) => ({ key, amount }))
-      .sort((a, b) => b.amount - a.amount);
-  return { fixed: sorted(fixed), flexible: sorted(flexible) };
-}
-
 /**
  * Spending by category over several months, high to low, folded so at most `max`
  * slices remain (the smallest go into OTHER). For a donut of where money usually goes.
