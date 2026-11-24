@@ -1,14 +1,23 @@
 import {
   ANALYTICS_RANGES,
   type AnalyticsRange,
+  type AnalyticsRow,
+  addMonths,
   analyticsWindow,
+  categoryRanks,
+  type DayStats,
   type Decisions,
   dailyExpenses,
   dayStats,
   decisions,
+  eachDay,
   isNotable,
+  lastDayOf,
+  type MoneyFlow as MoneyFlowData,
   type MonthTotals,
-  monthTitle,
+  moneyFlow,
+  type Ranked,
+  spendingSplit,
   today,
   weekdayAverages,
   weekdayHeadline,
@@ -18,7 +27,16 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { CashflowTable } from "../../components/analytics/CashflowTable";
 import { Dumbbell, type DumbbellRow } from "../../components/charts/Dumbbell";
-import { compactMoney, Key, Legend, Panel, TipRow, type Tone } from "../../components/charts/kit";
+import {
+  CategoryBump,
+  ExpenseBubbles,
+  RateGauge,
+  SpendTreemap,
+  YearCalendar,
+} from "../../components/charts/Explore";
+import { alpha, C } from "../../components/charts/echarts";
+import { compactMoney, Key, Legend, Panel, type Tone } from "../../components/charts/kit";
+import { MoneyFlow } from "../../components/charts/MoneyFlow";
 import { type Column, MonthColumns } from "../../components/charts/MonthColumns";
 import { CalendarHeat, WeekdayBars } from "../../components/charts/Rhythm";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
@@ -37,6 +55,13 @@ type Takeaway = [text: string, tone: Tone];
 const pct = (r: number) => `${Math.round(r * 100)}%`;
 
 // ── Takeaways: a few words above each chart ─────────────────────────────────
+
+function moneyFlowTakeaway(f: MoneyFlowData): Takeaway {
+  if (f.income === 0) return [`${compactMoney(f.spent)} spent, no income logged`, "info"];
+  if (f.shortfall > 0) return [`${compactMoney(f.shortfall)} came from savings`, "warn"];
+  if (f.kept > 0) return [`You kept ${pct(f.kept / f.income)} of what came in`, "good"];
+  return ["Everything that came in went out", "info"];
+}
 
 function spendingTakeaway(d: Decisions): Takeaway {
   const u = d.spending.usualByNow;
@@ -92,7 +117,7 @@ function investingTakeaway(d: Decisions): Takeaway {
 // ── Page ────────────────────────────────────────────────────────────────────
 
 function Analytics() {
-  const { month } = useMonth();
+  const { month, setMonth } = useMonth();
   const money = useMoney();
   const { openNew } = useQuickAdd();
   const [range, setRange] = useState<AnalyticsRange>(6);
@@ -130,20 +155,27 @@ function Analytics() {
     [q.data, range, todayDate, budgets, fixedIds],
   );
 
-  const rhythm = useMemo(() => {
-    if (!q.data) return null;
-    const daily = dailyExpenses(q.data.rows);
-    const win = analyticsWindow(q.data.to, range, todayDate);
+  const rows = q.data?.rows;
+  const dataMonth = q.data?.to;
+  const extra = useMemo(() => {
+    if (!rows || !dataMonth) return null;
+    const daily = dailyExpenses(rows);
+    const win = analyticsWindow(dataMonth, range, todayDate);
     const averages = weekdayAverages(daily, win.dates);
-    const monthDates = win.dates.filter((x) => x.startsWith(q.data.to));
+    const monthDates = win.dates.filter((x) => x.startsWith(dataMonth));
+    const yearFrom = `${addMonths(dataMonth, -11)}-01`;
+    const yearTo = todayDate < lastDayOf(dataMonth) ? todayDate : lastDayOf(dataMonth);
     return {
       daily,
       averages,
       headline: weekdayHeadline(averages),
       stats: dayStats(daily, monthDates),
       counted: monthDates.length,
+      flow: moneyFlow(rows, dataMonth),
+      split: spendingSplit(rows, dataMonth, fixedIds),
+      year: { from: yearFrom, to: yearTo, stats: dayStats(daily, eachDay(yearFrom, yearTo)) },
     };
-  }, [q.data, range, todayDate]);
+  }, [rows, dataMonth, range, todayDate, fixedIds]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -151,11 +183,11 @@ function Analytics() {
       <div
         aria-busy={q.isPlaceholderData}
         className={cx(
-          "flex flex-col gap-8 transition-opacity duration-300",
+          "flex flex-col gap-5 transition-opacity duration-300",
           q.isPlaceholderData && "pointer-events-none opacity-35",
         )}
       >
-        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+        <header className="mb-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div>
             <Label>
               {d
@@ -191,10 +223,13 @@ function Analytics() {
         </header>
 
         {q.isPending ? (
-          <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
-            <Skeleton className="h-[380px]" />
-            <Skeleton className="h-[380px]" />
-          </div>
+          <>
+            <Skeleton className="h-[400px]" />
+            <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
+              <Skeleton className="h-[380px]" />
+              <Skeleton className="h-[380px]" />
+            </div>
+          </>
         ) : q.data?.rows.length === 0 ? (
           <EmptyState
             title="Nothing to analyse yet"
@@ -203,14 +238,17 @@ function Analytics() {
           />
         ) : (
           d &&
-          rhythm && (
+          extra &&
+          rows && (
             <Sections
               d={d}
+              rows={rows}
               byId={byId}
               money={money}
-              rhythm={rhythm}
+              extra={extra}
               todayDate={todayDate}
               range={range}
+              onPick={setMonth}
             />
           )
         )}
@@ -219,71 +257,139 @@ function Analytics() {
   );
 }
 
+interface Extra {
+  daily: Map<string, number>;
+  averages: number[];
+  headline: string | null;
+  stats: DayStats;
+  counted: number;
+  flow: MoneyFlowData;
+  split: { fixed: Ranked[]; flexible: Ranked[] };
+  year: { from: string; to: string; stats: DayStats };
+}
+
 function Sections({
   d,
+  rows,
   byId,
   money,
-  rhythm,
+  extra,
   todayDate,
   range,
+  onPick,
 }: {
   d: Decisions;
+  rows: AnalyticsRow[];
   byId: Map<string, Category>;
   money: Money;
-  rhythm: {
-    daily: Map<string, number>;
-    averages: number[];
-    headline: string | null;
-    stats: ReturnType<typeof dayStats>;
-    counted: number;
-  };
+  extra: Extra;
   todayDate: string;
   range: number;
+  onPick: (month: string) => void;
 }) {
-  const all = [...d.history, d.current];
-  const isNow = (m: MonthTotals) => m.month === d.month;
-  const soFar = (m: MonthTotals) => (isNow(m) && d.running ? " so far" : "");
-  const missed = new Set(d.consistency.months.filter((m) => m.invested === 0).map((m) => m.month));
+  const all = useMemo(() => [...d.history, d.current], [d]);
+  const months = useMemo(() => all.map((m) => m.month), [all]);
+  const ranks = useMemo(() => categoryRanks(rows, months, 6), [rows, months]);
+  const missed = useMemo(
+    () => new Set(d.consistency.months.filter((m) => m.invested === 0).map((m) => m.month)),
+    [d],
+  );
+  const catName = (id: string) => byId.get(id)?.name ?? "A category";
 
-  // ── Spending, month by month ──
-  const spendCols: Column[] = all.map((m) => {
-    const now = isNow(m);
-    const likely = now && d.running ? d.spending.projected.mid : undefined;
-    return {
+  const cols = useMemo(() => {
+    const isNow = (m: MonthTotals) => m.month === d.month;
+    const soFar = (m: MonthTotals) => (isNow(m) && d.running ? " so far" : "");
+    const muted = alpha(C.text, 0.55);
+    const faint = alpha(C.text, 0.2);
+    const spentGrey = alpha(C.text, 0.42);
+
+    // Spending, month by month: fixed under flexible, this month in lime.
+    const spend: Column[] = all.map((m) => {
+      const now = isNow(m);
+      const likely = now && d.running ? d.spending.projected.mid : undefined;
+      return {
+        month: m.month,
+        current: now,
+        parts: [
+          { value: m.fixed, color: faint },
+          { value: m.flexible, color: now ? C.accent : muted },
+        ],
+        ghost: likely,
+        label: now ? compactMoney(m.spent) : undefined,
+        tip: [
+          { color: C.text, value: money(m.spent), name: `spent${soFar(m)}` },
+          ...(d.hasFixed
+            ? [
+                { color: now ? C.accent : muted, value: money(m.flexible), name: "flexible" },
+                { color: faint, value: money(m.fixed), name: "fixed" },
+              ]
+            : []),
+          ...(likely !== undefined && likely > m.spent
+            ? [{ color: alpha(C.text, 0.3), value: money(likely), name: "likely by month end" }]
+            : []),
+        ],
+      };
+    });
+
+    // Income vs outgoings: spent and invested stacked under an income marker.
+    const flow: Column[] = all.map((m) => ({
       month: m.month,
-      current: now,
+      current: isNow(m),
       parts: [
-        { value: m.fixed, className: "fill-ink/20" },
-        { value: m.flexible, className: now ? "fill-accent" : "fill-ink/55" },
+        { value: m.spent, color: spentGrey },
+        { value: m.invested, color: C.accent },
       ],
-      ghost: likely,
-      label: now ? compactMoney(m.spent) : undefined,
-      aria: `${monthTitle(m.month)}: spent ${money(m.spent)}${soFar(m)}${likely ? `, likely ${money(likely)}` : ""}`,
-      tip: (
-        <>
-          <TipRow swatch="bg-ink" value={money(m.spent)} name={`spent${soFar(m)}`} />
-          {d.hasFixed && (
-            <>
-              <TipRow
-                swatch={now ? "bg-accent" : "bg-ink/55"}
-                value={money(m.flexible)}
-                name="flexible"
-              />
-              <TipRow swatch="bg-ink/20" value={money(m.fixed)} name="fixed" />
-            </>
-          )}
-          {likely !== undefined && likely > m.spent && (
-            <TipRow swatch="bg-ink/30" value={money(likely)} name="likely by month end" />
-          )}
-        </>
-      ),
-    };
-  });
-  const usualMonth = d.confidence !== "none" ? d.spending.usualMonth : null;
-  const limit = d.budget.overall?.limit;
-  const [spendText, spendTone] = spendingTakeaway(d);
+      marker: m.income,
+      sub:
+        m.income > 0
+          ? {
+              text: `${m.left < 0 ? "" : "+"}${compactMoney(m.left)}`,
+              tone: m.left < 0 ? ("danger" as const) : undefined,
+            }
+          : { text: "–" },
+      tip: [
+        { color: C.text, value: money(m.income), name: "earned" },
+        { color: spentGrey, value: money(m.spent), name: "spent" },
+        { color: C.accent, value: money(m.invested), name: "invested" },
+        {
+          value: `${m.left < 0 ? "−" : ""}${money(Math.abs(m.left))}`,
+          name: m.left < 0 ? "short" : "left",
+          tone: m.left < 0 ? ("danger" as const) : undefined,
+        },
+      ],
+    }));
 
-  // ── What changed ──
+    // Investing: lime columns, a dashed slot for a missed month.
+    const invest: Column[] = all.map((m) => {
+      const rate = m.income > 0 ? m.invested / m.income : null;
+      return {
+        month: m.month,
+        current: isNow(m),
+        parts: [{ value: m.invested, color: C.accent }],
+        missing: missed.has(m.month),
+        label: isNow(m) && m.invested > 0 ? compactMoney(m.invested) : undefined,
+        sub: { text: rate !== null ? pct(rate) : "–" },
+        tip: [
+          {
+            color: C.accent,
+            value: m.invested > 0 ? money(m.invested) : "Nothing",
+            name: `invested${soFar(m)}`,
+          },
+          ...(rate !== null ? [{ value: pct(rate), name: "of income" }] : []),
+        ],
+      };
+    });
+    return { spend, flow, invest };
+  }, [all, d, missed, money]);
+
+  const usualMonth = d.confidence !== "none" ? d.spending.usualMonth : null;
+  const limitValue = d.budget.overall?.limit;
+  const limit = useMemo(
+    () => (limitValue ? { value: limitValue, label: `Budget ${compactMoney(limitValue)}` } : null),
+    [limitValue],
+  );
+  const usualInvest = d.confidence !== "none" ? d.investing.usual : null;
+
   const dumbbell: DumbbellRow[] = d.spending.byCategory.map((m) => {
     const c = byId.get(m.key);
     return {
@@ -296,70 +402,26 @@ function Sections({
       notable: isNotable(m),
     };
   });
+
+  const [flowText, flowTone] = moneyFlowTakeaway(extra.flow);
+  const [spendText, spendTone] = spendingTakeaway(d);
   const [changeText, changeTone] = changesTakeaway(d, byId);
-
-  // ── Income vs outgoings ──
-  const flowCols: Column[] = all.map((m) => ({
-    month: m.month,
-    current: isNow(m),
-    parts: [
-      { value: m.spent, className: "fill-ink/45" },
-      { value: m.invested, className: "fill-accent" },
-    ],
-    marker: m.income,
-    sub:
-      m.income > 0 ? (
-        <span className={m.left < 0 ? "font-semibold text-danger" : undefined}>
-          {m.left < 0 ? "" : "+"}
-          {compactMoney(m.left)}
-        </span>
-      ) : (
-        "–"
-      ),
-    aria: `${monthTitle(m.month)}: earned ${money(m.income)}, spent ${money(m.spent)}, invested ${money(m.invested)}, ${m.left < 0 ? `short by ${money(-m.left)}` : `${money(m.left)} left`}`,
-    tip: (
-      <>
-        <TipRow swatch="bg-ink" value={money(m.income)} name="earned" />
-        <TipRow swatch="bg-ink/45" value={money(m.spent)} name="spent" />
-        <TipRow swatch="bg-accent" value={money(m.invested)} name="invested" />
-        <TipRow
-          value={`${m.left < 0 ? "−" : ""}${money(Math.abs(m.left))}`}
-          name={m.left < 0 ? "short" : "left"}
-          tone={m.left < 0 ? "danger" : undefined}
-        />
-      </>
-    ),
-  }));
-  const [flowText, flowTone] = cashflowTakeaway(all);
-
-  // ── Investing ──
-  const investCols: Column[] = all.map((m) => {
-    const now = isNow(m);
-    const rate = m.income > 0 ? m.invested / m.income : null;
-    return {
-      month: m.month,
-      current: now,
-      parts: [{ value: m.invested, className: "fill-accent" }],
-      missing: missed.has(m.month),
-      label: now && m.invested > 0 ? compactMoney(m.invested) : undefined,
-      sub: rate !== null ? pct(rate) : "–",
-      aria: `${monthTitle(m.month)}: ${m.invested > 0 ? `invested ${money(m.invested)}` : "nothing invested"}${rate !== null ? `, ${pct(rate)} of income` : ""}`,
-      tip: (
-        <>
-          <TipRow
-            swatch="bg-accent"
-            value={m.invested > 0 ? money(m.invested) : "Nothing"}
-            name={`invested${soFar(m)}`}
-          />
-          {rate !== null && <TipRow value={pct(rate)} name="of income" />}
-        </>
-      ),
-    };
-  });
-  const usualInvest = d.confidence !== "none" ? d.investing.usual : null;
+  const [cashText, cashTone] = cashflowTakeaway(all);
   const [investText, investTone] = investingTakeaway(d);
 
-  const { stats } = rhythm;
+  const monthExpenses = rows.filter((r) => r.type === "expense" && r.date.startsWith(d.month));
+  const biggest = monthExpenses.reduce<AnalyticsRow | null>(
+    (b, r) => (!b || r.amount > b.amount ? r : b),
+    null,
+  );
+  const byAmount = [...extra.split.fixed, ...extra.split.flexible].sort(
+    (a, b) => b.amount - a.amount,
+  );
+  const spentTotal = byAmount.reduce((t, r) => t + r.amount, 0);
+  const topCat = byAmount[0];
+  const leader = ranks.find((r) => r.ranks.at(-1) === 1);
+  const prevLeader = ranks.find((r) => r.ranks.at(-2) === 1);
+  const { stats, year } = extra;
 
   return (
     <>
@@ -373,13 +435,22 @@ function Sections({
         </p>
       )}
 
+      {(extra.flow.income > 0 || extra.flow.spent > 0) && (
+        <Reveal>
+          <Panel id="flow" title="Where the money went" takeaway={flowText} tone={flowTone}>
+            <MoneyFlow flow={extra.flow} byId={byId} />
+          </Panel>
+        </Reveal>
+      )}
+
       <Reveal className={cx("grid gap-5", dumbbell.length > 0 && "lg:grid-cols-[3fr_2fr]")}>
         <Panel id="spending" title="Spending by month" takeaway={spendText} tone={spendTone}>
           <MonthColumns
-            columns={spendCols}
+            columns={cols.spend}
             band={usualMonth}
-            limit={limit ? { value: limit, label: `Budget ${compactMoney(limit)}` } : null}
-            height={220}
+            limit={limit}
+            label={`Spending by month. ${spendText}.`}
+            onPick={onPick}
           />
           <Legend>
             {d.hasFixed && (
@@ -423,9 +494,40 @@ function Sections({
         )}
       </Reveal>
 
+      {monthExpenses.length > 0 && (
+        <Reveal className="grid gap-5 lg:grid-cols-[3fr_2fr]">
+          <Panel
+            id="expenses"
+            title="Every expense"
+            takeaway={
+              biggest
+                ? `Biggest: ${compactMoney(biggest.amount)} on ${catName(biggest.categoryId)}`
+                : undefined
+            }
+          >
+            <ExpenseBubbles rows={rows} month={d.month} byId={byId} />
+          </Panel>
+          <Panel
+            id="categories"
+            title="Spending by category"
+            takeaway={
+              topCat && spentTotal > 0
+                ? `${catName(topCat.key)} is ${pct(topCat.amount / spentTotal)} of it`
+                : undefined
+            }
+          >
+            <SpendTreemap split={extra.split} byId={byId} />
+          </Panel>
+        </Reveal>
+      )}
+
       <Reveal>
-        <Panel id="cashflow" title="Income vs outgoings" takeaway={flowText} tone={flowTone}>
-          <MonthColumns columns={flowCols} height={220} />
+        <Panel id="cashflow" title="Income vs outgoings" takeaway={cashText} tone={cashTone}>
+          <MonthColumns
+            columns={cols.flow}
+            label={`Income against spending and investing by month. ${cashText}.`}
+            onPick={onPick}
+          />
           <Legend>
             <Key shape="line" className="h-[3px] bg-ink">
               Earned
@@ -440,7 +542,31 @@ function Sections({
 
       <Reveal className="grid gap-5 lg:grid-cols-[3fr_2fr]">
         <Panel id="investing" title="Investing" takeaway={investText} tone={investTone}>
-          <MonthColumns columns={investCols} band={usualInvest} height={200} />
+          <div
+            className={cx(
+              "grid items-center gap-4",
+              d.investing.rate !== null && "sm:grid-cols-[180px_1fr]",
+            )}
+          >
+            {d.investing.rate !== null && (
+              <div className="flex flex-col items-center">
+                <RateGauge rate={d.investing.rate} usual={d.investing.usualRate} />
+                {d.investing.usualRate !== null && (
+                  <span className="-mt-3 inline-flex items-center gap-1.5 text-[13px] text-muted">
+                    <span aria-hidden="true" className="inline-block h-3 w-[3px] rounded bg-ink" />
+                    usually {pct(d.investing.usualRate)}
+                  </span>
+                )}
+              </div>
+            )}
+            <MonthColumns
+              columns={cols.invest}
+              band={usualInvest}
+              height={220}
+              label={`Invested by month. ${investText}.`}
+              onPick={onPick}
+            />
+          </div>
           <Legend>
             <Key className="bg-accent">Invested</Key>
             {usualInvest && (
@@ -460,20 +586,63 @@ function Sections({
         <Panel
           id="rhythm"
           title="Daily rhythm"
-          takeaway={`Spent on ${stats.spentDays} of ${rhythm.counted} days`}
+          takeaway={`Spent on ${stats.spentDays} of ${extra.counted} days`}
         >
-          <CalendarHeat month={d.month} daily={rhythm.daily} todayDate={todayDate} />
+          <CalendarHeat month={d.month} daily={extra.daily} todayDate={todayDate} />
           <div className="flex flex-col gap-3 border-t-2 border-line pt-5">
             <p className="text-[15px] font-semibold">
-              {rhythm.headline ?? "Average spend by weekday"}
+              {extra.headline ?? "Average spend by weekday"}
               <span className="block text-[13px] font-normal text-muted">
                 Average per day, last {range} months
               </span>
             </p>
-            <WeekdayBars averages={rhythm.averages} />
+            <WeekdayBars averages={extra.averages} />
           </div>
         </Panel>
       </Reveal>
+
+      <Reveal>
+        <Panel
+          id="year"
+          title="Your year, day by day"
+          takeaway={`Longest break from spending: ${year.stats.longestNoSpend} ${year.stats.longestNoSpend === 1 ? "day" : "days"}`}
+        >
+          <YearCalendar daily={extra.daily} from={year.from} to={year.to} />
+          <Legend>
+            <span className="inline-flex items-center gap-1.5">
+              Less
+              <span className="size-3 rounded-[3px] bg-surface" />
+              <span className="size-3 rounded-[3px] bg-accent/20" />
+              <span className="size-3 rounded-[3px] bg-accent/40" />
+              <span className="size-3 rounded-[3px] bg-accent/70" />
+              <span className="size-3 rounded-[3px] bg-accent" />
+              More
+            </span>
+            <span>
+              Spent on {year.stats.spentDays} of {year.stats.spentDays + year.stats.noSpendDays}{" "}
+              days
+            </span>
+          </Legend>
+        </Panel>
+      </Reveal>
+
+      {ranks.length > 1 && months.length > 1 && (
+        <Reveal>
+          <Panel
+            id="ranking"
+            title="Category ranking"
+            takeaway={
+              leader
+                ? prevLeader && prevLeader.key !== leader.key
+                  ? `${catName(leader.key)} took the top spot`
+                  : `${catName(leader.key)} stays on top`
+                : undefined
+            }
+          >
+            <CategoryBump ranks={ranks} months={months} byId={byId} />
+          </Panel>
+        </Reveal>
+      )}
     </>
   );
 }

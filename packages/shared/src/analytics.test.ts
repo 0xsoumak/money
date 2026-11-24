@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AnalyticsRow,
   analyticsWindow,
+  categoryRanks,
   dailyExpenses,
   dayStats,
   heatLevel,
@@ -11,6 +12,7 @@ import {
   runningTotals,
   savingsRates,
   spendCurve,
+  spendingSplit,
   stackLinks,
   topWithOther,
   weekdayAverages,
@@ -188,5 +190,49 @@ describe("savingsRates", () => {
       { month: "2026-10", income: 1000, invested: 250, rate: 0.25 },
       { month: "2026-11", income: 0, invested: 0, rate: null },
     ]);
+  });
+});
+
+/** An expense in rupees. */
+const r = (date: string, categoryId: string, rupees: number) => row(date, rupees * 100, categoryId);
+
+describe("spendingSplit", () => {
+  it("splits one month's spending into fixed and flexible categories, high to low", () => {
+    const rows = [
+      r("2026-11-01", "rent", 20_000),
+      r("2026-11-02", "food", 300),
+      r("2026-11-03", "fun", 500),
+      r("2026-11-04", "food", 400),
+      r("2026-10-04", "food", 9_000),
+    ];
+    expect(spendingSplit(rows, "2026-11", new Set(["rent"]))).toEqual({
+      fixed: [{ key: "rent", amount: 2_000_000 }],
+      flexible: [
+        { key: "food", amount: 70_000 },
+        { key: "fun", amount: 50_000 },
+      ],
+    });
+  });
+});
+
+describe("categoryRanks", () => {
+  it("ranks the biggest categories each month, ordered by the latest month", () => {
+    const rows = [
+      r("2026-10-01", "food", 500),
+      r("2026-10-01", "fun", 100),
+      r("2026-11-01", "food", 100),
+      r("2026-11-01", "fun", 300),
+      r("2026-11-01", "tiny", 1),
+    ];
+    const out = categoryRanks(rows, ["2026-10", "2026-11"], 2);
+    expect(out).toEqual([
+      { key: "fun", ranks: [2, 1], totals: [10_000, 30_000] },
+      { key: "food", ranks: [1, 2], totals: [50_000, 10_000] },
+    ]);
+  });
+
+  it("leaves a gap for a month with nothing spent", () => {
+    const out = categoryRanks([r("2026-11-01", "food", 100)], ["2026-10", "2026-11"]);
+    expect(out[0]?.ranks).toEqual([null, 1]);
   });
 });

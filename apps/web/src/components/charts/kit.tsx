@@ -1,7 +1,6 @@
 // The pieces every chart is built from, so they all read as one system:
 // hairline grid, compact money ticks, one tooltip style, the same legend keys.
 import { MASKED_MONEY } from "@money/shared";
-import type { ScaleLinear } from "d3-scale";
 import { type ReactNode, useCallback, useRef, useState } from "react";
 import { isHidden } from "../../lib/privacy";
 import { cx } from "../ui";
@@ -109,85 +108,6 @@ export function TipRow({
       <span className="text-muted">{name}</span>
     </span>
   );
-}
-
-/** Horizontal hairlines with compact money labels sitting just above each, left aligned. */
-export function YGrid({
-  y,
-  width,
-  ticks = 3,
-}: {
-  y: ScaleLinear<number, number>;
-  width: number;
-  ticks?: number;
-}) {
-  return (
-    <g aria-hidden="true">
-      {y.ticks(ticks).map((t) => (
-        <g key={t}>
-          <line
-            x1={0}
-            x2={width}
-            y1={Math.round(y(t)) + 0.5}
-            y2={Math.round(y(t)) + 0.5}
-            className={t === 0 ? "stroke-line-strong/25" : "stroke-line"}
-          />
-          {t > 0 && (
-            <text x={0} y={y(t) - 6} className="fill-faint text-[11px]">
-              {compactMoney(t)}
-            </text>
-          )}
-        </g>
-      ))}
-    </g>
-  );
-}
-
-/**
- * A column with only its data end rounded (r px) and a square base, as an SVG path.
- * Columns shorter than the radius get a smaller radius instead of a blob.
- */
-export function columnPath(x: number, y: number, w: number, h: number, r = 4): string {
-  if (h <= 0 || w <= 0) return "";
-  const rr = Math.min(r, h, w / 2);
-  return [
-    `M${x},${y + h}`,
-    `V${y + rr}`,
-    `Q${x},${y} ${x + rr},${y}`,
-    `H${x + w - rr}`,
-    `Q${x + w},${y} ${x + w},${y + rr}`,
-    `V${y + h}`,
-    "Z",
-  ].join("");
-}
-
-/** Text halo so labels stay readable where they cross marks. */
-export const halo = {
-  paintOrder: "stroke",
-  stroke: "var(--bg)",
-  strokeWidth: 4,
-  strokeLinejoin: "round",
-} as const;
-
-/**
- * Moves label positions apart so no two are closer than `gap`, keeping them within
- * [lo, hi]. Mutates and returns the items, which keep their order.
- */
-export function spreadLabels<T extends { y: number }>(
-  items: T[],
-  gap: number,
-  lo: number,
-  hi: number,
-): T[] {
-  const s = [...items].sort((a, b) => a.y - b.y);
-  s.forEach((it, i) => {
-    it.y = Math.max(it.y, i ? (s[i - 1] as T).y + gap : lo);
-  });
-  for (let i = s.length - 1; i >= 0; i--) {
-    const it = s[i] as T;
-    it.y = Math.min(it.y, i < s.length - 1 ? (s[i + 1] as T).y - gap : hi);
-  }
-  return items;
 }
 
 type KeyShape = "bar" | "line" | "dash" | "band" | "dot" | "ring";

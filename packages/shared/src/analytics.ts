@@ -312,3 +312,69 @@ export function savingsRates(rows: AnalyticsRow[], months: string[]): SavingsMon
     return { month, ...t, rate: t.income > 0 ? t.invested / t.income : null };
   });
 }
+
+// ── Categories ──────────────────────────────────────────────────────────────
+
+/** One month's spending by category, fixed costs apart from flexible, each high to low. */
+export function spendingSplit(
+  rows: AnalyticsRow[],
+  month: string,
+  fixedIds: ReadonlySet<string>,
+): { fixed: Ranked[]; flexible: Ranked[] } {
+  const fixed = new Map<string, number>();
+  const flexible = new Map<string, number>();
+  for (const r of rows) {
+    if (!isExpense(r) || monthOf(r.date) !== month) continue;
+    const m = fixedIds.has(r.categoryId) ? fixed : flexible;
+    m.set(r.categoryId, (m.get(r.categoryId) ?? 0) + r.amount);
+  }
+  const sorted = (m: Map<string, number>) =>
+    [...m]
+      .filter(([, v]) => v > 0)
+      .map(([key, amount]) => ({ key, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  return { fixed: sorted(fixed), flexible: sorted(flexible) };
+}
+
+export interface CategoryRank {
+  key: string;
+  /** Rank among all categories each month (1 = most spent); null when nothing was spent. */
+  ranks: (number | null)[];
+  totals: number[];
+}
+
+/**
+ * Where each of the biggest categories ranked, month by month, for a bump chart.
+ * The `max` categories with the most spending over the whole window are followed,
+ * ordered by their rank in the last month.
+ */
+export function categoryRanks(rows: AnalyticsRow[], months: string[], max = 6): CategoryRank[] {
+  const index = new Map(months.map((m, i) => [m, i]));
+  const totals = new Map<string, number[]>();
+  for (const r of rows) {
+    const i = index.get(monthOf(r.date));
+    if (!isExpense(r) || i === undefined) continue;
+    let t = totals.get(r.categoryId);
+    if (!t) totals.set(r.categoryId, (t = months.map(() => 0)));
+    t[i] = (t[i] ?? 0) + r.amount;
+  }
+  const rankAt = (i: number) =>
+    [...totals]
+      .filter(([, t]) => (t[i] ?? 0) > 0)
+      .sort((a, b) => (b[1][i] ?? 0) - (a[1][i] ?? 0))
+      .map(([key]) => key);
+  const ranked = months.map((_, i) => rankAt(i));
+  const last = months.length - 1;
+  return [...totals]
+    .sort((a, b) => sum(b[1]) - sum(a[1]))
+    .slice(0, max)
+    .map(([key, t]) => ({
+      key,
+      totals: t,
+      ranks: ranked.map((order) => {
+        const at = order.indexOf(key);
+        return at === -1 ? null : at + 1;
+      }),
+    }))
+    .sort((a, b) => (a.ranks[last] ?? Infinity) - (b.ranks[last] ?? Infinity));
+}

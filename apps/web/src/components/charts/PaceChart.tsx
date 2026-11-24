@@ -1,30 +1,13 @@
 import { type PaceDay, type Range, shortDate } from "@money/shared";
-import { scaleLinear } from "d3-scale";
-import { area, curveMonotoneX, line } from "d3-shape";
-import { motion } from "motion/react";
-import { type KeyboardEvent, type PointerEvent, useState } from "react";
+import { useMemo } from "react";
 import { useMoney } from "../../lib/hooks";
-import { ease } from "../motion";
-import {
-  ChartTip,
-  compactMoney,
-  halo,
-  Key,
-  Legend,
-  spreadLabels,
-  TipRow,
-  TipTitle,
-  useWidth,
-  YGrid,
-} from "./kit";
-
-const TOP = 18;
-const BOTTOM = 26;
+import { alpha, axis, C, EChart, FONT, type Option, type TipLine, tipHtml } from "./echarts";
+import { compactMoney, Key, Legend } from "./kit";
 
 /**
- * The month so far as a running total, over the shaded range earlier months had reached
- * by each day. A dashed line carries it on to where the month is likely to end, and a
- * hairline marks the budget. Hover or arrow keys read out any day.
+ * The spend curve: the month so far as a running total, over the shaded range earlier
+ * months had reached by each day. A dashed line carries it on to where the month is
+ * likely to end (with a faint fan for how far it could go), and a line marks the budget.
  */
 export function PaceChart({
   month,
@@ -33,7 +16,7 @@ export function PaceChart({
   usual,
   projected,
   budget,
-  height = 260,
+  height = 280,
 }: {
   month: string;
   /** Running total, day 1 to today. */
@@ -47,100 +30,192 @@ export function PaceChart({
   height?: number;
 }) {
   const money = useMoney();
-  const [ref, w] = useWidth<HTMLDivElement>(640);
-  const [hover, setHover] = useState<number | null>(null);
-
-  const right = w < 420 ? 64 : 92;
-  const plotW = Math.max(160, w - right);
   const elapsed = current.length;
   const last = current.at(-1) ?? 0;
   const showProjection = projected !== null && elapsed > 0 && elapsed < days;
 
-  const top = Math.max(
-    last,
-    usual?.at(-1)?.high ?? 0,
-    showProjection ? projected.high : 0,
-    budget ?? 0,
-    1,
-  );
-  const x = scaleLinear().domain([1, days]).range([0, plotW]);
-  const y = scaleLinear()
-    .domain([0, top * 1.04])
-    .range([height - BOTTOM, TOP])
-    .nice(3);
+  const option = useMemo<Option>(() => {
+    const dayList = Array.from({ length: days }, (_, i) => i + 1);
+    const date = (d: number) => shortDate(`${month}-${String(d).padStart(2, "0")}`);
+    // From today to month end: straight lines from today's total to the likely low, mid, high.
+    const toward = (end: number) =>
+      dayList.map((d) =>
+        !showProjection || d < elapsed
+          ? null
+          : Math.round(last + ((end - last) * (d - elapsed)) / (days - elapsed)),
+      );
+    const likely = toward(projected?.mid ?? 0);
+    const fanLow = toward(projected?.low ?? 0);
+    const fanHigh = toward(projected?.high ?? 0);
+    const quiet = { symbol: "none", silent: true, lineStyle: { opacity: 0 } } as const;
+    const endLabel = (text: string, color: string) => ({
+      show: true,
+      formatter: text,
+      color,
+      fontFamily: FONT,
+      fontSize: 12,
+      fontWeight: 600,
+      distance: 8,
+    });
 
-  const band = area<PaceDay>()
-    .x((_, i) => x(i + 1))
-    .y0((d) => y(d.low))
-    .y1((d) => y(d.high))
-    .curve(curveMonotoneX);
-  const mid = line<PaceDay>()
-    .x((_, i) => x(i + 1))
-    .y((d) => y(d.mid))
-    .curve(curveMonotoneX);
-  const run = line<number>()
-    .x((_, i) => x(i + 1))
-    .y((v) => y(v))
-    .curve(curveMonotoneX);
-  const wash = area<number>()
-    .x((_, i) => x(i + 1))
-    .y0(y(0))
-    .y1((v) => y(v))
-    .curve(curveMonotoneX);
-
-  // Labels at the right edge, nudged apart when they'd collide.
-  type End = { y: number; text: string; cls: string };
-  const ends = spreadLabels(
-    [
-      budget !== null && {
-        y: y(budget) + 4,
-        text: `Budget ${compactMoney(budget)}`,
-        cls: "fill-ink font-semibold",
+    return {
+      grid: { left: 4, right: 92, top: 28, bottom: 8, containLabel: true },
+      xAxis: {
+        ...axis.category,
+        data: dayList,
+        boundaryGap: false,
+        axisLabel: {
+          ...axis.category.axisLabel,
+          color: C.textFaint,
+          fontSize: 11,
+          fontWeight: 500,
+          interval: (i: number) => [0, 7, 14, 21, days - 1].includes(i),
+        },
       },
-      showProjection && {
-        y: y(projected.mid) + 4,
-        text: `Likely ${compactMoney(projected.mid)}`,
-        cls: "fill-muted font-semibold",
+      yAxis: {
+        ...axis.value,
+        axisLabel: {
+          ...axis.value.axisLabel,
+          formatter: (v: number) => (v ? compactMoney(v) : ""),
+        },
       },
-      usual && {
-        y: y(usual.at(-1)?.mid ?? 0) + 4,
-        text: `Usual ${compactMoney(usual.at(-1)?.mid ?? 0)}`,
-        cls: "fill-faint font-semibold",
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "line", lineStyle: { color: alpha(C.text, 0.4), width: 1 } },
+        formatter: (ps: { dataIndex: number }[]) => {
+          const i = ps[0]?.dataIndex ?? 0;
+          const d = i + 1;
+          const u = usual?.[i];
+          const lines: TipLine[] = [];
+          if (d <= elapsed)
+            lines.push({ color: C.accent, value: money(current[i] ?? 0), name: "spent" });
+          if (showProjection && d > elapsed)
+            lines.push({
+              color: alpha(C.accent, 0.6),
+              value: money(likely[i] ?? 0),
+              name: "likely",
+            });
+          if (u)
+            lines.push({
+              color: alpha(C.text, 0.3),
+              value: `${compactMoney(u.low)}–${compactMoney(u.high)}`,
+              name: "usual",
+            });
+          if (budget !== null)
+            lines.push({ color: alpha(C.text, 0.6), value: money(budget), name: "budget" });
+          return tipHtml(date(d), lines);
+        },
       },
-    ].filter((e): e is End => Boolean(e)),
-    16,
-    TOP,
-    height - BOTTOM,
-  );
-
-  const ticks = [1, 8, 15, 22, days];
-  const date = (d: number) => shortDate(`${month}-${String(d).padStart(2, "0")}`);
-  const likelyOn = (d: number) =>
-    showProjection && d > elapsed
-      ? Math.round(last + ((projected.mid - last) * (d - elapsed)) / (days - elapsed))
-      : null;
-
-  const pick = (e: PointerEvent<SVGRectElement>) => {
-    const box = e.currentTarget.getBoundingClientRect();
-    const d = Math.round(x.invert(e.clientX - box.left));
-    setHover(Math.min(Math.max(d, 1), days));
-  };
-  const keys = (e: KeyboardEvent<SVGSVGElement>) => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    e.preventDefault();
-    const start = hover ?? Math.max(elapsed, 1);
-    setHover(Math.min(Math.max(start + (e.key === "ArrowLeft" ? -1 : 1), 1), days));
-  };
-
-  const hu = hover !== null ? usual?.[hover - 1] : undefined;
-  const hNow = hover !== null && hover <= elapsed ? current[hover - 1] : undefined;
-  const hLikely = hover !== null ? likelyOn(hover) : null;
-  const hoverY = hNow ?? hLikely ?? hu?.mid ?? 0;
+      series: [
+        // The usual range: an invisible base line with the range stacked on top of it.
+        ...(usual
+          ? [
+              { type: "line", stack: "usual", data: usual.map((u) => u.low), ...quiet },
+              {
+                type: "line",
+                stack: "usual",
+                data: usual.map((u) => u.high - u.low),
+                ...quiet,
+                areaStyle: { color: alpha(C.text, 0.08) },
+                smooth: 0.3,
+              },
+              {
+                type: "line",
+                name: "Usual",
+                data: usual.map((u) => u.mid),
+                symbol: "none",
+                silent: true,
+                smooth: 0.3,
+                lineStyle: { color: alpha(C.text, 0.25), width: 1 },
+                endLabel: endLabel(`Usual ${compactMoney(usual.at(-1)?.mid ?? 0)}`, C.textFaint),
+              },
+            ]
+          : []),
+        ...(showProjection
+          ? [
+              { type: "line", stack: "fan", data: fanLow, ...quiet },
+              {
+                type: "line",
+                stack: "fan",
+                data: fanHigh.map((h, i) => (h === null ? null : h - (fanLow[i] ?? 0))),
+                ...quiet,
+                areaStyle: { color: alpha(C.accent, 0.08) },
+              },
+              {
+                type: "line",
+                name: "Likely",
+                data: likely,
+                symbol: "none",
+                silent: true,
+                lineStyle: { color: alpha(C.accent, 0.7), width: 2, type: [4, 5], cap: "round" },
+                endLabel: endLabel(`Likely ${compactMoney(projected?.mid ?? 0)}`, C.textMuted),
+              },
+            ]
+          : []),
+        {
+          type: "line",
+          name: "This month",
+          data: current,
+          symbol: "circle",
+          symbolSize: (_: number, p: { dataIndex: number }) =>
+            p.dataIndex === elapsed - 1 ? 11 : 0,
+          showSymbol: true,
+          itemStyle: { color: C.accent, borderColor: C.bg, borderWidth: 2 },
+          smooth: 0.3,
+          z: 5,
+          lineStyle: { color: C.accent, width: 2.5, cap: "round", join: "round" },
+          areaStyle: {
+            color: {
+              type: "linear",
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: alpha(C.accent, 0.22) },
+                { offset: 1, color: alpha(C.accent, 0) },
+              ],
+            },
+          },
+          label: {
+            show: true,
+            position: "top",
+            distance: 10,
+            formatter: (p: { dataIndex: number }) =>
+              p.dataIndex === elapsed - 1 ? compactMoney(last) : "",
+            color: C.text,
+            fontFamily: FONT,
+            fontSize: 14,
+            fontWeight: 700,
+            textBorderColor: C.bg,
+            textBorderWidth: 4,
+          },
+          markLine:
+            budget !== null
+              ? {
+                  silent: true,
+                  symbol: "none",
+                  lineStyle: { color: alpha(C.text, 0.6), width: 1, type: "solid" },
+                  label: {
+                    position: "end",
+                    formatter: `Budget ${compactMoney(budget)}`,
+                    color: C.text,
+                    fontFamily: FONT,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  },
+                  data: [{ yAxis: budget }],
+                }
+              : undefined,
+        },
+      ],
+    };
+  }, [month, current, days, usual, projected, budget, money, elapsed, last, showProjection]);
 
   const summary = [
-    `Spent ${money(last)} by ${date(Math.max(elapsed, 1))}.`,
+    `Spent ${money(last)} so far.`,
     usual && elapsed > 0
-      ? `Usually ${money(usual[elapsed - 1]?.low ?? 0)} to ${money(usual[elapsed - 1]?.high ?? 0)} by then.`
+      ? `Usually ${money(usual[elapsed - 1]?.low ?? 0)} to ${money(usual[elapsed - 1]?.high ?? 0)} by this day.`
       : "",
     showProjection ? `Likely ${money(projected.mid)} by month end.` : "",
     budget !== null ? `Budget ${money(budget)}.` : "",
@@ -148,168 +223,7 @@ export function PaceChart({
 
   return (
     <figure className="m-0 flex flex-col gap-3">
-      <div ref={ref} className="relative w-full">
-        <svg
-          width={w}
-          height={height}
-          role="img"
-          aria-label={summary}
-          tabIndex={0}
-          onKeyDown={keys}
-          onBlur={() => setHover(null)}
-          className="block rounded-md outline-offset-4"
-        >
-          <YGrid y={y} width={plotW} />
-
-          {usual && (
-            <>
-              <path d={band(usual) ?? ""} className="fill-ink/[0.08]" />
-              <path d={mid(usual) ?? ""} fill="none" className="stroke-ink/25" strokeWidth={1} />
-            </>
-          )}
-
-          {budget !== null && (
-            <line
-              x1={0}
-              x2={plotW}
-              y1={y(budget)}
-              y2={y(budget)}
-              className="stroke-ink/60"
-              strokeWidth={1}
-            />
-          )}
-
-          {showProjection && (
-            <>
-              <path
-                d={`M${x(elapsed)},${y(last)} L${x(days)},${y(projected.low)} L${x(days)},${y(projected.high)} Z`}
-                className="fill-accent/[0.08]"
-              />
-              <line
-                x1={x(elapsed)}
-                y1={y(last)}
-                x2={x(days)}
-                y2={y(projected.mid)}
-                className="stroke-accent/70"
-                strokeWidth={2}
-                strokeDasharray="4 5"
-                strokeLinecap="round"
-              />
-            </>
-          )}
-
-          {elapsed > 1 && (
-            <>
-              <motion.path
-                d={wash(current) ?? ""}
-                className="fill-accent/10"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-              />
-              <motion.path
-                d={run(current) ?? ""}
-                fill="none"
-                className="stroke-accent"
-                strokeWidth={2.5}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.8, ease }}
-              />
-            </>
-          )}
-
-          {elapsed > 0 && (
-            <>
-              <circle
-                cx={x(elapsed)}
-                cy={y(last)}
-                r={5}
-                className="fill-accent stroke-bg"
-                strokeWidth={2}
-              />
-              <text
-                x={x(elapsed) + (elapsed > days * 0.6 ? -10 : 10)}
-                y={y(last) - 12}
-                textAnchor={elapsed > days * 0.6 ? "end" : "start"}
-                className="fill-ink text-sm font-bold"
-                style={halo}
-              >
-                {compactMoney(last)}
-              </text>
-            </>
-          )}
-
-          {ends.map((e) => (
-            <text key={e.text} x={plotW + 10} y={e.y} className={`${e.cls} text-xs`}>
-              {e.text}
-            </text>
-          ))}
-
-          {ticks.map((d, i) => (
-            <text
-              key={d}
-              x={x(d)}
-              y={height - 6}
-              textAnchor={i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle"}
-              className="fill-faint text-[11px]"
-            >
-              {d}
-            </text>
-          ))}
-
-          {hover !== null && (
-            <g aria-hidden="true">
-              <line
-                x1={x(hover)}
-                x2={x(hover)}
-                y1={TOP}
-                y2={height - BOTTOM}
-                className="stroke-ink/40"
-              />
-              <circle
-                cx={x(hover)}
-                cy={y(hoverY)}
-                r={4}
-                className={hNow !== undefined ? "fill-accent stroke-bg" : "fill-ink stroke-bg"}
-                strokeWidth={2}
-              />
-            </g>
-          )}
-
-          <rect
-            x={0}
-            y={0}
-            width={plotW}
-            height={height - BOTTOM}
-            fill="transparent"
-            onPointerMove={pick}
-            onPointerDown={pick}
-            onPointerLeave={() => setHover(null)}
-          />
-        </svg>
-
-        {hover !== null && (
-          <ChartTip x={x(hover)} y={Math.min(y(hoverY), y(hu?.high ?? 0))} width={plotW}>
-            <TipTitle>{date(hover)}</TipTitle>
-            {hNow !== undefined && <TipRow swatch="bg-accent" value={money(hNow)} name="spent" />}
-            {hLikely !== null && (
-              <TipRow swatch="bg-accent/60" value={money(hLikely)} name="likely" />
-            )}
-            {hu && (
-              <TipRow
-                swatch="bg-ink/30"
-                value={`${compactMoney(hu.low)}–${compactMoney(hu.high)}`}
-                name="usual"
-              />
-            )}
-            {budget !== null && <TipRow swatch="bg-ink/60" value={money(budget)} name="budget" />}
-          </ChartTip>
-        )}
-      </div>
-
+      <EChart option={option} height={height} label={summary} />
       <Legend>
         <Key shape="line" className="bg-accent">
           This month
