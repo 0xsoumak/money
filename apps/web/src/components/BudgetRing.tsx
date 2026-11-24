@@ -1,6 +1,7 @@
 import { type BudgetState, budgetProgress } from "@money/shared";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useMoney } from "../lib/hooks";
+import { PencilIcon } from "./icons";
 import { cx } from "./ui";
 
 const STROKE: Record<BudgetState, string> = {
@@ -140,8 +141,9 @@ export function BudgetRing({
 
 /**
  * A half donut: the arc fills left to right with the share of the budget used, the
- * percentage sits in the bowl. Over budget, the whole arc turns red. `pace` (0–1) adds a
- * tick where spending would be if it kept exactly to the budget by today.
+ * percentage sits in the bowl (or `children`, in its place). Over budget, the whole arc
+ * turns red and a bar underneath grows with the overspend, so 108% and 227% look different.
+ * `pace` (0–1) adds a tick where spending would be if it kept exactly to the budget today.
  */
 export function HalfRing({
   spent,
@@ -150,6 +152,7 @@ export function HalfRing({
   stroke,
   textClass,
   pace,
+  children,
 }: {
   spent: number;
   limit: number;
@@ -158,6 +161,8 @@ export function HalfRing({
   /** Size of the percentage, e.g. "text-[22px]". */
   textClass: string;
   pace?: number | null;
+  /** Shown in the bowl instead of the percentage. */
+  children?: ReactNode;
 }) {
   const p = budgetProgress(spent, limit);
   const r = (width - stroke) / 2 - 4;
@@ -186,39 +191,62 @@ export function HalfRing({
           return { x1, y1, x2, y2 };
         })()
       : null;
+  // Overspend as a share of the limit, capped at one more full budget (200%).
+  const overflow = p.state === "over" ? Math.min(Math.max(p.ratio - 1, 0), 1) : 0;
+  const pacePct = pace != null ? Math.round(pace * 100) : 0;
 
   return (
-    <div className="relative shrink-0" style={{ width, height }}>
-      <svg width={width} height={height} aria-hidden="true" className="overflow-visible">
-        <path
-          d={arc}
-          fill="none"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          className={p.state === "over" ? "stroke-danger/30" : "stroke-surface-strong"}
-        />
-        <path
-          d={arc}
-          fill="none"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={len}
-          strokeDashoffset={len * (1 - shown)}
-          className={cx(STROKE[p.state], "transition-[stroke-dashoffset] duration-700 ease-out")}
-        />
-        {tick && <line {...tick} strokeWidth={3} strokeLinecap="round" className="stroke-bg" />}
-        {tick && <line {...tick} strokeWidth={1.5} strokeLinecap="round" className="stroke-ink" />}
-      </svg>
-      <span
-        aria-hidden="true"
-        className={cx(
-          "absolute inset-x-0 bottom-0 text-center font-bold leading-none tracking-[-0.04em]",
-          textClass,
-          STATE_TEXT[p.state],
-        )}
-      >
-        {pct}%
-      </span>
+    <div className="flex shrink-0 flex-col items-center gap-2.5" style={{ width }}>
+      <div className="relative" style={{ width, height }}>
+        <svg width={width} height={height} className="overflow-visible">
+          <path
+            d={arc}
+            fill="none"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            className={p.state === "over" ? "stroke-danger/30" : "stroke-surface-strong"}
+          />
+          <path
+            d={arc}
+            fill="none"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={len}
+            strokeDashoffset={len * (1 - shown)}
+            className={cx(STROKE[p.state], "transition-[stroke-dashoffset] duration-700 ease-out")}
+          />
+          {tick && (
+            <g>
+              <title>{`Should be at ${pacePct}% by today`}</title>
+              {/* A wide invisible stroke makes the thin tick easy to hover. */}
+              <line {...tick} strokeWidth={14} stroke="transparent" />
+              <line {...tick} strokeWidth={5} strokeLinecap="round" className="stroke-bg" />
+              <line {...tick} strokeWidth={2.5} strokeLinecap="round" className="stroke-ink" />
+            </g>
+          )}
+        </svg>
+        <span
+          aria-hidden="true"
+          className={cx(
+            "absolute inset-x-0 bottom-0 text-center font-bold leading-none tracking-[-0.04em]",
+            textClass,
+            STATE_TEXT[p.state],
+          )}
+        >
+          {children ?? `${pct}%`}
+        </span>
+      </div>
+      {overflow > 0 && (
+        <span
+          className="block h-1.5 w-full overflow-hidden rounded-full bg-danger/20"
+          title={`${pct - 100}% over the limit`}
+        >
+          <span
+            className="block h-full rounded-full bg-danger transition-[width] duration-700 ease-out"
+            style={{ width: `${Math.max(4, overflow * 100)}%` }}
+          />
+        </span>
+      )}
     </div>
   );
 }
@@ -266,7 +294,7 @@ export function BudgetGauge({
     </>
   );
   // Flat, like the rest of the page: no box, just a soft wash on hover.
-  const box = "flex flex-col items-center gap-3 rounded-2xl px-2 py-3 text-left";
+  const box = "group relative flex flex-col items-center gap-3 rounded-2xl px-2 py-3 text-left";
 
   return onClick ? (
     <button
@@ -275,6 +303,9 @@ export function BudgetGauge({
       aria-label={`Edit ${label}`}
       className={cx(box, "w-full cursor-pointer transition-colors hover:bg-surface")}
     >
+      <span className="absolute top-3 right-3 text-muted opacity-0 transition-opacity group-hover:opacity-100">
+        <PencilIcon size={14} />
+      </span>
       {body}
     </button>
   ) : (
