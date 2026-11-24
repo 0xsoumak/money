@@ -18,7 +18,16 @@ const SIZE = 240;
  * Where spending usually goes, as a donut with gaps between slices. The total sits in
  * the middle; tap a slice's row underneath to read it out in the centre.
  */
-export function CategoryDonut({ share, byId }: { share: Ranked[]; byId: Map<string, Category> }) {
+export function CategoryDonut({
+  share,
+  byId,
+  center = "Spent",
+}: {
+  share: Ranked[];
+  byId: Map<string, Category>;
+  /** The word over the total in the middle. */
+  center?: string;
+}) {
   const money = useMoney();
   const [sel, setSel] = useState<number | null>(null);
   const total = share.reduce((t, r) => t + r.amount, 0) || 1;
@@ -68,7 +77,7 @@ export function CategoryDonut({ share, byId }: { share: Ranked[]; byId: Map<stri
           }}
         >
           <T variant="caption" color={c.textMuted} numberOfLines={1}>
-            {picked ? picked.name : "Spent"}
+            {picked ? picked.name : center}
           </T>
           <T variant="title" size={30} fit>
             {picked ? pctOf(picked.value) : compactMoney(total)}

@@ -1,15 +1,21 @@
 import { monthTitle } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { MonthTrend } from "../../components/Charts";
+import { CategoryDonut } from "../../components/charts/Explore";
+import { InvestJars } from "../../components/charts/InvestJars";
+import { Panel } from "../../components/charts/kit";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { CountUp, Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
-import { ShareBar } from "../../components/ShareBar";
 import { TransactionList } from "../../components/TransactionList";
 import { Button, cx, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
-import { categoriesQuery, investmentsQuery, transactionsQuery } from "../../lib/queries";
+import {
+  type Category,
+  categoriesQuery,
+  investmentsQuery,
+  transactionsQuery,
+} from "../../lib/queries";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
 export const Route = createFileRoute("/_app/investments")({
@@ -36,6 +42,14 @@ function Investments() {
   const stale = inv.isPlaceholderData || txs.isPlaceholderData;
   const data = inv.data;
   const none = data !== undefined && data.total === 0;
+  const byId = new Map<string, Category>(categories.map((c) => [c.id, c]));
+  const share = (data?.byCategory ?? [])
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .map((r) => ({ key: r.categoryId, amount: r.total }));
+  const months = data?.months ?? [];
+  const investedMonths = months.filter((m) => m.invested > 0).length;
+  const top = share[0];
 
   return (
     <div className="flex flex-col gap-8">
@@ -90,31 +104,38 @@ function Investments() {
           />
         ) : (
           <>
-            {data && (
-              <Reveal>
-                <ShareBar
-                  items={data.byCategory}
-                  categories={categories}
-                  label="Invested by bucket"
-                />
-              </Reveal>
-            )}
-
-            <Reveal>
-              <SectionHeader title="Last 12 months" />
-              <div className="mt-5">
-                {data ? (
-                  <MonthTrend
-                    months={data.months.map((m) => ({ month: m.month, value: m.invested }))}
-                    current={month}
-                    onPick={setMonth}
-                    verb="invested"
-                  />
-                ) : (
-                  <Skeleton className="h-[188px]" />
+            {data ? (
+              <Reveal className="grid gap-14 lg:grid-cols-2 lg:gap-12">
+                {top && (
+                  <Panel
+                    id="buckets"
+                    title="Where it's invested"
+                    note={`Up to ${monthTitle(month)}`}
+                    takeaway={`${byId.get(top.key)?.name ?? "One bucket"} holds ${Math.round((top.amount / data.total) * 100)}%`}
+                  >
+                    <CategoryDonut share={share} byId={byId} center="Invested" />
+                  </Panel>
                 )}
-              </div>
-            </Reveal>
+                <Panel
+                  id="months"
+                  title={`Last ${months.length} months`}
+                  takeaway={`Invested in ${investedMonths} of ${months.length} months`}
+                  tone={investedMonths >= months.length * 0.75 ? "good" : "info"}
+                >
+                  <InvestJars
+                    jars={months.map((m) => ({
+                      month: m.month,
+                      invested: m.invested,
+                      rate: null,
+                      current: m.month === month,
+                    }))}
+                    onPick={setMonth}
+                  />
+                </Panel>
+              </Reveal>
+            ) : (
+              <Skeleton className="h-[380px]" />
+            )}
 
             <Reveal>
               <SectionHeader

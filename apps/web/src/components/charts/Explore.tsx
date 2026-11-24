@@ -15,7 +15,16 @@ const nameOf = (c: Category | undefined) => (c ? `${c.emoji} ${c.name}` : "Unkno
  * Where spending usually goes, as a donut with gaps between slices: the total in the
  * middle, and each category's amount and share listed under it.
  */
-export function CategoryDonut({ share, byId }: { share: Ranked[]; byId: ById }) {
+export function CategoryDonut({
+  share,
+  byId,
+  center = "Spent",
+}: {
+  share: Ranked[];
+  byId: ById;
+  /** The word over the total in the middle. */
+  center?: string;
+}) {
   const money = useMoney();
   const total = share.reduce((t, r) => t + r.amount, 0) || 1;
   const slices = useMemo(
@@ -77,7 +86,7 @@ export function CategoryDonut({ share, byId }: { share: Ranked[]; byId: ById }) 
           label={`Spending by category: ${slices.map((s) => `${s.name} ${Math.round((s.value / total) * 100)}%`).join(", ")}.`}
         />
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[13px] font-semibold text-muted">Spent</span>
+          <span className="text-[13px] font-semibold text-muted">{center}</span>
           <span className="text-3xl font-bold tracking-[-0.02em]">{compactMoney(total)}</span>
         </div>
       </div>

@@ -373,33 +373,47 @@ function Sections({
         </Panel>
 
         <Panel id="investing" title="Investing" takeaway={investText} tone={investTone}>
-          <div
-            className={cx(
-              "grid items-end gap-6",
-              d.investing.rate !== null && "sm:grid-cols-[150px_1fr]",
-            )}
-          >
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
             {d.investing.rate !== null && (
-              <div className="flex flex-col items-center">
+              <div className="w-[180px] shrink-0">
                 <RateGauge
                   rate={d.investing.rate}
                   usual={d.investing.usualRate ? d.investing.usualRate : null}
                 />
-                {d.investing.usualRate !== null && (
-                  <span className="-mt-3 inline-flex items-center gap-1.5 text-[13px] text-muted">
-                    {d.investing.usualRate > 0 && (
-                      <span
-                        aria-hidden="true"
-                        className="inline-block h-3 w-[3px] rounded bg-ink"
-                      />
-                    )}
-                    usually {pct(d.investing.usualRate)}
-                  </span>
-                )}
               </div>
             )}
-            <InvestJars jars={cols.invest} onPick={onPick} />
+            <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-4">
+              {[
+                { label: "This month", value: money(d.current.invested) },
+                {
+                  label: "Usually",
+                  value:
+                    d.investing.usualRate !== null
+                      ? `${pct(d.investing.usualRate)} of income`
+                      : "–",
+                },
+                {
+                  label: "Months invested",
+                  value: `${d.consistency.investedMonths} of ${d.consistency.months.length}`,
+                },
+                {
+                  label: "Streak",
+                  value:
+                    d.consistency.streak > 0
+                      ? `${d.consistency.streak} ${d.consistency.streak === 1 ? "month" : "months"}`
+                      : "–",
+                },
+              ].map((s) => (
+                <div key={s.label} className="flex min-w-0 flex-col gap-1">
+                  <dt className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+                    {s.label}
+                  </dt>
+                  <dd className="m-0 truncate text-xl font-bold tabular-nums">{s.value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
+          <InvestJars jars={cols.invest} onPick={onPick} height={176} />
           <p className="text-sm text-muted">
             Each jar is a month, filled to what you invested. Under it: share of income.
           </p>

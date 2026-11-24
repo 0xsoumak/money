@@ -27,6 +27,8 @@ export function InvestJars({ jars, onPick }: { jars: Jar[]; onPick?: (month: str
   const max = Math.max(1, ...jars.map((j) => j.invested));
   // Twelve jars are narrow: print amounts only on this month and the fullest one.
   const dense = jars.length > 6;
+  // Without income there is no share to show: drop the line rather than print dashes.
+  const rates = jars.some((j) => j.rate !== null);
 
   return (
     <View style={{ flexDirection: "row", gap: dense ? 4 : 8 }}>
@@ -90,7 +92,7 @@ export function InvestJars({ jars, onPick }: { jars: Jar[]; onPick?: (month: str
               >
                 {dense ? shortMonth(j.month).slice(0, 1) : shortMonth(j.month)}
               </T>
-              {!dense && (
+              {!dense && rates && (
                 <T variant="caption" size={11} color={c.textFaint}>
                   {j.rate !== null ? pct(j.rate) : "–"}
                 </T>

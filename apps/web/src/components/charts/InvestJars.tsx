@@ -15,12 +15,23 @@ export interface Jar {
  * One jar per month, filled with lime up to what went in that month (the fullest month
  * fills its jar). A month with nothing invested is an empty dashed jar. Clicking opens it.
  */
-export function InvestJars({ jars, onPick }: { jars: Jar[]; onPick?: (month: string) => void }) {
+export function InvestJars({
+  jars,
+  onPick,
+  height = 128,
+}: {
+  jars: Jar[];
+  onPick?: (month: string) => void;
+  /** Jar height in px. */
+  height?: number;
+}) {
   const money = useMoney();
   const max = Math.max(1, ...jars.map((j) => j.invested));
   const pct = (r: number) => `${Math.round(r * 100)}%`;
   // Twelve jars are narrow: print amounts only on this month and the fullest one.
   const dense = jars.length > 6;
+  // Without income there is no share to show: drop the line rather than print dashes.
+  const rates = jars.some((j) => j.rate !== null);
 
   return (
     <ul
@@ -54,13 +65,14 @@ export function InvestJars({ jars, onPick }: { jars: Jar[]; onPick?: (month: str
               </span>
               <span
                 className={cx(
-                  "relative block h-32 w-full max-w-14 overflow-hidden rounded-xl border-2 transition-colors",
+                  "relative block w-full max-w-[72px] overflow-hidden rounded-2xl border-2 transition-colors",
                   empty
                     ? "border-dashed border-line-strong/35"
                     : j.current
                       ? "border-ink"
                       : "border-line-strong/50 group-hover:border-line-strong",
                 )}
+                style={{ height }}
               >
                 <span
                   className={cx(
@@ -76,9 +88,11 @@ export function InvestJars({ jars, onPick }: { jars: Jar[]; onPick?: (month: str
                 >
                   {shortMonth(j.month)}
                 </span>
-                <span className="text-[12px] text-faint tabular-nums">
-                  {j.rate !== null ? pct(j.rate) : "–"}
-                </span>
+                {rates && (
+                  <span className="text-[12px] text-faint tabular-nums">
+                    {j.rate !== null ? pct(j.rate) : "–"}
+                  </span>
+                )}
               </span>
             </button>
           </li>

@@ -19,7 +19,7 @@ export interface MonthRow {
 
 const LABEL_W = 40;
 const AMOUNT_W = 58;
-const BAR_H = 10;
+const BAR_H = 28;
 
 /**
  * Months as horizontal bars, oldest at the top, the amount at the end of each. A shaded
@@ -99,7 +99,7 @@ export function MonthRows({
                   }
                 : undefined
             }
-            style={{ flexDirection: "row", alignItems: "center", minHeight: 28 }}
+            style={{ flexDirection: "row", alignItems: "center", minHeight: 36 }}
           >
             <T
               variant="caption"
@@ -118,8 +118,8 @@ export function MonthRows({
                       width: x(p.value),
                       height: BAR_H,
                       backgroundColor: p.color,
-                      borderTopRightRadius: end ? 5 : 0,
-                      borderBottomRightRadius: end ? 5 : 0,
+                      borderTopRightRadius: end ? 8 : 0,
+                      borderBottomRightRadius: end ? 8 : 0,
                       marginLeft: k > 0 ? 1 : 0,
                     }}
                   />
@@ -134,8 +134,8 @@ export function MonthRows({
                     borderLeftWidth: 0,
                     borderStyle: "dashed",
                     borderColor: c.textFaint,
-                    borderTopRightRadius: 5,
-                    borderBottomRightRadius: 5,
+                    borderTopRightRadius: 8,
+                    borderBottomRightRadius: 8,
                   }}
                 />
               )}

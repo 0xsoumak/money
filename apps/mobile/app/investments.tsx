@@ -5,14 +5,20 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MonthTrend } from "../components/Charts";
+import { CategoryDonut } from "../components/analytics/CategoryDonut";
+import { ChartSection } from "../components/analytics/frame";
+import { InvestJars } from "../components/analytics/InvestJars";
 import { Reveal, useCountUp } from "../components/motion";
-import { ShareBar } from "../components/ShareBar";
 import { Label, T } from "../components/T";
 import { TransactionList } from "../components/TransactionList";
 import { Button, EmptyState, IconButton, SectionHeader, Skeleton } from "../components/ui";
 import { useMoney } from "../lib/hooks";
-import { categoriesQuery, investmentsQuery, transactionsQuery } from "../lib/queries";
+import {
+  type Category,
+  categoriesQuery,
+  investmentsQuery,
+  transactionsQuery,
+} from "../lib/queries";
 import { c } from "../lib/theme";
 import { useDeleteWithUndo } from "../lib/useDeleteWithUndo";
 
@@ -37,6 +43,15 @@ export default function Investments() {
   const year = Number(month.slice(0, 4));
   const shownTotal = useCountUp(data?.total ?? 0);
   const none = data !== undefined && data.total === 0;
+  const byId = new Map<string, Category>(categories.map((x) => [x.id, x]));
+  const share = (data?.byCategory ?? [])
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .map((r) => ({ key: r.categoryId, amount: r.total }));
+  const top = share[0];
+  // Six jars fit a phone comfortably; twelve get too thin to read.
+  const recent = (data?.months ?? []).slice(-6);
+  const investedMonths = recent.filter((m) => m.invested > 0).length;
   const log = () => router.push({ pathname: "/add", params: { type: "investment" } });
 
   return (
@@ -102,25 +117,36 @@ export default function Investments() {
         />
       ) : (
         <>
-          {data && (
+          {data && top && (
             <Reveal>
-              <ShareBar items={data.byCategory} categories={categories} />
+              <ChartSection
+                title="Where it's invested"
+                headline={`${byId.get(top.key)?.name ?? "One bucket"} holds ${Math.round((top.amount / data.total) * 100)}%`}
+              >
+                <CategoryDonut share={share} byId={byId} center="Invested" />
+              </ChartSection>
             </Reveal>
           )}
           <Reveal>
-            <SectionHeader title="Last 6 months" />
-            <View style={{ marginTop: 16 }}>
-              {data ? (
-                <MonthTrend
-                  months={data.months.slice(-6).map((m) => ({ month: m.month, value: m.invested }))}
-                  current={month}
+            {data ? (
+              <ChartSection
+                title="Last 6 months"
+                headline={`Invested in ${investedMonths} of ${recent.length} months`}
+                tone={investedMonths >= recent.length * 0.75 ? "good" : "info"}
+              >
+                <InvestJars
+                  jars={recent.map((m) => ({
+                    month: m.month,
+                    invested: m.invested,
+                    rate: null,
+                    current: m.month === month,
+                  }))}
                   onPick={setMonth}
-                  verb="invested"
                 />
-              ) : (
-                <Skeleton style={{ height: 156 }} />
-              )}
-            </View>
+              </ChartSection>
+            ) : (
+              <Skeleton style={{ height: 200 }} />
+            )}
           </Reveal>
           <Reveal>
             <SectionHeader title={monthTitle(month)} />

@@ -41,13 +41,13 @@ export function MonthRows({
       return -1;
     });
     const hasGhost = (r: MonthRow) => r.ghost !== undefined && r.ghost > total(r);
-    const bar = { type: "bar", stack: "m", barWidth: 10, emphasis: { disabled: true } } as const;
+    const bar = { type: "bar", stack: "m", barWidth: 34, emphasis: { disabled: true } } as const;
     const outline = {
       color: "transparent",
       borderColor: alpha(C.borderStrong, 0.45),
       borderWidth: 1.5,
       borderType: [3, 3],
-      borderRadius: [0, 5, 5, 0],
+      borderRadius: [0, 8, 8, 0],
     };
 
     const partSeries = Array.from({ length: pieces }, (_, k) => ({
@@ -60,7 +60,7 @@ export function MonthRows({
           value: p.value,
           itemStyle: {
             color: p.color,
-            borderRadius: end ? [0, 5, 5, 0] : 0,
+            borderRadius: end ? [0, 8, 8, 0] : 0,
             borderColor: C.bg,
             borderWidth: k > 0 ? 1 : 0,
           },
@@ -158,7 +158,7 @@ export function MonthRows({
   return (
     <EChart
       option={option}
-      height={rows.length * 38 + 36}
+      height={rows.length * 56 + 36}
       label={label}
       onClick={
         onPick
