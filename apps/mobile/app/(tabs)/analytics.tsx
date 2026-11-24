@@ -30,7 +30,7 @@ import { CalendarHeat } from "../../components/analytics/CalendarHeat";
 import { CategoryDonut } from "../../components/analytics/CategoryDonut";
 import { ChartSection, compactMoney, fade } from "../../components/analytics/frame";
 import { HeroStats } from "../../components/analytics/HeroStats";
-import { InvestJars, type Jar } from "../../components/analytics/InvestJars";
+import { InvestColumns, type InvestMonth } from "../../components/analytics/InvestColumns";
 import { MoneyFlow } from "../../components/analytics/MoneyFlow";
 import { type MonthRow, MonthRows } from "../../components/analytics/MonthRows";
 import { RateGauge } from "../../components/analytics/RateGauge";
@@ -235,7 +235,7 @@ function Sections({
     });
   }, [all, d]);
 
-  const jars = useMemo<Jar[]>(
+  const investMonths = useMemo<InvestMonth[]>(
     () =>
       all.map((m) => ({
         month: m.month,
@@ -329,9 +329,9 @@ function Sections({
                 )}
               </View>
             )}
-            <InvestJars jars={jars} onPick={onPick} />
+            <InvestColumns months={investMonths} onPick={onPick} />
             <T variant="caption" color={c.textMuted}>
-              Each jar is a month, filled to what you invested. Under it: share of income.
+              Under each month: the share of income invested.
             </T>
           </View>
         </ChartSection>

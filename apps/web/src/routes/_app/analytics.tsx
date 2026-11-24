@@ -29,7 +29,7 @@ import { useMemo, useState } from "react";
 import { HeroStats } from "../../components/analytics/HeroStats";
 import { CategoryDonut, RateGauge } from "../../components/charts/Explore";
 import { alpha, C } from "../../components/charts/echarts";
-import { InvestJars, type Jar } from "../../components/charts/InvestJars";
+import { InvestColumns, type InvestMonth } from "../../components/charts/InvestColumns";
 import { compactMoney, Key, Legend, Panel } from "../../components/charts/kit";
 import { MoneyFlow } from "../../components/charts/MoneyFlow";
 import { type MonthRow, MonthRows } from "../../components/charts/MonthRows";
@@ -256,8 +256,8 @@ function Sections({
       };
     });
 
-    // Investing: one jar per month.
-    const invest: Jar[] = all.map((m) => ({
+    // Investing: one column per month.
+    const invest: InvestMonth[] = all.map((m) => ({
       month: m.month,
       invested: m.invested,
       rate: m.income > 0 ? m.invested / m.income : null,
@@ -413,10 +413,8 @@ function Sections({
               ))}
             </dl>
           </div>
-          <InvestJars jars={cols.invest} onPick={onPick} height={176} />
-          <p className="text-sm text-muted">
-            Each jar is a month, filled to what you invested. Under it: share of income.
-          </p>
+          <InvestColumns months={cols.invest} onPick={onPick} />
+          <p className="text-sm text-muted">Under each month: the share of income invested.</p>
         </Panel>
       </Reveal>
 
