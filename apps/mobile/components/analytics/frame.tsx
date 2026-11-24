@@ -1,5 +1,5 @@
 // Mobile twin of apps/web/src/components/analytics/frame.tsx. Keep the two in step.
-import { fonts, MASKED_MONEY, OTHER } from "@money/shared";
+import { fonts, MASKED_MONEY, OTHER, type Tone } from "@money/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type GestureResponderEvent, type LayoutChangeEvent, View } from "react-native";
 import { Text as SvgText } from "react-native-svg";
@@ -10,16 +10,21 @@ import { c, cat } from "../../lib/theme";
 import { T } from "../T";
 import { SectionHeader } from "../ui";
 
-/** One analytics block: title (with a note on the right), a headline sentence, then the chart. */
+/**
+ * One analytics block: title (with a note on the right), a headline sentence coloured by
+ * its tone (red for a warning, lime for good news), then the chart.
+ */
 export function ChartSection({
   title,
   note,
   headline,
+  tone,
   children,
 }: {
   title: string;
   note?: string;
   headline?: ReactNode;
+  tone?: Tone;
   children: ReactNode;
 }) {
   return (
@@ -35,7 +40,11 @@ export function ChartSection({
         }
       />
       {headline ? (
-        <T variant="title" size={21}>
+        <T
+          variant="title"
+          size={21}
+          color={tone === "warn" ? c.danger : tone === "good" ? c.accent : c.text}
+        >
           {headline}
         </T>
       ) : null}

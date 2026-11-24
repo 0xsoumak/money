@@ -281,38 +281,6 @@ export function weekendRatio(averages: number[]): number | null {
 
 // ── Months ──────────────────────────────────────────────────────────────────
 
-/** Total spending in each of `months`, in order. */
-export function monthlySpending(rows: AnalyticsRow[], months: string[]): number[] {
-  const at = new Map(months.map((m) => [m, 0]));
-  for (const r of rows) {
-    const m = monthOf(r.date);
-    if (isExpense(r) && at.has(m)) at.set(m, (at.get(m) ?? 0) + r.amount);
-  }
-  return months.map((m) => at.get(m) ?? 0);
-}
-
-export interface SavingsMonth {
-  month: string;
-  income: number;
-  invested: number;
-  /** invested ÷ income, or null for a month without income. */
-  rate: number | null;
-}
-
-export function savingsRates(rows: AnalyticsRow[], months: string[]): SavingsMonth[] {
-  const at = new Map(months.map((m) => [m, { income: 0, invested: 0 }]));
-  for (const r of rows) {
-    const t = at.get(monthOf(r.date));
-    if (!t) continue;
-    if (r.type === "income") t.income += r.amount;
-    else if (r.type === "investment") t.invested += r.amount;
-  }
-  return months.map((month) => {
-    const t = at.get(month) ?? { income: 0, invested: 0 };
-    return { month, ...t, rate: t.income > 0 ? t.invested / t.income : null };
-  });
-}
-
 // ── Categories ──────────────────────────────────────────────────────────────
 
 /**

@@ -10,7 +10,6 @@ import {
   moneyFlow,
   OTHER,
   runningTotals,
-  savingsRates,
   spendCurve,
   stackLinks,
   topWithOther,
@@ -175,20 +174,6 @@ describe("days", () => {
     expect(heatLevel(0, cuts)).toBe(0);
     expect(heatLevel(10, cuts)).toBe(1);
     expect(heatLevel(50, cuts)).toBe(4);
-  });
-});
-
-describe("savingsRates", () => {
-  it("divides investing by income, null without income", () => {
-    expect(
-      savingsRates(
-        [row("2026-10-01", 1000, "s", "income"), row("2026-10-02", 250, "mf", "investment")],
-        ["2026-10", "2026-11"],
-      ),
-    ).toEqual([
-      { month: "2026-10", income: 1000, invested: 250, rate: 0.25 },
-      { month: "2026-11", income: 0, invested: 0, rate: null },
-    ]);
   });
 });
 

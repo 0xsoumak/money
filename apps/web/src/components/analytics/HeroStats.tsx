@@ -1,15 +1,6 @@
-import type { Tone } from "../charts/kit";
+import type { HeroStat } from "@money/shared";
+import { C } from "../charts/echarts";
 import { cx } from "../ui";
-
-export interface HeroStat {
-  label: string;
-  value: string;
-  /** One short line under the number, coloured by tone. */
-  sub?: string;
-  tone?: Tone;
-  /** A small colour key before the label, tying the number to its chart. */
-  dot?: string;
-}
 
 /**
  * The month in four big numbers, read before any chart: flat, divided by hairlines,
@@ -30,11 +21,11 @@ export function HeroStats({ stats }: { stats: HeroStat[] }) {
           )}
         >
           <dt className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-muted">
-            {s.dot && (
+            {s.accent && (
               <span
                 aria-hidden="true"
                 className="size-2 shrink-0 rounded-full"
-                style={{ background: s.dot }}
+                style={{ background: C.accent }}
               />
             )}
             {s.label}

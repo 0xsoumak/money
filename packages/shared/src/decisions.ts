@@ -16,7 +16,7 @@
  *   it rests on. Thin logging is flagged, since missing entries look like spending less.
  */
 import { type AnalyticsRow, monthsEnding, runningTotals } from "./analytics";
-import { shortMonth } from "./analyticsReport";
+import { shortMonth } from "./chartLabels";
 import { addMonths, daysInMonth, monthOf } from "./dates";
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);

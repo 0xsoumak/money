@@ -7,11 +7,12 @@ import { ChartTip, compactMoney, TipRow, TipTitle, useWidth } from "./kit";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** One hue, light to dark: more spent, more lime. Level 0 is a day with nothing spent. */
+// Day numbers keep contrast on every shade: muted on empty, light on faint lime, dark on bright.
 const LEVEL = [
-  "bg-surface",
-  "bg-accent/20",
-  "bg-accent/40",
-  "bg-accent/70",
+  "bg-surface text-muted",
+  "bg-accent/20 text-ink",
+  "bg-accent/40 text-ink",
+  "bg-accent/70 text-on-accent",
   "bg-accent text-on-accent",
 ];
 
@@ -71,7 +72,6 @@ export function CalendarHeat({
                 className={cx(
                   "flex aspect-square items-center justify-center rounded-md text-[11px] font-semibold transition-transform duration-150",
                   future ? "border border-dashed border-line text-faint" : LEVEL[level],
-                  !future && level < 4 && "text-muted",
                   date === todayDate && "ring-2 ring-ink ring-offset-2 ring-offset-bg",
                   hover === i && "scale-110",
                 )}
