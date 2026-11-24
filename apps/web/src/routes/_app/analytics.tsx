@@ -24,9 +24,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { CategoryDonut, RateGauge } from "../../components/charts/Explore";
 import { alpha, C } from "../../components/charts/echarts";
+import { InvestJars, type Jar } from "../../components/charts/InvestJars";
 import { compactMoney, Key, Legend, Panel, type Tone } from "../../components/charts/kit";
 import { MoneyFlow } from "../../components/charts/MoneyFlow";
-import { type Column, MonthColumns } from "../../components/charts/MonthColumns";
+import { type MonthRow, MonthRows } from "../../components/charts/MonthRows";
 import { CalendarHeat, WeekdayBars } from "../../components/charts/Rhythm";
 import { SpendCurve } from "../../components/charts/SpendCurve";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
@@ -259,10 +260,6 @@ function Sections({
   const all = useMemo(() => [...d.history, d.current], [d]);
   const months = useMemo(() => all.map((m) => m.month), [all]);
   const share = useMemo(() => categoryShare(rows, months), [rows, months]);
-  const missed = useMemo(
-    () => new Set(d.consistency.months.filter((m) => m.invested === 0).map((m) => m.month)),
-    [d],
-  );
   const catName = (id: string) => byId.get(id)?.name ?? "A category";
 
   const cols = useMemo(() => {
@@ -272,7 +269,7 @@ function Sections({
     const faint = alpha(C.text, 0.2);
 
     // Spending, month by month: fixed under flexible, this month in lime.
-    const spend: Column[] = all.map((m) => {
+    const spend: MonthRow[] = all.map((m) => {
       const now = isNow(m);
       const likely = now && d.running ? d.spending.projected.mid : undefined;
       return {
@@ -283,7 +280,7 @@ function Sections({
           { value: m.flexible, color: now ? C.accent : muted },
         ],
         ghost: likely,
-        label: now ? compactMoney(m.spent) : undefined,
+        label: compactMoney(m.spent),
         tip: [
           { color: C.text, value: money(m.spent), name: `spent${soFar(m)}` },
           ...(d.hasFixed
@@ -299,36 +296,18 @@ function Sections({
       };
     });
 
-    // Investing: lime columns, a dashed slot for a missed month.
-    const invest: Column[] = all.map((m) => {
-      const rate = m.income > 0 ? m.invested / m.income : null;
-      return {
-        month: m.month,
-        current: isNow(m),
-        parts: [{ value: m.invested, color: C.accent }],
-        missing: missed.has(m.month),
-        label: isNow(m) && m.invested > 0 ? compactMoney(m.invested) : undefined,
-        sub: { text: rate !== null ? pct(rate) : "–" },
-        tip: [
-          {
-            color: C.accent,
-            value: m.invested > 0 ? money(m.invested) : "Nothing",
-            name: `invested${soFar(m)}`,
-          },
-          ...(rate !== null ? [{ value: pct(rate), name: "of income" }] : []),
-        ],
-      };
-    });
+    // Investing: one jar per month.
+    const invest: Jar[] = all.map((m) => ({
+      month: m.month,
+      invested: m.invested,
+      rate: m.income > 0 ? m.invested / m.income : null,
+      current: isNow(m),
+    }));
     return { spend, invest };
-  }, [all, d, missed, money]);
+  }, [all, d, money]);
 
   const usualMonth = d.confidence !== "none" ? d.spending.usualMonth : null;
   const limitValue = d.budget.overall?.limit;
-  const limit = useMemo(
-    () => (limitValue ? { value: limitValue, label: `Budget ${compactMoney(limitValue)}` } : null),
-    [limitValue],
-  );
-  const usualInvest = d.confidence !== "none" ? d.investing.usual : null;
 
   const [flowText, flowTone] = moneyFlowTakeaway(extra.flow);
   const [spendText, spendTone] = spendingTakeaway(d);
@@ -371,12 +350,12 @@ function Sections({
         </Reveal>
       )}
 
-      <Reveal>
+      <Reveal className="grid gap-14 lg:gap-12 lg:grid-cols-2">
         <Panel id="spending" title="Spending by month" takeaway={spendText} tone={spendTone}>
-          <MonthColumns
-            columns={cols.spend}
+          <MonthRows
+            rows={cols.spend}
             band={usualMonth}
-            limit={limit}
+            limit={limitValue}
             label={`Spending by month. ${spendText}.`}
             onPick={onPick}
           />
@@ -398,9 +377,9 @@ function Sections({
                 Likely
               </Key>
             )}
-            {limit && (
-              <Key shape="line" className="bg-ink/60">
-                Budget
+            {limitValue && (
+              <Key shape="dash" className="border-ink/70">
+                Budget {compactMoney(limitValue)}
               </Key>
             )}
           </Legend>
@@ -414,49 +393,38 @@ function Sections({
             </p>
           )}
         </Panel>
-      </Reveal>
 
-      <Reveal>
         <Panel id="investing" title="Investing" takeaway={investText} tone={investTone}>
           <div
             className={cx(
-              "grid items-center gap-4",
-              d.investing.rate !== null && "sm:grid-cols-[180px_1fr]",
+              "grid items-end gap-6",
+              d.investing.rate !== null && "sm:grid-cols-[150px_1fr]",
             )}
           >
             {d.investing.rate !== null && (
               <div className="flex flex-col items-center">
-                <RateGauge rate={d.investing.rate} usual={d.investing.usualRate} />
+                <RateGauge
+                  rate={d.investing.rate}
+                  usual={d.investing.usualRate ? d.investing.usualRate : null}
+                />
                 {d.investing.usualRate !== null && (
                   <span className="-mt-3 inline-flex items-center gap-1.5 text-[13px] text-muted">
-                    <span aria-hidden="true" className="inline-block h-3 w-[3px] rounded bg-ink" />
+                    {d.investing.usualRate > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-3 w-[3px] rounded bg-ink"
+                      />
+                    )}
                     usually {pct(d.investing.usualRate)}
                   </span>
                 )}
               </div>
             )}
-            <MonthColumns
-              columns={cols.invest}
-              band={usualInvest}
-              height={220}
-              label={`Invested by month. ${investText}.`}
-              onPick={onPick}
-            />
+            <InvestJars jars={cols.invest} onPick={onPick} />
           </div>
-          <Legend>
-            <Key className="bg-accent">Invested</Key>
-            {usualInvest && (
-              <Key shape="band" className="bg-ink/15">
-                Usual month
-              </Key>
-            )}
-            {missed.size > 0 && (
-              <Key shape="ring" className="rounded-[3px] border-dashed border-line-strong/40">
-                Missed
-              </Key>
-            )}
-            <span>Under each month: share of income</span>
-          </Legend>
+          <p className="text-sm text-muted">
+            Each jar is a month, filled to what you invested. Under it: share of income.
+          </p>
         </Panel>
       </Reveal>
 
