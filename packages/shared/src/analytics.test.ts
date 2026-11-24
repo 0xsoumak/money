@@ -7,6 +7,7 @@ import {
   dayStats,
   heatLevel,
   heatLevels,
+  investedByMonth,
   moneyFlow,
   OTHER,
   runningTotals,
@@ -194,6 +195,23 @@ describe("categoryShare", () => {
       { key: "fun", amount: 30_000 },
       { key: "food", amount: 20_000 },
       { key: OTHER, amount: 300 },
+    ]);
+  });
+});
+
+describe("investedByMonth", () => {
+  it("splits each month's investing by category and keeps empty months", () => {
+    const rows: AnalyticsRow[] = [
+      { date: "2026-07-03", type: "investment", amount: 5000, categoryId: "fd", note: null },
+      { date: "2026-07-09", type: "investment", amount: 1000, categoryId: "fd", note: null },
+      { date: "2026-09-01", type: "investment", amount: 200, categoryId: "mf", note: null },
+      { date: "2026-09-02", type: "expense", amount: 999, categoryId: "food", note: null },
+      { date: "2026-05-01", type: "investment", amount: 7, categoryId: "mf", note: null },
+    ];
+    expect(investedByMonth(rows, ["2026-07", "2026-08", "2026-09"])).toEqual([
+      { month: "2026-07", parts: [{ key: "fd", amount: 6000 }] },
+      { month: "2026-08", parts: [] },
+      { month: "2026-09", parts: [{ key: "mf", amount: 200 }] },
     ]);
   });
 });

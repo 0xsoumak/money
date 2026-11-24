@@ -56,7 +56,7 @@ function AppLayout() {
   );
 }
 
-/** Eye toggle that masks every money value as ₹•••••. Shortcut: H. */
+/** Eye toggle that masks every money value as ₹*****. Shortcut: H. */
 function HideBalancesButton() {
   const hidden = useHidden();
 

@@ -296,3 +296,23 @@ export function categoryShare(rows: AnalyticsRow[], months: string[], max = 7): 
   }
   return topWithOther(totals, max);
 }
+
+/**
+ * Invested per month, split by category: one entry per month asked for (oldest first),
+ * each listing its categories with what went into them. Months with nothing are empty.
+ */
+export function investedByMonth(
+  rows: AnalyticsRow[],
+  months: string[],
+): { month: string; parts: Ranked[] }[] {
+  const by = new Map<string, Map<string, number>>(months.map((m) => [m, new Map()]));
+  for (const r of rows) {
+    if (r.type !== "investment") continue;
+    const m = by.get(r.date.slice(0, 7));
+    if (m) m.set(r.categoryId, (m.get(r.categoryId) ?? 0) + r.amount);
+  }
+  return months.map((month) => ({
+    month,
+    parts: [...(by.get(month) ?? [])].map(([key, amount]) => ({ key, amount })),
+  }));
+}

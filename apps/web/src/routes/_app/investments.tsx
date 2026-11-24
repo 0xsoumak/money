@@ -1,7 +1,6 @@
-import { monthTitle } from "@money/shared";
+import { investedByMonth, monthTitle } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CategoryDonut } from "../../components/charts/Explore";
 import { InvestBars } from "../../components/charts/InvestBars";
 import { Panel } from "../../components/charts/kit";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
@@ -11,6 +10,7 @@ import { TransactionList } from "../../components/TransactionList";
 import { Button, cx, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
 import {
+  analyticsQuery,
   type Category,
   categoriesQuery,
   investmentsQuery,
@@ -35,6 +35,8 @@ function Investments() {
   const { data: categories = [] } = useQuery(categoriesQuery);
   const inv = useQuery({ ...investmentsQuery(month), placeholderData: keepPreviousData });
   const txs = useQuery({ ...transactionsQuery(month), placeholderData: keepPreviousData });
+  // The analytics rows carry every investment with its type, for the stacked month chart.
+  const rows = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
 
   const thisMonth = (txs.data ?? []).filter((t) => t.type === "investment");
   const monthTotal = thisMonth.reduce((t, x) => t + x.amount, 0);
@@ -50,6 +52,10 @@ function Investments() {
   const months = data?.months ?? [];
   const investedMonths = months.filter((m) => m.invested > 0).length;
   const top = share[0];
+  const stacked = investedByMonth(
+    rows.data?.rows ?? [],
+    months.map((m) => m.month),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -105,24 +111,25 @@ function Investments() {
         ) : (
           <>
             {data ? (
-              <Reveal className="grid gap-14 lg:grid-cols-2 lg:gap-12">
-                {top && (
-                  <Panel
-                    id="buckets"
-                    title="Where it's invested"
-                    note={`Up to ${monthTitle(month)}`}
-                    takeaway={`${byId.get(top.key)?.name ?? "One bucket"} holds ${Math.round((top.amount / data.total) * 100)}%`}
-                  >
-                    <CategoryDonut share={share} byId={byId} center="Invested" />
-                  </Panel>
-                )}
+              <Reveal>
                 <Panel
                   id="months"
                   title={`Last ${months.length} months`}
+                  note={
+                    top
+                      ? `${byId.get(top.key)?.name ?? "One type"} holds ${Math.round((top.amount / data.total) * 100)}% of all of it`
+                      : undefined
+                  }
                   takeaway={`Invested in ${investedMonths} of ${months.length} months`}
                   tone={investedMonths >= months.length * 0.75 ? "good" : "info"}
                 >
-                  <InvestBars months={months} current={month} onPick={setMonth} />
+                  <InvestBars
+                    months={stacked}
+                    allTime={share}
+                    byId={byId}
+                    current={month}
+                    onPick={setMonth}
+                  />
                 </Panel>
               </Reveal>
             ) : (

@@ -1,11 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import { currentMonth, monthTitle } from "@money/shared";
+import { currentMonth, investedByMonth, monthTitle } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CategoryDonut } from "../components/analytics/CategoryDonut";
 import { ChartSection } from "../components/analytics/frame";
 import { InvestBars } from "../components/analytics/InvestBars";
 import { Reveal, useCountUp } from "../components/motion";
@@ -14,6 +13,7 @@ import { TransactionList } from "../components/TransactionList";
 import { Button, EmptyState, IconButton, SectionHeader, Skeleton } from "../components/ui";
 import { useMoney } from "../lib/hooks";
 import {
+  analyticsQuery,
   type Category,
   categoriesQuery,
   investmentsQuery,
@@ -36,6 +36,8 @@ export default function Investments() {
   const { data: categories = [] } = useQuery(categoriesQuery);
   const inv = useQuery({ ...investmentsQuery(month), placeholderData: keepPreviousData });
   const txs = useQuery({ ...transactionsQuery(month), placeholderData: keepPreviousData });
+  // The analytics rows carry every investment with its type, for the stacked month chart.
+  const rows = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
 
   const data = inv.data;
   const thisMonth = (txs.data ?? []).filter((t) => t.type === "investment");
@@ -49,9 +51,13 @@ export default function Investments() {
     .sort((a, b) => b.total - a.total)
     .map((r) => ({ key: r.categoryId, amount: r.total }));
   const top = share[0];
-  // Six jars fit a phone comfortably; twelve get too thin to read.
+  // Six columns fit a phone comfortably; twelve get too thin to read.
   const recent = (data?.months ?? []).slice(-6);
   const investedMonths = recent.filter((m) => m.invested > 0).length;
+  const stacked = investedByMonth(
+    rows.data?.rows ?? [],
+    recent.map((m) => m.month),
+  );
   const log = () => router.push({ pathname: "/add", params: { type: "investment" } });
 
   return (
@@ -117,16 +123,6 @@ export default function Investments() {
         />
       ) : (
         <>
-          {data && top && (
-            <Reveal>
-              <ChartSection
-                title="Where it's invested"
-                headline={`${byId.get(top.key)?.name ?? "One bucket"} holds ${Math.round((top.amount / data.total) * 100)}%`}
-              >
-                <CategoryDonut share={share} byId={byId} center="Invested" />
-              </ChartSection>
-            </Reveal>
-          )}
           <Reveal>
             {data ? (
               <ChartSection
@@ -134,7 +130,13 @@ export default function Investments() {
                 headline={`Invested in ${investedMonths} of ${recent.length} months`}
                 tone={investedMonths >= recent.length * 0.75 ? "good" : "info"}
               >
-                <InvestBars months={recent} current={month} onPick={setMonth} />
+                <InvestBars
+                  months={stacked}
+                  allTime={share}
+                  byId={byId}
+                  current={month}
+                  onPick={setMonth}
+                />
               </ChartSection>
             ) : (
               <Skeleton style={{ height: 200 }} />
