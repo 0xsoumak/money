@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { BudgetDialog, type BudgetTarget } from "../../components/BudgetDialog";
-import { BudgetGauge, HalfRing, STATE_TEXT } from "../../components/BudgetRing";
+import { BudgetBullets, HalfRing, STATE_TEXT } from "../../components/BudgetRing";
 import { PencilIcon, PlusIcon } from "../../components/icons";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { Button, cx, EmptyState, SectionHeader, Skeleton } from "../../components/ui";
@@ -43,6 +43,7 @@ function BudgetsPage() {
     .sort(
       (a, b) => budgetProgress(b.spent, b.limit).ratio - budgetProgress(a.spent, a.limit).ratio,
     );
+  const byName = (id: string) => categories.find((c) => c.id === id)?.name ?? "Category";
   const withoutLimit = expenseCategories.filter((c) => !summary?.budget.categories[c.id]);
 
   const overallProgress = overall ? budgetProgress(spent, overall) : null;
@@ -175,17 +176,19 @@ function BudgetsPage() {
           }
         />
         {withLimit.length > 0 ? (
-          <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-            {withLimit.map(({ c, limit, spent: s }) => (
-              <BudgetGauge
-                key={c.id}
-                name={`${c.emoji} ${c.name}`}
-                spent={s}
-                limit={limit}
-                pace={pace}
-                onClick={() => setTarget({ key: c.id, title: c.name, current: limit, spent: s })}
-              />
-            ))}
+          <div className="mt-4">
+            <BudgetBullets
+              rows={withLimit.map(({ c, limit, spent: s }) => ({
+                key: c.id,
+                name: `${c.emoji} ${c.name}`,
+                spent: s,
+                limit,
+              }))}
+              pace={pace}
+              onPick={(r) =>
+                setTarget({ key: r.key, title: byName(r.key), current: r.limit, spent: r.spent })
+              }
+            />
           </div>
         ) : (
           !isPending && (

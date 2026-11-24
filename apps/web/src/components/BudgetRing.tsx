@@ -251,66 +251,130 @@ export function HalfRing({
   );
 }
 
-/**
- * A budget card for the Budgets page: a half donut on top, then the name, the status in
- * words and the exact figures, centred. With `onClick` the whole card is a button.
- */
-export function BudgetGauge({
-  name,
-  spent,
-  limit,
-  pace,
-  onClick,
-}: {
+export interface BulletRow {
+  key: string;
   name: string;
   spent: number;
   limit: number;
+}
+
+const FILL: Record<BudgetState, string> = {
+  ok: "bg-ink",
+  warning: "bg-warning",
+  over: "bg-danger",
+};
+
+/**
+ * Category budgets as bullet bars on one shared scale: every bar is measured against its
+ * own limit, so the limit line sits at the same place on every row. Over budget, the bar
+ * runs on past the line in red, so 227% reaches much further than 108%. The tick marks
+ * where spending should be by today. Click a row to edit its limit.
+ */
+export function BudgetBullets({
+  rows,
+  pace,
+  onPick,
+}: {
+  rows: BulletRow[];
   pace?: number | null;
-  onClick?: () => void;
+  onPick?: (row: BulletRow) => void;
 }) {
   const money = useMoney();
-  const p = budgetProgress(spent, limit);
-  const pct = Number.isFinite(p.ratio) ? Math.round(p.ratio * 100) : 100;
-  const status = p.over > 0 ? `${money(p.over)} over` : `${money(p.remaining)} left`;
-  const label = `${name}: ${pct}% used, ${money(spent)} of ${money(limit)}, ${status}`;
-
-  const body = (
-    <>
-      <HalfRing
-        spent={spent}
-        limit={limit}
-        width={150}
-        stroke={16}
-        textClass="text-[26px]"
-        pace={pace}
-      />
-      <span className="flex min-w-0 max-w-full flex-col items-center gap-0.5 text-center">
-        <span className="truncate text-base font-semibold">{name}</span>
-        <span className={cx("text-xl font-bold leading-tight", STATE_TEXT[p.state])}>{status}</span>
-        <span className="truncate text-[13px] text-muted">
-          {money(spent)} of {money(limit)}
-        </span>
-      </span>
-    </>
+  // The scale runs a little past the furthest bar, at least to 120% and at most to 250%.
+  const top = Math.min(
+    2.5,
+    Math.max(1.2, ...rows.map((r) => budgetProgress(r.spent, r.limit).ratio * 1.05)),
   );
-  // Flat, like the rest of the page: no box, just a soft wash on hover.
-  const box = "group relative flex flex-col items-center gap-3 rounded-2xl px-2 py-3 text-left";
+  const at = (ratio: number) => `${(Math.min(ratio, top) / top) * 100}%`;
+  const grid =
+    "grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 sm:grid-cols-[200px_minmax(0,1fr)_150px]";
+  const track = "col-span-2 sm:col-span-1 sm:col-start-2";
 
-  return onClick ? (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Edit ${label}`}
-      className={cx(box, "w-full cursor-pointer transition-colors hover:bg-surface")}
-    >
-      <span className="absolute top-3 right-3 text-muted opacity-0 transition-opacity group-hover:opacity-100">
-        <PencilIcon size={14} />
-      </span>
-      {body}
-    </button>
-  ) : (
-    <div role="img" aria-label={label} className={box}>
-      {body}
+  return (
+    <div className="flex flex-col">
+      {/* The scale: where the limit is, and where today's pace is. */}
+      <div
+        aria-hidden="true"
+        className={cx(grid, "mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted")}
+      >
+        <div className={cx(track, "relative h-5")}>
+          <span className="absolute -translate-x-1/2" style={{ left: at(1) }}>
+            Limit
+          </span>
+          {pace != null && pace > 0 && pace < 1 && (
+            <span className="absolute -translate-x-1/2 text-faint" style={{ left: at(pace) }}>
+              Today
+            </span>
+          )}
+        </div>
+      </div>
+      {rows.map((r) => {
+        const p = budgetProgress(r.spent, r.limit);
+        const pct = Number.isFinite(p.ratio) ? Math.round(p.ratio * 100) : 100;
+        const status = p.over > 0 ? `${money(p.over)} over` : `${money(p.remaining)} left`;
+        const width = r.spent > 0 ? `max(6px, ${at(p.ratio)})` : "0%";
+        return (
+          <button
+            key={r.key}
+            type="button"
+            onClick={() => onPick?.(r)}
+            aria-label={`Edit ${r.name}: ${pct}% used, ${money(r.spent)} of ${money(r.limit)}, ${status}`}
+            className={cx(
+              grid,
+              "group -mx-3 cursor-pointer items-center gap-y-2 rounded-xl px-3 py-3.5 text-left transition-colors hover:bg-surface",
+            )}
+          >
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate font-semibold">{r.name}</span>
+              <span className="truncate text-[13px] text-muted">
+                {money(r.spent)} of {money(r.limit)}
+              </span>
+            </span>
+            <span className={cx(track, "relative row-start-2 h-7 sm:row-start-1")}>
+              {/* The limit's worth of track, and a fainter stretch past it. */}
+              <span
+                className="absolute inset-y-0 left-0 rounded-l-lg bg-surface-strong"
+                style={{ width: at(1) }}
+              />
+              <span
+                className="absolute inset-y-0 right-0 rounded-r-lg bg-surface"
+                style={{ left: at(1) }}
+              />
+              <span
+                className={cx(
+                  "absolute inset-y-0 left-0 rounded-lg transition-[width] duration-700 ease-out",
+                  FILL[p.state],
+                )}
+                style={{ width }}
+              />
+              {/* The limit line, cut through the bar in the page colour so it shows on red too. */}
+              <span
+                className="absolute -inset-y-1.5 w-[3px] -translate-x-1/2 rounded-full bg-bg"
+                style={{ left: at(1) }}
+              />
+              <span
+                className="absolute -inset-y-1.5 w-[1.5px] -translate-x-1/2 rounded-full bg-ink"
+                style={{ left: at(1) }}
+              />
+              {pace != null && pace > 0 && pace < 1 && (
+                <span
+                  title={`Should be at ${Math.round(pace * 100)}% by today`}
+                  className="absolute inset-y-1 w-[2.5px] -translate-x-1/2 rounded-full bg-bg/80"
+                  style={{ left: at(pace) }}
+                />
+              )}
+            </span>
+            <span className="flex flex-col items-end text-right sm:col-start-3">
+              <span className={cx("text-lg font-bold leading-tight", STATE_TEXT[p.state])}>
+                {status}
+              </span>
+              <span className={cx("text-[13px] font-semibold tabular-nums", STATE_TEXT[p.state])}>
+                {pct}%
+              </span>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
