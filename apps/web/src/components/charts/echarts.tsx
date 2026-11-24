@@ -60,6 +60,14 @@ export function esc(s: string): string {
   );
 }
 
+/**
+ * For text drawn by ECharts itself (labels, not tooltips): it's plain text, so no HTML
+ * escaping, but braces and pipes would be read as rich-text markup.
+ */
+export function richSafe(s: string): string {
+  return s.replace(/[{}|]/g, "");
+}
+
 export interface TipLine {
   /** Colour of the short key before the value; omit for none. */
   color?: string;

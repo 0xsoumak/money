@@ -2,7 +2,7 @@ import { type MoneyFlow as Flow, OTHER } from "@money/shared";
 import { useMemo } from "react";
 import { useMoney } from "../../lib/hooks";
 import type { Category } from "../../lib/queries";
-import { alpha, C, catColor, EChart, esc, FONT, type Option, tipHtml } from "./echarts";
+import { alpha, C, catColor, EChart, FONT, type Option, richSafe, tipHtml } from "./echarts";
 
 const pct = (part: number, whole: number) =>
   whole > 0 ? `${Math.round((part / whole) * 100)}%` : "";
@@ -98,7 +98,7 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
           top: 12,
           bottom: 12,
           nodeWidth: 10,
-          nodeGap: 14,
+          nodeGap: 22,
           nodeAlign: "left",
           layoutIterations: 0,
           draggable: false,
@@ -114,7 +114,7 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
             textBorderColor: C.bg,
             textBorderWidth: 3,
             formatter: (p: { name: string; value: number }) =>
-              `{n|${esc(nameOf(p.name))}}\n{v|${money(p.value)}}  {p|${pct(p.value, whole)}}`,
+              `{n|${richSafe(nameOf(p.name))}}\n{v|${money(p.value)}}  {p|${pct(p.value, whole)}}`,
             rich: {
               n: { color: C.text, fontWeight: 700, fontSize: 13, fontFamily: FONT, lineHeight: 18 },
               v: { color: C.text, fontSize: 12, fontFamily: FONT },
@@ -137,6 +137,7 @@ export function MoneyFlow({ flow, byId }: { flow: Flow; byId: Map<string, Catego
   }, [flow, byId, money]);
 
   const label = `Income ${money(flow.income)}: spent ${money(flow.spent)}, invested ${money(flow.invested)}, kept ${money(flow.kept)}${flow.shortfall ? `, ${money(flow.shortfall)} from savings` : ""}.`;
-  const height = Math.max(320, 120 + flow.spending.length * 42);
+  // Each category label is two lines (~36px): give every node room so labels never overlap.
+  const height = Math.max(360, 80 + flow.spending.length * 60);
   return <EChart option={option} height={height} label={label} />;
 }
