@@ -10,9 +10,9 @@ import {
   weekdayHeadline,
 } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { BudgetRing } from "../../components/BudgetRing";
+import { BudgetBullets } from "../../components/BudgetRing";
 import { compactMoney, Panel, type Tone } from "../../components/charts/kit";
 import { PaceChart } from "../../components/charts/PaceChart";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
@@ -109,6 +109,7 @@ function Overview() {
 
   // ── This month against the usual: the pace chart, and a line from Analytics ──
   const todayDate = today();
+  const navigate = useNavigate();
   const analytics = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
   const fixedIds = useMemo(
     () => new Set(categories.filter((c) => c.fixed).map((c) => c.id)),
@@ -291,10 +292,17 @@ function Overview() {
                   </p>
                 ) : (
                   <>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {atRisk.map((b) => (
-                        <BudgetRing key={b.key} name={b.name} spent={b.spent} limit={b.limit} />
-                      ))}
+                    <div className="mt-4">
+                      <BudgetBullets
+                        rows={atRisk}
+                        pace={d?.running ? d.elapsed / d.days : null}
+                        onPick={() =>
+                          void navigate({
+                            to: "/budgets",
+                            search: (prev: { month?: string }) => ({ month: prev.month }),
+                          })
+                        }
+                      />
                     </div>
                     {onTrack > 0 && (
                       <p className="pt-3 text-sm text-muted">
