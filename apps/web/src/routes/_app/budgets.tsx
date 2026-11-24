@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { BudgetDialog, type BudgetTarget } from "../../components/BudgetDialog";
-import { BudgetRing, Ring, STATE_TEXT } from "../../components/BudgetRing";
+import { BudgetGauge, HalfRing, STATE_TEXT } from "../../components/BudgetRing";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { Button, cx, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
@@ -55,6 +55,8 @@ function BudgetsPage() {
       ? days
       : 0;
   const monthPct = Math.round((elapsed / days) * 100);
+  // Where spending would be today if it kept exactly to the budget; only while the month runs.
+  const pace = elapsed > 0 && elapsed < days ? elapsed / days : null;
   const usedPct = overallProgress ? Math.round(overallProgress.ratio * 100) : 0;
   // Ahead of the month's pace reads as a warning (or worse, if already over).
   const paceState =
@@ -79,10 +81,17 @@ function BudgetsPage() {
           <button
             type="button"
             onClick={() => setTarget({ key: "overall", title: "Overall", current: overall, spent })}
-            className="mt-5 flex w-full cursor-pointer flex-wrap items-center gap-x-10 gap-y-6 rounded-2xl border-2 border-line p-6 text-left transition-colors hover:border-line-strong/60 sm:p-8"
+            className="group mt-6 flex w-full cursor-pointer flex-wrap items-end gap-x-12 gap-y-6 text-left"
             aria-label={`Edit overall budget, ${money(overall)}`}
           >
-            <Ring spent={spent} limit={overall} size={176} stroke={18} textClass="text-[40px]" />
+            <HalfRing
+              spent={spent}
+              limit={overall}
+              width={260}
+              stroke={26}
+              textClass="text-[48px]"
+              pace={pace}
+            />
             <span className="flex min-w-0 flex-1 flex-col gap-1">
               <Label>{overallProgress.over > 0 ? "Over budget by" : "Left to spend"}</Label>
               <span
@@ -105,6 +114,15 @@ function BudgetsPage() {
                   in {monthPct}% of the month
                 </span>
               )}
+              {pace !== null && (
+                <span className="mt-1 inline-flex items-center gap-2 text-[13px] text-muted">
+                  <span aria-hidden="true" className="inline-block h-3.5 w-[2px] rounded bg-ink" />
+                  The tick on each gauge: where spending should be by today
+                </span>
+              )}
+              <span className="mt-2 text-[13px] font-semibold text-muted underline-offset-4 group-hover:text-ink group-hover:underline">
+                Edit budget
+              </span>
             </span>
           </button>
         ) : (
@@ -137,13 +155,14 @@ function BudgetsPage() {
           }
         />
         {withLimit.length > 0 ? (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
             {withLimit.map(({ c, limit, spent: s }) => (
-              <BudgetRing
+              <BudgetGauge
                 key={c.id}
                 name={`${c.emoji} ${c.name}`}
                 spent={s}
                 limit={limit}
+                pace={pace}
                 onClick={() => setTarget({ key: c.id, title: c.name, current: limit, spent: s })}
               />
             ))}
