@@ -1,15 +1,21 @@
-import { monthTitle } from "@money/shared";
+import { investedByMonth, monthTitle } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { MonthTrend } from "../../components/Charts";
+import { InvestBars } from "../../components/charts/InvestBars";
+import { Panel } from "../../components/charts/kit";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { CountUp, Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
-import { ShareBar } from "../../components/ShareBar";
 import { TransactionList } from "../../components/TransactionList";
 import { Button, cx, EmptyState, Label, SectionHeader, Skeleton } from "../../components/ui";
 import { useMoney, useMonth } from "../../lib/hooks";
-import { categoriesQuery, investmentsQuery, transactionsQuery } from "../../lib/queries";
+import {
+  analyticsQuery,
+  type Category,
+  categoriesQuery,
+  investmentsQuery,
+  transactionsQuery,
+} from "../../lib/queries";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
 export const Route = createFileRoute("/_app/investments")({
@@ -29,6 +35,8 @@ function Investments() {
   const { data: categories = [] } = useQuery(categoriesQuery);
   const inv = useQuery({ ...investmentsQuery(month), placeholderData: keepPreviousData });
   const txs = useQuery({ ...transactionsQuery(month), placeholderData: keepPreviousData });
+  // The analytics rows carry every investment with its type, for the stacked month chart.
+  const rows = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
 
   const thisMonth = (txs.data ?? []).filter((t) => t.type === "investment");
   const monthTotal = thisMonth.reduce((t, x) => t + x.amount, 0);
@@ -36,6 +44,18 @@ function Investments() {
   const stale = inv.isPlaceholderData || txs.isPlaceholderData;
   const data = inv.data;
   const none = data !== undefined && data.total === 0;
+  const byId = new Map<string, Category>(categories.map((c) => [c.id, c]));
+  const share = (data?.byCategory ?? [])
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .map((r) => ({ key: r.categoryId, amount: r.total }));
+  const months = data?.months ?? [];
+  const investedMonths = months.filter((m) => m.invested > 0).length;
+  const top = share[0];
+  const stacked = investedByMonth(
+    rows.data?.rows ?? [],
+    months.map((m) => m.month),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -90,31 +110,31 @@ function Investments() {
           />
         ) : (
           <>
-            {data && (
+            {data ? (
               <Reveal>
-                <ShareBar
-                  items={data.byCategory}
-                  categories={categories}
-                  label="Invested by bucket"
-                />
-              </Reveal>
-            )}
-
-            <Reveal>
-              <SectionHeader title="Last 12 months" />
-              <div className="mt-5">
-                {data ? (
-                  <MonthTrend
-                    months={data.months.map((m) => ({ month: m.month, value: m.invested }))}
+                <Panel
+                  id="months"
+                  title={`Last ${months.length} months`}
+                  note={
+                    top
+                      ? `${byId.get(top.key)?.name ?? "One type"} holds ${Math.round((top.amount / data.total) * 100)}% of all of it`
+                      : undefined
+                  }
+                  takeaway={`Invested in ${investedMonths} of ${months.length} months`}
+                  tone={investedMonths >= months.length * 0.75 ? "good" : "info"}
+                >
+                  <InvestBars
+                    months={stacked}
+                    allTime={share}
+                    byId={byId}
                     current={month}
                     onPick={setMonth}
-                    verb="invested"
                   />
-                ) : (
-                  <Skeleton className="h-[188px]" />
-                )}
-              </div>
-            </Reveal>
+                </Panel>
+              </Reveal>
+            ) : (
+              <Skeleton className="h-[380px]" />
+            )}
 
             <Reveal>
               <SectionHeader

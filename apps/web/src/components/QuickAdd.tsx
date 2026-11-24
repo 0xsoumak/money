@@ -36,7 +36,7 @@ import { DatePicker } from "./DatePicker";
 import { BackspaceIcon, CloseIcon } from "./icons";
 import { tween } from "./motion";
 import { useToast } from "./Toast";
-import { Button, cx, fieldClass, IconButton } from "./ui";
+import { Button, catTint, cx, fieldClass, IconButton } from "./ui";
 
 interface Draft {
   id: string;
@@ -81,6 +81,31 @@ function writeLast(type: TransactionType, id: string) {
   }
 }
 
+// Manual entry or "describe it" with AI. The last one picked sticks for the next new entry.
+type Mode = "manual" | "ai";
+const MODE_KEY = "mt:entryMode";
+function readMode(): Mode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "ai" ? "ai" : "manual";
+  } catch {
+    return "manual";
+  }
+}
+function writeMode(mode: Mode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // storage unavailable; fine
+  }
+}
+
+const AI_EXAMPLES = [
+  "450 groceries",
+  "Spent 1200 on dinner yesterday",
+  "Salary 75000",
+  "5000 into SIP",
+];
+
 function yesterday(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
@@ -100,6 +125,14 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
   const money = useMoney();
   const ai = useAiEntry();
   const [describe, setDescribe] = useState("");
+  const describeRef = useRef<HTMLTextAreaElement>(null);
+  const [mode, setModeState] = useState<Mode>(readMode);
+  const setMode = (m: Mode) => {
+    setModeState(m);
+    writeMode(m);
+    // Wait a frame so the field for the new mode is mounted.
+    requestAnimationFrame(() => (m === "ai" ? describeRef.current : amountRef.current)?.focus());
+  };
 
   const pickCategory = useCallback(
     (type: TransactionType): string | null => {
@@ -195,8 +228,10 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
 
   // Keyboard entry: digits, ".", Backspace edit the amount; Enter saves (unless a button has focus).
   const open = draft !== null;
+  // Editing is always manual; the AI box only makes new entries.
+  const aiMode = mode === "ai" && !!draft && !draft.editing;
   useEffect(() => {
-    if (!open) return;
+    if (!open || aiMode) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement;
@@ -214,7 +249,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, submit]);
+  }, [open, aiMode, submit]);
 
   // Global shortcut: N opens quick add.
   useEffect(() => {
@@ -246,7 +281,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/75 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
           <Dialog.Popup
-            initialFocus={amountRef}
+            initialFocus={aiMode ? describeRef : amountRef}
             className="fixed inset-x-0 bottom-0 z-50 flex max-h-[100dvh] flex-col overflow-y-auto rounded-t-xl border-2 border-line-strong/25 bg-bg p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] outline-none transition duration-200 data-[ending-style]:translate-y-6 data-[starting-style]:translate-y-6 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[28rem] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:data-[ending-style]:translate-y-[-45%] sm:data-[starting-style]:translate-y-[-45%]"
           >
             {draft && (
@@ -262,7 +297,45 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                   <Dialog.Title className="sr-only">
                     {draft.editing ? "Edit transaction" : "New transaction"}
                   </Dialog.Title>
-                  <div className="flex gap-1.5" role="group" aria-label="Type">
+                  {/* First choice: type it in yourself, or describe it and let the AI fill it in. */}
+                  {!draft.editing && (
+                    <div
+                      className="grid grid-cols-2 gap-1 rounded-xl bg-surface p-1"
+                      role="tablist"
+                      aria-label="Entry mode"
+                    >
+                      {(["manual", "ai"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          role="tab"
+                          aria-selected={mode === m}
+                          onClick={() => setMode(m)}
+                          className={cx(
+                            "flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-5 text-sm font-bold uppercase tracking-wider transition-colors",
+                            mode === m
+                              ? m === "ai"
+                                ? "bg-accent text-on-accent"
+                                : "bg-ink text-bg"
+                              : "text-muted hover:text-ink",
+                          )}
+                        >
+                          {m === "ai" ? (
+                            <>
+                              <span aria-hidden="true">✦</span> AI
+                            </>
+                          ) : (
+                            "Manual"
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Then the type. In AI mode the model works it out from the sentence. */}
+                {!aiMode && (
+                  <div className="mt-4 grid grid-cols-3 gap-1.5" role="group" aria-label="Type">
                     {TRANSACTION_TYPES.map((t) => (
                       <button
                         key={t}
@@ -273,7 +346,7 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                           refocusAmount();
                         }}
                         className={cx(
-                          "min-h-11 cursor-pointer rounded-lg px-4 text-sm font-bold uppercase tracking-wider",
+                          "min-h-11 cursor-pointer rounded-lg px-2 text-sm font-bold uppercase tracking-wider",
                           draft.type === t
                             ? "bg-ink text-bg"
                             : "border-2 border-line-strong/25 text-muted",
@@ -283,182 +356,204 @@ export function QuickAddProvider({ children }: { children: ReactNode }) {
                       </button>
                     ))}
                   </div>
-                </div>
+                )}
 
-                {!draft.editing && (
+                {aiMode ? (
                   <form
-                    className="mt-4 flex gap-2 sm:mt-6"
+                    className="mt-5 flex flex-col"
                     onSubmit={(e) => {
                       e.preventDefault();
                       submitDescribe();
                     }}
                   >
-                    <input
-                      type="text"
-                      aria-label="Describe it"
-                      placeholder="Or type it: spent 500 on dinner yesterday"
+                    <label
+                      htmlFor="qa-describe"
+                      className="text-sm font-bold uppercase tracking-[0.12em] text-muted"
+                    >
+                      What happened?
+                    </label>
+                    <textarea
+                      id="qa-describe"
+                      ref={describeRef}
+                      rows={3}
+                      placeholder="Spent 500 on dinner yesterday"
                       value={describe}
                       maxLength={ENTRY_TEXT_MAX}
                       disabled={ai.isPending}
                       onChange={(e) => setDescribe(e.target.value)}
-                      // Enter here sends the sentence, not the amount form below.
+                      // Enter sends; Shift+Enter is a new line.
                       onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
+                        if (e.key !== "Enter" || e.shiftKey) return;
                         e.preventDefault();
-                        e.stopPropagation();
                         submitDescribe();
                       }}
-                      className={cx(fieldClass, "min-h-11 flex-1")}
+                      className="mt-2 w-full resize-none rounded-xl border-2 border-line-strong/25 bg-transparent p-4 text-[22px] font-semibold leading-snug text-ink placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-60"
                     />
+                    <p className="mt-2 text-[13px] text-faint">
+                      Say the amount, what it was for and when. The category, type and date are
+                      worked out for you, and you can undo it.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2" aria-label="Examples">
+                      {AI_EXAMPLES.map((ex) => (
+                        <button
+                          key={ex}
+                          type="button"
+                          onClick={() => {
+                            setDescribe(ex);
+                            describeRef.current?.focus();
+                          }}
+                          className="min-h-11 cursor-pointer rounded-lg border-2 border-line-strong/25 px-3.5 text-sm font-semibold text-muted transition-colors hover:border-line-strong/60 hover:text-ink"
+                        >
+                          {ex}
+                        </button>
+                      ))}
+                    </div>
                     <Button
                       type="submit"
-                      variant="outline"
                       disabled={!describe.trim() || ai.isPending}
-                      className="min-h-11 shrink-0"
+                      className="mt-6 h-14 w-full text-lg sm:h-16"
                     >
-                      {ai.isPending ? "Adding…" : "Add"}
+                      {ai.isPending ? "Adding…" : describe.trim() ? "Add it" : "Describe it first"}
                     </Button>
                   </form>
-                )}
-
-                <div className="pt-4 sm:pt-8">
-                  <p className="text-sm font-bold uppercase tracking-[0.12em] text-muted">
-                    {draft.editing ? "Editing" : "New"} · {draft.type}
-                  </p>
-                  <p
-                    ref={amountRef}
-                    tabIndex={-1}
-                    aria-live="polite"
-                    className={cx(
-                      "mt-1 break-all text-[64px] font-bold leading-[0.95] tracking-[-0.06em] outline-none sm:mt-2 sm:text-[88px]",
-                      draft.amount ? "text-accent" : "text-faint",
-                    )}
-                  >
-                    {/* Each digit eases in as it is typed. */}
-                    <AnimatePresence initial={false} mode="popLayout">
-                      {(draft.amount || "0").split("").map((ch, i) => (
-                        <motion.span
-                          key={`${i}-${ch}`}
-                          className="inline-block"
-                          initial={{ y: "20%", opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          exit={{ opacity: 0, transition: { duration: 0.08 } }}
-                          transition={tween.fast}
-                        >
-                          {ch}
-                        </motion.span>
-                      ))}
-                    </AnimatePresence>
-                  </p>
-                </div>
-
-                {/* One swipeable row on phones so the keypad stays on screen; wraps on desktop. */}
-                <div
-                  className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:mt-5 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
-                  role="group"
-                  aria-label="Category"
-                >
-                  {visibleCategories.map((c) => {
-                    const selected = c.id === draft.categoryId;
-                    return (
-                      <motion.button
-                        key={c.id}
-                        type="button"
-                        whileTap={{ scale: 0.96 }}
-                        transition={tween.fast}
-                        aria-pressed={selected}
-                        onClick={() => {
-                          setDraft({ ...draft, categoryId: c.id });
-                          refocusAmount();
-                        }}
+                ) : (
+                  <>
+                    <div className="pt-4 sm:pt-8">
+                      <p className="text-sm font-bold uppercase tracking-[0.12em] text-muted">
+                        {draft.editing ? "Editing" : "New"} · {draft.type}
+                      </p>
+                      <p
+                        ref={amountRef}
+                        tabIndex={-1}
+                        aria-live="polite"
                         className={cx(
-                          "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 px-3.5 text-[15px] font-semibold",
-                          selected
-                            ? "text-on-accent"
-                            : "border-line-strong/25 transition-colors hover:border-line-strong/60",
+                          "mt-1 break-all text-[64px] font-bold leading-[0.95] tracking-[-0.06em] outline-none sm:mt-2 sm:text-[88px]",
+                          draft.amount ? "text-accent" : "text-faint",
                         )}
-                        style={
-                          selected
-                            ? {
-                                backgroundColor: `var(--cat-${c.color})`,
-                                borderColor: `var(--cat-${c.color})`,
-                              }
-                            : undefined
-                        }
                       >
-                        <span aria-hidden="true">{c.emoji}</span>
-                        {c.name}
-                      </motion.button>
-                    );
-                  })}
-                </div>
+                        {/* Each digit eases in as it is typed. */}
+                        <AnimatePresence initial={false} mode="popLayout">
+                          {(draft.amount || "0").split("").map((ch, i) => (
+                            <motion.span
+                              key={`${i}-${ch}`}
+                              className="inline-block"
+                              initial={{ y: "20%", opacity: 0 }}
+                              animate={{ y: 0, opacity: 1 }}
+                              exit={{ opacity: 0, transition: { duration: 0.08 } }}
+                              transition={tween.fast}
+                            >
+                              {ch}
+                            </motion.span>
+                          ))}
+                        </AnimatePresence>
+                      </p>
+                    </div>
 
-                <div className="mt-3 flex flex-col gap-2 sm:mt-5 sm:gap-3">
-                  <input
-                    type="text"
-                    aria-label="Note"
-                    placeholder="Add a note"
-                    value={draft.note}
-                    maxLength={500}
-                    onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-                    className={cx(fieldClass, "min-h-11")}
-                  />
-                  <div className="flex items-center gap-1.5">
-                    <DatePill
-                      label="Today"
-                      active={draft.date === today()}
-                      onClick={() => {
-                        setDraft({ ...draft, date: today() });
-                        refocusAmount();
-                      }}
-                    />
-                    <DatePill
-                      label="Yesterday"
-                      active={draft.date === yesterday()}
-                      onClick={() => {
-                        setDraft({ ...draft, date: yesterday() });
-                        refocusAmount();
-                      }}
-                    />
-                    <DatePicker
-                      label="Date"
-                      value={draft.date}
-                      onChange={(date) => {
-                        setDraft({ ...draft, date });
-                        refocusAmount();
-                      }}
-                      className="ml-auto min-h-11"
-                    />
-                  </div>
-                </div>
-
-                {/* On-screen keypad for touch. Desktop uses the keyboard. */}
-                <div className="mt-3 hidden max-sm:grid [@media(pointer:coarse)]:grid grid-cols-3 gap-1.5">
-                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "Backspace"].map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      aria-label={k === "Backspace" ? "Delete" : k === "." ? "Decimal point" : k}
-                      onClick={() =>
-                        setDraft((d) => (d ? { ...d, amount: pressKey(d.amount, k) } : d))
-                      }
-                      className="flex h-14 cursor-pointer items-center justify-center rounded-[14px] bg-surface text-[26px] font-semibold transition-colors duration-100 hover:bg-surface-strong/60 active:bg-surface-strong"
+                    {/* One swipeable row on phones so the keypad stays on screen; wraps on desktop. */}
+                    <div
+                      className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:mt-5 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
+                      role="group"
+                      aria-label="Category"
                     >
-                      {k === "Backspace" ? <BackspaceIcon /> : k}
-                    </button>
-                  ))}
-                </div>
+                      {visibleCategories.map((c) => {
+                        const selected = c.id === draft.categoryId;
+                        return (
+                          <motion.button
+                            key={c.id}
+                            type="button"
+                            whileTap={{ scale: 0.96 }}
+                            transition={tween.fast}
+                            aria-pressed={selected}
+                            onClick={() => {
+                              setDraft({ ...draft, categoryId: c.id });
+                              refocusAmount();
+                            }}
+                            className={cx(
+                              "flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-2 px-3.5 text-[15px] font-semibold",
+                              !selected &&
+                                "border-line-strong/25 transition-colors hover:border-line-strong/60",
+                            )}
+                            style={selected ? catTint(c.color) : undefined}
+                          >
+                            <span aria-hidden="true">{c.emoji}</span>
+                            {c.name}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
 
-                <Button
-                  onClick={submit}
-                  disabled={!canSave}
-                  className="mt-3 h-14 w-full text-lg sm:mt-5 sm:h-16"
-                >
-                  {canSave && minor ? `Save ${money(minor)}` : "Enter an amount"}
-                </Button>
-                <p className="mt-3 hidden text-center text-[13px] text-faint sm:block">
-                  Type the amount, press Enter to save
-                </p>
+                    <div className="mt-3 flex flex-col gap-2 sm:mt-5 sm:gap-3">
+                      <input
+                        type="text"
+                        aria-label="Note"
+                        placeholder="Add a note"
+                        value={draft.note}
+                        maxLength={500}
+                        onChange={(e) => setDraft({ ...draft, note: e.target.value })}
+                        className={cx(fieldClass, "min-h-11")}
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <DatePill
+                          label="Today"
+                          active={draft.date === today()}
+                          onClick={() => {
+                            setDraft({ ...draft, date: today() });
+                            refocusAmount();
+                          }}
+                        />
+                        <DatePill
+                          label="Yesterday"
+                          active={draft.date === yesterday()}
+                          onClick={() => {
+                            setDraft({ ...draft, date: yesterday() });
+                            refocusAmount();
+                          }}
+                        />
+                        <DatePicker
+                          label="Date"
+                          value={draft.date}
+                          onChange={(date) => {
+                            setDraft({ ...draft, date });
+                            refocusAmount();
+                          }}
+                          className="ml-auto min-h-11"
+                        />
+                      </div>
+                    </div>
+
+                    {/* On-screen keypad for touch. Desktop uses the keyboard. */}
+                    <div className="mt-3 hidden max-sm:grid [@media(pointer:coarse)]:grid grid-cols-3 gap-1.5">
+                      {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "Backspace"].map(
+                        (k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            aria-label={
+                              k === "Backspace" ? "Delete" : k === "." ? "Decimal point" : k
+                            }
+                            onClick={() =>
+                              setDraft((d) => (d ? { ...d, amount: pressKey(d.amount, k) } : d))
+                            }
+                            className="flex h-14 cursor-pointer items-center justify-center rounded-[14px] bg-surface text-[26px] font-semibold transition-colors duration-100 hover:bg-surface-strong/60 active:bg-surface-strong"
+                          >
+                            {k === "Backspace" ? <BackspaceIcon /> : k}
+                          </button>
+                        ),
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={submit}
+                      disabled={!canSave}
+                      className="mt-3 h-14 w-full text-lg sm:mt-5 sm:h-16"
+                    >
+                      {canSave && minor ? `Save ${money(minor)}` : "Enter an amount"}
+                    </Button>
+                    <p className="mt-3 hidden text-center text-[13px] text-faint sm:block">
+                      Type the amount, press Enter to save
+                    </p>
+                  </>
+                )}
               </>
             )}
           </Dialog.Popup>

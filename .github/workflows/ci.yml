@@ -2,6 +2,10 @@
 #   - web + API: applies new database migrations, builds the web app, deploys the Worker
 #   - mobile: publishes an over-the-air update, only when the mobile app or shared code changed
 #
+# It can also be run by hand on main (Actions → CI → Run workflow). That redeploys web + API and,
+# if "publish mobile" is ticked, publishes the mobile update. Use it when an earlier run failed
+# before shipping: the automatic check only looks at the files in the latest push.
+#
 # Needs these repository secrets (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN   token with "Edit Cloudflare Workers" + D1 edit permissions
 #   CLOUDFLARE_ACCOUNT_ID  your Cloudflare account id
@@ -13,6 +17,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      publish_mobile:
+        description: Publish the mobile over-the-air update too
+        type: boolean
+        default: true
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -54,7 +64,7 @@ jobs:
   deploy-web:
     name: Deploy web + API
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -79,7 +89,12 @@ jobs:
   update-mobile:
     name: Publish mobile OTA update
     needs: [check, changes, deploy-web] # after the API it talks to is live
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.mobile == 'true'
+    # !cancelled() lets this run on manual runs, where "What changed" is skipped; the result
+    # checks still stop it if the checks or the deploy failed.
+    if: >-
+      !cancelled() && github.ref == 'refs/heads/main' &&
+      needs.check.result == 'success' && needs.deploy-web.result == 'success' &&
+      (needs.changes.outputs.mobile == 'true' || (github.event_name == 'workflow_dispatch' && inputs.publish_mobile))
     runs-on: ubuntu-latest
     environment: production
     concurrency:

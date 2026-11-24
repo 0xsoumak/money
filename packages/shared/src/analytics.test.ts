@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   type AnalyticsRow,
   analyticsWindow,
+  categoryShare,
   dailyExpenses,
   dayStats,
   heatLevel,
   heatLevels,
+  investedByMonth,
   moneyFlow,
   OTHER,
   runningTotals,
-  savingsRates,
   spendCurve,
   stackLinks,
   topWithOther,
@@ -177,16 +178,40 @@ describe("days", () => {
   });
 });
 
-describe("savingsRates", () => {
-  it("divides investing by income, null without income", () => {
-    expect(
-      savingsRates(
-        [row("2026-10-01", 1000, "s", "income"), row("2026-10-02", 250, "mf", "investment")],
-        ["2026-10", "2026-11"],
-      ),
-    ).toEqual([
-      { month: "2026-10", income: 1000, invested: 250, rate: 0.25 },
-      { month: "2026-11", income: 0, invested: 0, rate: null },
+/** An expense in rupees. */
+const r = (date: string, categoryId: string, rupees: number) => row(date, rupees * 100, categoryId);
+
+describe("categoryShare", () => {
+  it("totals categories over the given months and folds the smallest", () => {
+    const rows = [
+      r("2026-09-01", "food", 900),
+      r("2026-10-01", "food", 100),
+      r("2026-11-01", "food", 100),
+      r("2026-11-01", "fun", 300),
+      r("2026-11-01", "tiny", 1),
+      r("2026-11-01", "odd", 2),
+    ];
+    expect(categoryShare(rows, ["2026-10", "2026-11"], 3)).toEqual([
+      { key: "fun", amount: 30_000 },
+      { key: "food", amount: 20_000 },
+      { key: OTHER, amount: 300 },
+    ]);
+  });
+});
+
+describe("investedByMonth", () => {
+  it("splits each month's investing by category and keeps empty months", () => {
+    const rows: AnalyticsRow[] = [
+      { date: "2026-07-03", type: "investment", amount: 5000, categoryId: "fd", note: null },
+      { date: "2026-07-09", type: "investment", amount: 1000, categoryId: "fd", note: null },
+      { date: "2026-09-01", type: "investment", amount: 200, categoryId: "mf", note: null },
+      { date: "2026-09-02", type: "expense", amount: 999, categoryId: "food", note: null },
+      { date: "2026-05-01", type: "investment", amount: 7, categoryId: "mf", note: null },
+    ];
+    expect(investedByMonth(rows, ["2026-07", "2026-08", "2026-09"])).toEqual([
+      { month: "2026-07", parts: [{ key: "fd", amount: 6000 }] },
+      { month: "2026-08", parts: [] },
+      { month: "2026-09", parts: [{ key: "mf", amount: 200 }] },
     ]);
   });
 });

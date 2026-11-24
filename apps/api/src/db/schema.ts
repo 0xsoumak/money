@@ -91,6 +91,11 @@ export const categories = sqliteTable("categories", {
   color: text("color").notNull(),
   kind: text("kind", { enum: ["expense", "income", "investment"] }).notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
+  /**
+   * A fixed cost (rent, EMIs, family support): spent every month whatever you decide.
+   * Analytics compares flexible spending only, so a fixed payment can't read as overspending.
+   */
+  fixed: integer("fixed", { mode: "boolean" }).notNull().default(false),
   archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
   ...timestamps,
 });

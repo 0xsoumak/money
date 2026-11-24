@@ -20,16 +20,19 @@ export function MonthSwitcher() {
     prev.current = month;
   }, [month]);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+    <View
+      style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1, minWidth: 0 }}
+    >
       <IconButton label="Previous month" bordered onPress={() => setMonth(addMonths(month, -1))}>
         <Feather name="chevron-left" size={20} color={c.text} />
       </IconButton>
-      <View style={{ minWidth: 150, overflow: "hidden" }}>
+      {/* Prefers 150 wide but gives way on narrow phones, so the row never runs under its neighbours. */}
+      <View style={{ flexBasis: 150, flexShrink: 1, minWidth: 0, overflow: "hidden" }}>
         <Animated.View
           key={month}
           entering={(forward ? FadeInRight : FadeInLeft).duration(duration.base).easing(ease)}
         >
-          <T variant="label" style={{ textAlign: "center" }} accessibilityRole="header">
+          <T variant="label" style={{ textAlign: "center" }} accessibilityRole="header" fit>
             {monthTitle(month)}
           </T>
         </Animated.View>
@@ -41,7 +44,7 @@ export function MonthSwitcher() {
         <Pressable
           accessibilityRole="button"
           onPress={() => setMonth(currentMonth())}
-          style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 10 }}
+          style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 6, flexShrink: 0 }}
         >
           <T variant="label" color={c.accent} size={13}>
             Today

@@ -59,13 +59,76 @@ describe("categories", () => {
     expect((await unarchived.json<Json>()).category.archivedAt).toBeNull();
   });
 
+  it("stores whether a category is a fixed cost", async () => {
+    const created = await api("/api/categories", {
+      method: "POST",
+      json: { name: "EMI", emoji: "🏦", color: "sky", kind: "expense", fixed: true },
+    });
+    const { category } = await created.json<Json>();
+    expect(category.fixed).toBe(true);
+    const patched = await api(`/api/categories/${category.id}`, {
+      method: "PATCH",
+      json: { fixed: false },
+    });
+    expect((await patched.json<Json>()).category.fixed).toBe(false);
+    // Rent & Home starts out fixed (migration 0004); new categories default to flexible.
+    const { categories } = await (await api("/api/categories")).json<Json>();
+    expect(categories.find((c: Json) => c.name === "Rent & Home").fixed).toBe(true);
+    expect(categories.find((c: Json) => c.name === "Groceries").fixed).toBe(false);
+  });
+
+  it("refuses a second active category with the same name and kind", async () => {
+    const make = (name: string, kind = "expense") =>
+      api("/api/categories", { method: "POST", json: { name, emoji: "🍵", color: "mint", kind } });
+    const first = await make("Tea");
+    expect(first.status).toBe(201);
+    const { category } = await first.json<Json>();
+
+    // Case and surrounding spaces don't make it different.
+    const again = await make("  tea ");
+    expect(again.status).toBe(409);
+    expect((await again.json<Json>()).error).toMatch(/already have/);
+
+    // Same name under another kind is fine.
+    expect((await make("Tea", "income")).status).toBe(201);
+
+    // Renaming another category onto it is refused; renaming itself is not.
+    const other = await (await make("Chai")).json<Json>();
+    const clash = await api(`/api/categories/${other.category.id}`, {
+      method: "PATCH",
+      json: { name: "TEA" },
+    });
+    expect(clash.status).toBe(409);
+    const self = await api(`/api/categories/${category.id}`, {
+      method: "PATCH",
+      json: { name: "Tea" },
+    });
+    expect(self.status).toBe(200);
+
+    // Once archived the name is free again, but the archived one can't then come back.
+    await api(`/api/categories/${category.id}`, { method: "DELETE" });
+    expect((await make("Tea")).status).toBe(201);
+    const back = await api(`/api/categories/${category.id}`, {
+      method: "PATCH",
+      json: { archived: false },
+    });
+    expect(back.status).toBe(409);
+  });
+
   it("puts a new category at the end of its kind unless an order is given", async () => {
+    let n = 0;
     const make = async (extra: Json = {}) =>
       (
         await (
           await api("/api/categories", {
             method: "POST",
-            json: { name: "Order check", emoji: "x", color: "teal", kind: "income", ...extra },
+            json: {
+              name: `Order check ${++n}`,
+              emoji: "x",
+              color: "teal",
+              kind: "income",
+              ...extra,
+            },
           })
         ).json<Json>()
       ).category;

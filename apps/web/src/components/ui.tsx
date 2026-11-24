@@ -2,6 +2,19 @@ import { type HTMLMotionProps, motion } from "motion/react";
 import type { ReactNode } from "react";
 import { tap, tween } from "./motion";
 
+/**
+ * The one way a category color fills something: a soft tint with a stronger edge, never
+ * a solid block (solid fills next to each other are loud). Used for category tiles and for
+ * a selected category chip; the text on top stays the normal ink.
+ */
+export function catTint(color: string) {
+  const c = `var(--cat-${color})`;
+  return {
+    backgroundColor: `color-mix(in srgb, ${c} 20%, transparent)`,
+    borderColor: `color-mix(in srgb, ${c} 55%, transparent)`,
+  };
+}
+
 const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" ");
 
 type Variant = "primary" | "outline" | "ghost" | "danger";

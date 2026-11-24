@@ -43,6 +43,14 @@ body {
   outline-offset: 2px;
 }
 
+/* Text fields already show focus with an accent border; an outline on top reads as a double ring. */
+:is(
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="button"], [type="submit"]),
+  textarea
+):focus-visible {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

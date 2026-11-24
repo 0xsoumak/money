@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { storage } from "./storage";
 
 /**
- * "Hide balances": when on, every money value renders as ₹••••• (see useMoney and
+ * "Hide balances": when on, every money value renders as ₹***** (see useMoney and
  * compactMoney). Saved on the device, so it stays on across launches.
  */
 const KEY = "money.hideBalances";

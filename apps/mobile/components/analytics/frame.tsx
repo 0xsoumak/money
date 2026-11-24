@@ -1,5 +1,5 @@
 // Mobile twin of apps/web/src/components/analytics/frame.tsx. Keep the two in step.
-import { fonts, MASKED_MONEY, OTHER } from "@money/shared";
+import { fonts, MASKED_MONEY, OTHER, type Tone } from "@money/shared";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { type GestureResponderEvent, type LayoutChangeEvent, View } from "react-native";
 import { Text as SvgText } from "react-native-svg";
@@ -10,16 +10,21 @@ import { c, cat } from "../../lib/theme";
 import { T } from "../T";
 import { SectionHeader } from "../ui";
 
-/** One analytics block: title (with a note on the right), a headline sentence, then the chart. */
+/**
+ * One analytics block: title (with a note on the right), a headline sentence coloured by
+ * its tone (red for a warning, lime for good news), then the chart.
+ */
 export function ChartSection({
   title,
   note,
   headline,
+  tone,
   children,
 }: {
   title: string;
   note?: string;
   headline?: ReactNode;
+  tone?: Tone;
   children: ReactNode;
 }) {
   return (
@@ -35,7 +40,11 @@ export function ChartSection({
         }
       />
       {headline ? (
-        <T variant="title" size={21}>
+        <T
+          variant="title"
+          size={21}
+          color={tone === "warn" ? c.danger : tone === "good" ? c.accent : c.text}
+        >
           {headline}
         </T>
       ) : null}
@@ -178,26 +187,16 @@ export interface Series {
 
 /** Name and color for a series key: a category id, or OTHER. Same category, same color, everywhere. */
 export function seriesOf(key: string, byId: Map<string, Category>): Series {
-  if (key === OTHER) return { key, name: "Other", color: cat("slate") };
+  // Not "Other": that is a real category name too, and two "Other" rows read as a bug.
+  if (key === OTHER) return { key, name: "The rest", color: cat("slate") };
   const x = byId.get(key);
   return { key, name: x ? x.name : "Unknown", color: cat(x?.color ?? "slate") };
 }
 
-/** Blend two #rrggbb colors: t = 0 gives `a`, 1 gives `b`. RN has no color-mix(). */
-export function mix(a: string, b: string, t: number): string {
-  const p = (h: string, i: number) => Number.parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
-  const ch = (i: number) =>
-    Math.round(p(a, i) + (p(b, i) - p(a, i)) * t)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${ch(0)}${ch(1)}${ch(2)}`;
-}
-
-/** A #rrggbb color at the given opacity, blended over the background. */
-export const fade = (color: string, opacity: number) => mix(c.bg, color, opacity);
-
 /** Short month and date labels live in shared so every platform words them alike. */
 export { shortDate, shortMonth } from "@money/shared";
+/** Color blending lives with the theme; re-exported for the charts. */
+export { fade, mix } from "../../lib/theme";
 
 /** Compact money for ticks and tight labels: ₹950, ₹1.2k, ₹45k, ₹1.2L. */
 // Callers also use useMoney, so they re-render when balances are hidden or shown.

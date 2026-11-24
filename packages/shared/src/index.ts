@@ -2,9 +2,10 @@ import { ulid } from "ulidx";
 
 export * from "./amount";
 export * from "./analytics";
-export * from "./analyticsReport";
 export * from "./budget";
+export * from "./chartLabels";
 export * from "./dates";
+export * from "./decisions";
 export * from "./entry";
 export * from "./errors";
 export * from "./group";
@@ -12,6 +13,7 @@ export * from "./insights";
 export * from "./labels";
 export * from "./money";
 export * from "./schemas";
+export * from "./takeaways";
 export * from "./tokens";
 
 /** New sortable unique id. Generated on the client for transactions so retries are idempotent. */

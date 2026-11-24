@@ -4,6 +4,7 @@ import {
   analyticsWindow,
   budgetProgress,
   dailyExpenses,
+  daysInMonth,
   monthInsights,
   overviewStats,
   today,
@@ -14,7 +15,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useRouter } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, View } from "react-native";
-import { BudgetRing } from "../../components/BudgetRing";
+import { BudgetBullets } from "../../components/BudgetRing";
 import { StatGrid } from "../../components/Charts";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { PressableScale, Reveal, useCountUp } from "../../components/motion";
@@ -97,6 +98,10 @@ export default function Overview() {
   ].filter((b) => budgetProgress(b.spent, b.limit).state !== "ok");
   const budgetCount = (overall !== null ? 1 : 0) + categoryBudgets.length;
   const onTrack = budgetCount - atRisk.length;
+  // Where spending would be today if it kept to budget; only while the month runs.
+  const days = daysInMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
+  const elapsed = todayDate.startsWith(month) ? Number(todayDate.slice(8)) : 0;
+  const pace = elapsed > 0 && elapsed < days ? elapsed / days : null;
 
   // One line from the Analytics tab, as a way in.
   const analytics = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
@@ -119,8 +124,8 @@ export default function Overview() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <MonthSwitcher />
         </View>
         <IconButton
@@ -232,16 +237,12 @@ export default function Overview() {
                     </T>
                   </View>
                 ) : (
-                  <View style={{ marginTop: 16, gap: 8 }}>
-                    {atRisk.map((b) => (
-                      <BudgetRing
-                        key={b.key}
-                        name={b.name}
-                        spent={b.spent}
-                        limit={b.limit}
-                        onPress={() => router.navigate("/budgets")}
-                      />
-                    ))}
+                  <View style={{ marginTop: 12 }}>
+                    <BudgetBullets
+                      rows={atRisk}
+                      pace={pace}
+                      onPick={() => router.navigate("/budgets")}
+                    />
                     {onTrack > 0 && (
                       <T variant="caption" color={c.textMuted} style={{ marginTop: 4 }}>
                         {onTrack} other {onTrack === 1 ? "budget" : "budgets"} on track

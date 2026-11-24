@@ -12,7 +12,7 @@ import { tap } from "../../lib/haptics";
 import { useMoney } from "../../lib/hooks";
 import { useMonth } from "../../lib/month";
 import { categoriesQuery, transactionsQuery } from "../../lib/queries";
-import { c, radius } from "../../lib/theme";
+import { c, catTint, radius } from "../../lib/theme";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
 type TypeFilter = "all" | "expense" | "income" | "investment";
@@ -61,7 +61,13 @@ export default function Activity() {
       <MonthSwitcher />
 
       <View style={{ gap: 14 }}>
-        <View style={{ flexDirection: "row", gap: 6 }}>
+        {/* Both rows scroll sideways and run to the screen edges, so a cut-off chip reads as "more". */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={CHIP_ROW}
+          contentContainerStyle={CHIP_ROW_CONTENT}
+        >
           {TYPES.map((t) => (
             <Chip
               key={t.value}
@@ -70,12 +76,13 @@ export default function Activity() {
               onPress={() => setType(t.value)}
             />
           ))}
-        </View>
+        </ScrollView>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 6 }}
+          style={CHIP_ROW}
+          contentContainerStyle={CHIP_ROW_CONTENT}
         >
           <Chip
             label="All categories"
@@ -87,6 +94,7 @@ export default function Activity() {
               key={x.id}
               label={`${x.emoji} ${x.name}`}
               selected={categoryId === x.id}
+              tint={x.color}
               onPress={() => setCategoryId(categoryId === x.id ? null : x.id)}
             />
           ))}
@@ -138,15 +146,23 @@ export default function Activity() {
   );
 }
 
+// Cancels the screen's 16px side padding, then puts it back inside the scroll content.
+const CHIP_ROW = { marginHorizontal: -16, flexGrow: 0 } as const;
+const CHIP_ROW_CONTENT = { gap: 6, paddingHorizontal: 16 } as const;
+
+/** A filter chip. With `tint` (a category color) the selected state is that color's soft tint. */
 function Chip({
   label,
   selected,
   onPress,
+  tint,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  tint?: string;
 }) {
+  const tinted = selected && tint;
   return (
     <Pressable
       accessibilityRole="button"
@@ -163,9 +179,10 @@ function Chip({
         borderWidth: 2,
         borderColor: selected ? c.text : "rgba(244,244,240,0.25)",
         backgroundColor: selected ? c.text : "transparent",
+        ...(tinted ? catTint(tint) : {}),
       }}
     >
-      <T variant="label" size={13} color={selected ? c.bg : c.textMuted}>
+      <T variant="label" size={13} color={tinted ? c.text : selected ? c.bg : c.textMuted}>
         {label}
       </T>
     </Pressable>

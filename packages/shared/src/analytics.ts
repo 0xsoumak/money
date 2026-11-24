@@ -21,7 +21,7 @@ export const ANALYTICS_MONTHS = 13;
 export const ANALYTICS_RANGES = [3, 6, 12] as const;
 export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
-/** Series beyond this many are folded into "Other" so colors stay distinguishable. */
+/** Series beyond this many are folded into one "The rest" series so colors stay distinguishable. */
 export const MAX_SERIES = 6;
 export const OTHER = "other";
 
@@ -281,34 +281,38 @@ export function weekendRatio(averages: number[]): number | null {
 
 // ── Months ──────────────────────────────────────────────────────────────────
 
-/** Total spending in each of `months`, in order. */
-export function monthlySpending(rows: AnalyticsRow[], months: string[]): number[] {
-  const at = new Map(months.map((m) => [m, 0]));
+// ── Categories ──────────────────────────────────────────────────────────────
+
+/**
+ * Spending by category over several months, high to low, folded so at most `max`
+ * slices remain (the smallest go into OTHER). For a donut of where money usually goes.
+ */
+export function categoryShare(rows: AnalyticsRow[], months: string[], max = 7): Ranked[] {
+  const within = new Set(months);
+  const totals = new Map<string, number>();
   for (const r of rows) {
-    const m = monthOf(r.date);
-    if (isExpense(r) && at.has(m)) at.set(m, (at.get(m) ?? 0) + r.amount);
+    if (!isExpense(r) || !within.has(monthOf(r.date))) continue;
+    totals.set(r.categoryId, (totals.get(r.categoryId) ?? 0) + r.amount);
   }
-  return months.map((m) => at.get(m) ?? 0);
+  return topWithOther(totals, max);
 }
 
-export interface SavingsMonth {
-  month: string;
-  income: number;
-  invested: number;
-  /** invested ÷ income, or null for a month without income. */
-  rate: number | null;
-}
-
-export function savingsRates(rows: AnalyticsRow[], months: string[]): SavingsMonth[] {
-  const at = new Map(months.map((m) => [m, { income: 0, invested: 0 }]));
+/**
+ * Invested per month, split by category: one entry per month asked for (oldest first),
+ * each listing its categories with what went into them. Months with nothing are empty.
+ */
+export function investedByMonth(
+  rows: AnalyticsRow[],
+  months: string[],
+): { month: string; parts: Ranked[] }[] {
+  const by = new Map<string, Map<string, number>>(months.map((m) => [m, new Map()]));
   for (const r of rows) {
-    const t = at.get(monthOf(r.date));
-    if (!t) continue;
-    if (r.type === "income") t.income += r.amount;
-    else if (r.type === "investment") t.invested += r.amount;
+    if (r.type !== "investment") continue;
+    const m = by.get(r.date.slice(0, 7));
+    if (m) m.set(r.categoryId, (m.get(r.categoryId) ?? 0) + r.amount);
   }
-  return months.map((month) => {
-    const t = at.get(month) ?? { income: 0, invested: 0 };
-    return { month, ...t, rate: t.income > 0 ? t.invested / t.income : null };
-  });
+  return months.map((month) => ({
+    month,
+    parts: [...(by.get(month) ?? [])].map(([key, amount]) => ({ key, amount })),
+  }));
 }

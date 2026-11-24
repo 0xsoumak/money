@@ -33,6 +33,11 @@ export const ChevronRightIcon = () => (
     <path d="M9 18l6-6-6-6" />
   </Icon>
 );
+export const PencilIcon = ({ size = 16 }: { size?: number }) => (
+  <Icon size={size}>
+    <path d="M4 20h4L19 9l-4-4L4 16v4zM13 7l4 4" />
+  </Icon>
+);
 export const TrashIcon = () => (
   <Icon size={18}>
     <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
@@ -69,11 +74,6 @@ export const MeterIcon = () => (
   <Icon size={22}>
     <path d="M3 17h3V9H3zM9 17h3V5H9zM15 17h3v-6h-3z" />
     <path d="M3 21h18" />
-  </Icon>
-);
-export const GridIcon = () => (
-  <Icon size={22}>
-    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
   </Icon>
 );
 export const SlidersIcon = () => (

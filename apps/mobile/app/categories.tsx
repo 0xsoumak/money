@@ -17,7 +17,7 @@ import {
   useReorderCategories,
   useUpdateCategory,
 } from "../lib/queries";
-import { c, cat } from "../lib/theme";
+import { c, cat, catTint } from "../lib/theme";
 
 export default function Categories() {
   const router = useRouter();
@@ -137,7 +137,8 @@ export default function Categories() {
                             width: 44,
                             height: 44,
                             borderRadius: 10,
-                            backgroundColor: cat(x.color),
+                            borderWidth: 1.5,
+                            ...catTint(x.color),
                             alignItems: "center",
                             justifyContent: "center",
                           }}
@@ -149,6 +150,11 @@ export default function Categories() {
                         <T variant="body" numberOfLines={1} style={{ flex: 1 }}>
                           {x.name}
                         </T>
+                        {x.fixed ? (
+                          <T variant="label" size={11} color={c.textMuted}>
+                            Fixed
+                          </T>
+                        ) : null}
                       </Pressable>
                       {reordering ? (
                         <View style={{ flexDirection: "row" }}>
@@ -203,7 +209,8 @@ export default function Categories() {
                   width: 44,
                   height: 44,
                   borderRadius: 10,
-                  backgroundColor: cat(x.color),
+                  borderWidth: 1.5,
+                  ...catTint(x.color),
                   alignItems: "center",
                   justifyContent: "center",
                 }}

@@ -41,6 +41,8 @@ export const categoryCreateSchema = z.object({
   color: categoryColorSchema,
   kind: transactionTypeSchema,
   sortOrder: z.number().int().min(0).max(10_000).optional(),
+  /** A fixed cost (rent, EMIs, family support); see the categories table. */
+  fixed: z.boolean().optional(),
 });
 export type CategoryCreate = z.infer<typeof categoryCreateSchema>;
 
