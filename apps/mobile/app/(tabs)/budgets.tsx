@@ -1,8 +1,8 @@
 import { budgetProgress, daysInMonth, lastDayOf, today } from "@money/shared";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { View } from "react-native";
-import { BudgetBullets, Ring, STATE_COLOR } from "../../components/BudgetRing";
+import { useWindowDimensions, View } from "react-native";
+import { BudgetBullets, HalfRing, STATE_COLOR } from "../../components/BudgetRing";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { PressableScale } from "../../components/motion";
 import { Screen } from "../../components/Screen";
@@ -18,6 +18,7 @@ export default function Budgets() {
   const qc = useQueryClient();
   const { month } = useMonth();
   const money = useMoney();
+  const { width: screenW } = useWindowDimensions();
   const { data: categories = [] } = useQuery(categoriesQuery);
   const {
     data: summary,
@@ -72,6 +73,10 @@ export default function Budgets() {
       : overallProgress.state === "over"
         ? "over"
         : "warning";
+  // Where spending would be today if it kept to budget, and days still to come (counting today).
+  const pace = elapsed > 0 && elapsed < days ? elapsed / days : null;
+  const daysLeft = pace !== null ? days - elapsed + 1 : 0;
+  const isOver = (overallProgress?.over ?? 0) > 0;
   const overCount = withLimit.filter(
     (b) => budgetProgress(b.spent, b.limit).state === "over",
   ).length;
@@ -96,47 +101,57 @@ export default function Budgets() {
             accessibilityLabel={`Edit overall budget, ${money(overall)}. ${usedPct}% used.`}
             onPress={() => edit("overall", "Overall", overall, spent)}
             scaleTo={0.98}
-            style={{
-              marginTop: 16,
-              padding: 18,
-              gap: 16,
-              borderWidth: 2,
-              borderColor: c.border,
-              borderRadius: 18,
-            }}
+            style={{ marginTop: 20, gap: 24 }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
-              <Ring spent={spent} limit={overall} size={116} stroke={13} fontSize={26} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Label>{overallProgress.over > 0 ? "Over by" : "Left to spend"}</Label>
-                <T
-                  variant="display"
-                  size={40}
-                  fit
-                  color={overallProgress.over > 0 ? c.danger : c.accent}
-                >
-                  {money(
-                    overallProgress.over > 0 ? overallProgress.over : overallProgress.remaining,
-                  )}
+            <View style={{ alignItems: "center", gap: 10 }}>
+              <HalfRing
+                spent={spent}
+                limit={overall}
+                width={Math.min(340, screenW - 32)}
+                stroke={28}
+                pace={pace}
+              >
+                <Label>{isOver ? "Over by" : "Left to spend"}</Label>
+                <T variant="display" size={40} fit color={isOver ? c.danger : c.accent}>
+                  {money(isOver ? overallProgress.over : overallProgress.remaining)}
                 </T>
-                <T variant="caption" color={c.textMuted}>
-                  {money(spent)} of {money(overall)} spent
-                </T>
-              </View>
+              </HalfRing>
+              {pace !== null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View
+                    style={{ width: 2.5, height: 14, borderRadius: 2, backgroundColor: c.text }}
+                  />
+                  <T variant="caption" color={c.textMuted}>
+                    Where you should be by today
+                  </T>
+                </View>
+              )}
             </View>
-            {elapsed > 0 && elapsed < days && (
-              <T variant="small" color={c.textMuted}>
-                Day {elapsed} of {days}:{" "}
-                <T
-                  variant="small"
-                  color={STATE_COLOR[paceState]}
-                  style={{ fontFamily: "SpaceGrotesk_700Bold" }}
-                >
-                  {usedPct}% of budget used
-                </T>{" "}
-                in {monthPct}% of the month
-              </T>
-            )}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: 22 }}>
+              <Fact label="Spent" value={money(spent)} sub={`of ${money(overall)}`} />
+              <Fact
+                label="Used"
+                value={`${usedPct}%`}
+                valueColor={STATE_COLOR[overallProgress.state]}
+                sub={daysLeft > 0 ? `in ${monthPct}% of the month` : undefined}
+                subColor={daysLeft > 0 ? STATE_COLOR[paceState] : undefined}
+              />
+              {daysLeft > 0 && (
+                <Fact
+                  label="Days left"
+                  value={String(daysLeft)}
+                  sub={`Day ${elapsed} of ${days}`}
+                />
+              )}
+              {daysLeft > 0 && (
+                <Fact
+                  label="Per day from here"
+                  value={isOver ? "–" : money(Math.floor(overallProgress.remaining / daysLeft))}
+                  valueColor={isOver ? c.danger : undefined}
+                  sub={isOver ? "Already over budget" : "to stay within budget"}
+                />
+              )}
+            </View>
           </PressableScale>
         ) : (
           <EmptyState
@@ -172,7 +187,7 @@ export default function Budgets() {
                 spent: s,
                 limit,
               }))}
-              pace={elapsed > 0 && elapsed < days ? elapsed / days : null}
+              pace={pace}
               onPick={(r) => {
                 const name = withLimit.find((b) => b.x.id === r.key)?.x.name ?? "Category";
                 edit(r.key, name, r.limit, r.spent);
@@ -240,5 +255,34 @@ export default function Budgets() {
         </View>
       )}
     </Screen>
+  );
+}
+
+/** One figure under the overall gauge: small label, big value, a line under it. */
+function Fact({
+  label,
+  value,
+  sub,
+  valueColor,
+  subColor,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  valueColor?: string;
+  subColor?: string;
+}) {
+  return (
+    <View style={{ width: "50%", paddingRight: 12, gap: 4 }}>
+      <Label>{label}</Label>
+      <T variant="display" size={28} fit color={valueColor}>
+        {value}
+      </T>
+      {sub && (
+        <T variant="caption" color={subColor ?? c.textMuted} style={{ fontWeight: "600" }}>
+          {sub}
+        </T>
+      )}
+    </View>
   );
 }

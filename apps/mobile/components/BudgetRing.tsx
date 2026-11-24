@@ -1,6 +1,6 @@
 // Mobile twin of apps/web/src/components/BudgetRing.tsx. Keep the two in step.
 import { type BudgetState, budgetProgress } from "@money/shared";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { View } from "react-native";
 import Animated, {
   Easing,
@@ -8,13 +8,13 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { G, Line, Path } from "react-native-svg";
 import { useMoney } from "../lib/hooks";
-import { c } from "../lib/theme";
+import { c, fade } from "../lib/theme";
 import { PressableScale } from "./motion";
 import { T } from "./T";
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export const STATE_COLOR: Record<BudgetState, string> = {
   ok: c.text,
@@ -23,78 +23,110 @@ export const STATE_COLOR: Record<BudgetState, string> = {
 };
 
 /**
- * The progress ring, percentage in the middle. Over budget, the ring is a faded
- * full lap and the solid arc is the overspend (a second lap), so 108% and 227%
- * look different. Sweeps in when the value changes.
+ * A half donut: the arc fills left to right with the share of the budget used, `children`
+ * sits in the bowl. Over budget, the whole arc turns red and a bar underneath grows with the
+ * overspend, so 108% and 227% look different. `pace` (0–1) adds a tick where spending would
+ * be if it kept exactly to the budget today. Sweeps in when the value changes.
  */
-export function Ring({
+export function HalfRing({
   spent,
   limit,
-  size,
+  width,
   stroke,
-  fontSize,
+  pace,
+  children,
 }: {
   spent: number;
   limit: number;
-  size: number;
+  width: number;
   stroke: number;
-  fontSize: number;
+  pace?: number | null;
+  children?: ReactNode;
 }) {
   const p = budgetProgress(spent, limit);
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
+  const r = (width - stroke) / 2 - 4;
+  const cx0 = width / 2;
+  const cy0 = r + stroke / 2 + 4;
+  const height = cy0 + stroke / 2 + 2;
+  const len = Math.PI * r;
+  const target = spent > 0 ? Math.min(1, Math.max(p.ratio, 0.02)) : 0;
+  const arc = `M ${cx0 - r},${cy0} A ${r} ${r} 0 0 1 ${cx0 + r},${cy0}`;
   const isOver = p.state === "over";
-  const lap = isOver ? Math.min(p.ratio - 1, 1) : p.ratio;
-  const target = spent > 0 ? Math.min(1, Math.max(lap, 0.02)) : 0;
-  const pct = Number.isFinite(p.ratio) ? Math.round(p.ratio * 100) : 100;
 
   const progress = useSharedValue(0);
   useEffect(() => {
-    progress.value = withTiming(target, { duration: 600, easing: Easing.out(Easing.cubic) });
+    progress.value = withTiming(target, { duration: 700, easing: Easing.out(Easing.cubic) });
   }, [target, progress]);
   const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: circ * (1 - progress.value),
+    strokeDashoffset: len * (1 - progress.value),
   }));
 
+  // The pace tick, across the band at its angle (left end is 0, right end is 1).
+  const tick =
+    pace != null && pace > 0 && pace < 1
+      ? (() => {
+          const a = Math.PI * (1 - pace);
+          const at = (rad: number) => [cx0 + rad * Math.cos(a), cy0 - rad * Math.sin(a)] as const;
+          const [x1, y1] = at(r - stroke / 2 - 4);
+          const [x2, y2] = at(r + stroke / 2 + 4);
+          return { x1, y1, x2, y2 };
+        })()
+      : null;
+  // Overspend as a share of the limit, capped at one more full budget (200%).
+  const overflow = isOver ? Math.min(Math.max(p.ratio - 1, 0), 1) : 0;
+
   return (
-    <View style={{ width: size, height: size }} importantForAccessibility="no-hide-descendants">
-      <Svg width={size} height={size} style={{ transform: [{ rotate: "-90deg" }] }}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          strokeWidth={stroke}
-          stroke={isOver ? c.danger : c.surfaceStrong}
-          strokeOpacity={isOver ? 0.3 : 1}
-        />
-        <AnimatedCircle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          stroke={STATE_COLOR[p.state]}
-          strokeDasharray={`${circ} ${circ}`}
-          animatedProps={animatedProps}
-        />
-      </Svg>
-      <View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <T variant="title" size={fontSize} color={STATE_COLOR[p.state]}>
-          {pct}%
-        </T>
+    <View style={{ width, alignItems: "center", gap: 10 }}>
+      <View style={{ width, height }} importantForAccessibility="no-hide-descendants">
+        <Svg width={width} height={height}>
+          <Path
+            d={arc}
+            fill="none"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            stroke={isOver ? c.danger : c.surfaceStrong}
+            strokeOpacity={isOver ? 0.3 : 1}
+          />
+          <AnimatedPath
+            d={arc}
+            fill="none"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            stroke={STATE_COLOR[p.state]}
+            strokeDasharray={`${len} ${len}`}
+            animatedProps={animatedProps}
+          />
+          {tick && (
+            <G>
+              <Line {...tick} strokeWidth={5} strokeLinecap="round" stroke={c.bg} />
+              <Line {...tick} strokeWidth={2.5} strokeLinecap="round" stroke={c.text} />
+            </G>
+          )}
+        </Svg>
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          {children}
+        </View>
       </View>
+      {overflow > 0 && (
+        <View
+          style={{
+            width: "100%",
+            height: 6,
+            borderRadius: 3,
+            overflow: "hidden",
+            backgroundColor: fade(c.danger, 0.2),
+          }}
+        >
+          <View
+            style={{
+              width: `${Math.max(4, overflow * 100)}%`,
+              height: "100%",
+              borderRadius: 3,
+              backgroundColor: c.danger,
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }
