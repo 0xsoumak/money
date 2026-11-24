@@ -553,7 +553,7 @@ function Sections({
         </Panel>
       </Reveal>
 
-      <Reveal className="grid gap-14 lg:gap-12 lg:grid-cols-[3fr_2fr]">
+      <Reveal>
         <Panel id="investing" title="Investing" takeaway={investText} tone={investTone}>
           <div
             className={cx(
@@ -595,6 +595,24 @@ function Sections({
             <span>Under each month: share of income</span>
           </Legend>
         </Panel>
+      </Reveal>
+
+      <Reveal
+        className={cx(
+          "grid gap-14 lg:gap-12",
+          share.length > 1 && topShare && "lg:grid-cols-[3fr_2fr]",
+        )}
+      >
+        {share.length > 1 && topShare && (
+          <Panel
+            id="share"
+            title="Where spending usually goes"
+            note={`Last ${months.length} ${months.length === 1 ? "month" : "months"}`}
+            takeaway={`${topShare.key === OTHER ? "The rest" : catName(topShare.key)} takes ${pct(topShare.amount / shareTotal)}`}
+          >
+            <CategoryDonut share={share} byId={byId} />
+          </Panel>
+        )}
 
         <Panel
           id="rhythm"
@@ -613,19 +631,6 @@ function Sections({
           </div>
         </Panel>
       </Reveal>
-
-      {share.length > 1 && topShare && (
-        <Reveal>
-          <Panel
-            id="share"
-            title="Where spending usually goes"
-            note={`Last ${months.length} ${months.length === 1 ? "month" : "months"}`}
-            takeaway={`${topShare.key === OTHER ? "The rest" : catName(topShare.key)} takes ${pct(topShare.amount / shareTotal)}`}
-          >
-            <CategoryDonut share={share} byId={byId} />
-          </Panel>
-        </Reveal>
-      )}
     </>
   );
 }
