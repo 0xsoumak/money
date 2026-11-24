@@ -4,20 +4,18 @@ import { categoryColors, colors } from "@money/shared";
 import {
   BarChart,
   GaugeChart,
-  HeatmapChart,
   LineChart,
+  PieChart,
   SankeyChart,
   ScatterChart,
   TreemapChart,
 } from "echarts/charts";
 import {
-  CalendarComponent,
   GridComponent,
   LegendComponent,
   MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,
-  VisualMapComponent,
 } from "echarts/components";
 import * as echarts from "echarts/core";
 import { LabelLayout } from "echarts/features";
@@ -27,18 +25,16 @@ import { useEffect, useRef } from "react";
 echarts.use([
   BarChart,
   GaugeChart,
-  HeatmapChart,
   LineChart,
+  PieChart,
   SankeyChart,
   ScatterChart,
   TreemapChart,
-  CalendarComponent,
   GridComponent,
   LegendComponent,
   MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,
-  VisualMapComponent,
   LabelLayout,
   SVGRenderer,
 ]);

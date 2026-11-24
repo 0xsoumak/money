@@ -1,11 +1,10 @@
-// The exploratory charts: every expense as a bubble, the month as a treemap, the year as a
-// calendar, how categories rank over time, and the savings-rate gauge.
+// The exploratory charts: every expense as a bubble, the month as a treemap, a
+// donut of where spending usually goes, and the savings-rate gauge.
 import {
   type AnalyticsRow,
-  type CategoryRank,
   daysInMonth,
-  heatLevels,
   monthOf,
+  OTHER,
   type Ranked,
   shortDate,
 } from "@money/shared";
@@ -13,7 +12,7 @@ import { useMemo } from "react";
 import { useMoney } from "../../lib/hooks";
 import type { Category } from "../../lib/queries";
 import { alpha, axis, C, catColor, EChart, esc, FONT, type Option, tipHtml } from "./echarts";
-import { compactMoney, shortMonth } from "./kit";
+import { compactMoney } from "./kit";
 
 type ById = Map<string, Category>;
 const nameOf = (c: Category | undefined) => (c ? `${c.emoji} ${c.name}` : "Unknown");
@@ -231,171 +230,98 @@ export function SpendTreemap({
   );
 }
 
-// ── Year calendar ───────────────────────────────────────────────────────────
+// ── Category share ──────────────────────────────────────────────────────────
 
-/** Twelve months of days, shaded by what was spent: one hue, more spent, more lime. */
-export function YearCalendar({
-  daily,
-  from,
-  to,
-}: {
-  daily: Map<string, number>;
-  /** First and last date shown. */
-  from: string;
-  to: string;
-}) {
+/**
+ * Where spending usually goes, as a donut with gaps between slices: the total in the
+ * middle, and each category's amount and share listed beside it.
+ */
+export function CategoryDonut({ share, byId }: { share: Ranked[]; byId: ById }) {
   const money = useMoney();
-  const option = useMemo<Option>(() => {
-    const data = [...daily].filter(([d]) => d >= from && d <= to);
-    const cuts = heatLevels(data.map(([, v]) => v));
-    const steps = [0.22, 0.42, 0.7, 1];
-    return {
+  const total = share.reduce((t, r) => t + r.amount, 0) || 1;
+  const slices = useMemo(
+    () =>
+      share.map((r) => {
+        const c = byId.get(r.key);
+        return {
+          key: r.key,
+          name: r.key === OTHER ? "The rest" : nameOf(c),
+          value: r.amount,
+          color: catColor(r.key === OTHER ? "slate" : c?.color),
+        };
+      }),
+    [share, byId],
+  );
+
+  const option = useMemo<Option>(
+    () => ({
       tooltip: {
         trigger: "item",
-        formatter: (p: { data: [string, number] }) =>
-          tipHtml(shortDate(p.data[0]), [
-            { color: C.accent, value: money(p.data[1]), name: "spent" },
+        formatter: (p: { name: string; value: number; color: string }) =>
+          tipHtml(p.name, [
+            {
+              color: p.color,
+              value: money(p.value),
+              name: `${Math.round((p.value / total) * 100)}%`,
+            },
           ]),
-      },
-      visualMap: {
-        show: false,
-        type: "piecewise",
-        pieces: [
-          { lte: cuts[0], color: alpha(C.accent, steps[0] ?? 0.2) },
-          { gt: cuts[0], lte: cuts[1], color: alpha(C.accent, steps[1] ?? 0.4) },
-          { gt: cuts[1], lte: cuts[2], color: alpha(C.accent, steps[2] ?? 0.7) },
-          { gt: cuts[2], color: C.accent },
-        ],
-      },
-      calendar: {
-        range: [from, to],
-        left: 28,
-        right: 4,
-        top: 22,
-        bottom: 4,
-        cellSize: ["auto", 15],
-        splitLine: { show: false },
-        itemStyle: { color: C.surface, borderColor: C.bg, borderWidth: 3 },
-        dayLabel: {
-          firstDay: 1,
-          nameMap: ["S", "M", "T", "W", "T", "F", "S"],
-          color: C.textFaint,
-          fontFamily: FONT,
-          fontSize: 10,
-        },
-        monthLabel: { color: C.textMuted, fontFamily: FONT, fontSize: 11, fontWeight: 600 },
-        yearLabel: { show: false },
       },
       series: [
         {
-          type: "heatmap",
-          coordinateSystem: "calendar",
-          data,
-          itemStyle: { borderColor: C.bg, borderWidth: 3, borderRadius: 3 },
-          emphasis: { itemStyle: { borderColor: C.text, borderWidth: 1.5 } },
+          type: "pie",
+          radius: ["62%", "90%"],
+          center: ["50%", "50%"],
+          padAngle: 3,
+          minAngle: 3,
+          avoidLabelOverlap: false,
+          label: { show: false },
+          labelLine: { show: false },
+          itemStyle: { borderRadius: 6 },
+          emphasis: { scale: true, scaleSize: 6 },
+          data: slices.map((s) => ({
+            name: s.name,
+            value: s.value,
+            itemStyle: { color: s.color },
+          })),
         },
       ],
-    };
-  }, [daily, from, to, money]);
+    }),
+    [slices, total, money],
+  );
 
   return (
-    <div className="-mx-1 overflow-x-auto px-1">
-      <div className="min-w-[760px]">
+    <div className="grid items-center gap-8 sm:grid-cols-[240px_1fr]">
+      <div className="relative mx-auto w-[240px]">
         <EChart
           option={option}
-          height={160}
-          label="Spending per day over the last twelve months."
+          height={240}
+          label={`Spending by category: ${slices.map((s) => `${s.name} ${Math.round((s.value / total) * 100)}%`).join(", ")}.`}
         />
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-[13px] font-semibold text-muted">Spent</span>
+          <span className="text-2xl font-bold tracking-[-0.02em]">{compactMoney(total)}</span>
+        </div>
       </div>
+      <ul className="flex flex-col">
+        {slices.map((s) => (
+          <li
+            key={s.key}
+            className="grid grid-cols-[auto_1fr_auto_3rem] items-center gap-3 border-b border-line py-2.5 text-sm"
+          >
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-full"
+              style={{ background: s.color }}
+            />
+            <span className="truncate font-semibold">{s.name}</span>
+            <span className="tabular-nums">{money(s.value)}</span>
+            <span className="text-right tabular-nums text-muted">
+              {Math.round((s.value / total) * 100)}%
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
-  );
-}
-
-// ── Category ranking over time ─────────────────────────────────────────────
-
-/** How the biggest categories climb and fall in rank, month by month. */
-export function CategoryBump({
-  ranks,
-  months,
-  byId,
-  height = 280,
-}: {
-  ranks: CategoryRank[];
-  months: string[];
-  byId: ById;
-  height?: number;
-}) {
-  const money = useMoney();
-  const option = useMemo<Option>(() => {
-    const deepest = Math.max(
-      ranks.length,
-      ...ranks.flatMap((r) => r.ranks.filter((x): x is number => x !== null)),
-    );
-    return {
-      grid: { left: 4, right: 132, top: 16, bottom: 4, containLabel: true },
-      xAxis: {
-        ...axis.category,
-        boundaryGap: false,
-        data: months.map(shortMonth),
-        axisLine: { show: false },
-      },
-      yAxis: {
-        type: "value",
-        inverse: true,
-        min: 1,
-        max: deepest,
-        interval: 1,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { lineStyle: { color: C.border } },
-        axisLabel: { color: C.textFaint, fontSize: 11, fontFamily: FONT, formatter: "#{value}" },
-      },
-      tooltip: {
-        trigger: "item",
-        formatter: (p: { seriesIndex: number; dataIndex: number }) => {
-          const r = ranks[p.seriesIndex];
-          const c = byId.get(r?.key ?? "");
-          return tipHtml(`${nameOf(c)} · ${shortMonth(months[p.dataIndex] ?? "")}`, [
-            { color: catColor(c?.color), value: `#${r?.ranks[p.dataIndex]}`, name: "rank" },
-            { value: money(r?.totals[p.dataIndex] ?? 0), name: "spent" },
-          ]);
-        },
-      },
-      series: ranks.map((r) => {
-        const c = byId.get(r.key);
-        const color = catColor(c?.color);
-        return {
-          type: "line",
-          name: nameOf(c),
-          data: r.ranks,
-          smooth: 0.35,
-          symbol: "circle",
-          symbolSize: 11,
-          lineStyle: { width: 3, color, cap: "round" },
-          itemStyle: { color, borderColor: C.bg, borderWidth: 2 },
-          emphasis: { focus: "series", lineStyle: { width: 4 } },
-          blur: { lineStyle: { opacity: 0.12 }, itemStyle: { opacity: 0.12 } },
-          endLabel: {
-            show: true,
-            formatter: nameOf(c),
-            color: C.text,
-            fontFamily: FONT,
-            fontSize: 12,
-            fontWeight: 600,
-            distance: 10,
-          },
-          labelLayout: { hideOverlap: true },
-        };
-      }),
-    };
-  }, [ranks, months, byId, money]);
-
-  return (
-    <EChart
-      option={option}
-      height={height}
-      label="How your biggest categories ranked each month."
-    />
   );
 }
 

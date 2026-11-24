@@ -2,20 +2,18 @@ import {
   ANALYTICS_RANGES,
   type AnalyticsRange,
   type AnalyticsRow,
-  addMonths,
   analyticsWindow,
-  categoryRanks,
+  categoryShare,
   type DayStats,
   type Decisions,
   dailyExpenses,
   dayStats,
   decisions,
-  eachDay,
   isNotable,
-  lastDayOf,
   type MoneyFlow as MoneyFlowData,
   type MonthTotals,
   moneyFlow,
+  OTHER,
   type Ranked,
   type SpendCurve as SpendCurveData,
   spendCurve,
@@ -30,11 +28,10 @@ import { useMemo, useState } from "react";
 import { CashflowTable } from "../../components/analytics/CashflowTable";
 import { Dumbbell, type DumbbellRow } from "../../components/charts/Dumbbell";
 import {
-  CategoryBump,
+  CategoryDonut,
   ExpenseBubbles,
   RateGauge,
   SpendTreemap,
-  YearCalendar,
 } from "../../components/charts/Explore";
 import { alpha, C } from "../../components/charts/echarts";
 import { compactMoney, Key, Legend, Panel, type Tone } from "../../components/charts/kit";
@@ -166,8 +163,6 @@ function Analytics() {
     const win = analyticsWindow(dataMonth, range, todayDate);
     const averages = weekdayAverages(daily, win.dates);
     const monthDates = win.dates.filter((x) => x.startsWith(dataMonth));
-    const yearFrom = `${addMonths(dataMonth, -11)}-01`;
-    const yearTo = todayDate < lastDayOf(dataMonth) ? todayDate : lastDayOf(dataMonth);
     return {
       daily,
       averages,
@@ -177,7 +172,6 @@ function Analytics() {
       flow: moneyFlow(rows, dataMonth),
       curve: spendCurve(daily, dataMonth, todayDate),
       split: spendingSplit(rows, dataMonth, fixedIds),
-      year: { from: yearFrom, to: yearTo, stats: dayStats(daily, eachDay(yearFrom, yearTo)) },
     };
   }, [rows, dataMonth, range, todayDate, fixedIds]);
 
@@ -270,7 +264,6 @@ interface Extra {
   flow: MoneyFlowData;
   curve: SpendCurveData;
   split: { fixed: Ranked[]; flexible: Ranked[] };
-  year: { from: string; to: string; stats: DayStats };
 }
 
 function Sections({
@@ -294,7 +287,7 @@ function Sections({
 }) {
   const all = useMemo(() => [...d.history, d.current], [d]);
   const months = useMemo(() => all.map((m) => m.month), [all]);
-  const ranks = useMemo(() => categoryRanks(rows, months, 6), [rows, months]);
+  const share = useMemo(() => categoryShare(rows, months), [rows, months]);
   const missed = useMemo(
     () => new Set(d.consistency.months.filter((m) => m.invested === 0).map((m) => m.month)),
     [d],
@@ -424,9 +417,9 @@ function Sections({
   );
   const spentTotal = byAmount.reduce((t, r) => t + r.amount, 0);
   const topCat = byAmount[0];
-  const leader = ranks.find((r) => r.ranks.at(-1) === 1);
-  const prevLeader = ranks.find((r) => r.ranks.at(-2) === 1);
-  const { stats, year } = extra;
+  const shareTotal = share.reduce((t, r) => t + r.amount, 0);
+  const topShare = share[0];
+  const { stats } = extra;
 
   return (
     <>
@@ -621,45 +614,15 @@ function Sections({
         </Panel>
       </Reveal>
 
-      <Reveal>
-        <Panel
-          id="year"
-          title="Your year, day by day"
-          takeaway={`Longest break from spending: ${year.stats.longestNoSpend} ${year.stats.longestNoSpend === 1 ? "day" : "days"}`}
-        >
-          <YearCalendar daily={extra.daily} from={year.from} to={year.to} />
-          <Legend>
-            <span className="inline-flex items-center gap-1.5">
-              Less
-              <span className="size-3 rounded-[3px] bg-surface" />
-              <span className="size-3 rounded-[3px] bg-accent/20" />
-              <span className="size-3 rounded-[3px] bg-accent/40" />
-              <span className="size-3 rounded-[3px] bg-accent/70" />
-              <span className="size-3 rounded-[3px] bg-accent" />
-              More
-            </span>
-            <span>
-              Spent on {year.stats.spentDays} of {year.stats.spentDays + year.stats.noSpendDays}{" "}
-              days
-            </span>
-          </Legend>
-        </Panel>
-      </Reveal>
-
-      {ranks.length > 1 && months.length > 1 && (
+      {share.length > 1 && topShare && (
         <Reveal>
           <Panel
-            id="ranking"
-            title="Category ranking"
-            takeaway={
-              leader
-                ? prevLeader && prevLeader.key !== leader.key
-                  ? `${catName(leader.key)} took the top spot`
-                  : `${catName(leader.key)} stays on top`
-                : undefined
-            }
+            id="share"
+            title="Where spending usually goes"
+            note={`Last ${months.length} ${months.length === 1 ? "month" : "months"}`}
+            takeaway={`${topShare.key === OTHER ? "The rest" : catName(topShare.key)} takes ${pct(topShare.amount / shareTotal)}`}
           >
-            <CategoryBump ranks={ranks} months={months} byId={byId} />
+            <CategoryDonut share={share} byId={byId} />
           </Panel>
         </Reveal>
       )}
