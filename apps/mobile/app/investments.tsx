@@ -7,7 +7,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CategoryDonut } from "../components/analytics/CategoryDonut";
 import { ChartSection } from "../components/analytics/frame";
-import { InvestJars } from "../components/analytics/InvestJars";
+import { InvestBars } from "../components/analytics/InvestBars";
 import { Reveal, useCountUp } from "../components/motion";
 import { Label, T } from "../components/T";
 import { TransactionList } from "../components/TransactionList";
@@ -134,15 +134,7 @@ export default function Investments() {
                 headline={`Invested in ${investedMonths} of ${recent.length} months`}
                 tone={investedMonths >= recent.length * 0.75 ? "good" : "info"}
               >
-                <InvestJars
-                  jars={recent.map((m) => ({
-                    month: m.month,
-                    invested: m.invested,
-                    rate: null,
-                    current: m.month === month,
-                  }))}
-                  onPick={setMonth}
-                />
+                <InvestBars months={recent} current={month} onPick={setMonth} />
               </ChartSection>
             ) : (
               <Skeleton style={{ height: 200 }} />

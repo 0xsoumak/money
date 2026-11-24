@@ -2,7 +2,7 @@ import { monthTitle } from "@money/shared";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { CategoryDonut } from "../../components/charts/Explore";
-import { InvestJars } from "../../components/charts/InvestJars";
+import { InvestBars } from "../../components/charts/InvestBars";
 import { Panel } from "../../components/charts/kit";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { CountUp, Reveal } from "../../components/motion";
@@ -122,15 +122,7 @@ function Investments() {
                   takeaway={`Invested in ${investedMonths} of ${months.length} months`}
                   tone={investedMonths >= months.length * 0.75 ? "good" : "info"}
                 >
-                  <InvestJars
-                    jars={months.map((m) => ({
-                      month: m.month,
-                      invested: m.invested,
-                      rate: null,
-                      current: m.month === month,
-                    }))}
-                    onPick={setMonth}
-                  />
+                  <InvestBars months={months} current={month} onPick={setMonth} />
                 </Panel>
               </Reveal>
             ) : (
