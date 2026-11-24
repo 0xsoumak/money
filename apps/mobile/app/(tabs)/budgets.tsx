@@ -2,7 +2,7 @@ import { budgetProgress, daysInMonth, lastDayOf, today } from "@money/shared";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { BudgetRing, Ring, STATE_COLOR } from "../../components/BudgetRing";
+import { BudgetBullets, Ring, STATE_COLOR } from "../../components/BudgetRing";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { PressableScale } from "../../components/motion";
 import { Screen } from "../../components/Screen";
@@ -164,16 +164,20 @@ export default function Budgets() {
           }
         />
         {withLimit.length > 0 ? (
-          <View style={{ marginTop: 16, gap: 8 }}>
-            {withLimit.map(({ x, limit, spent: s }) => (
-              <BudgetRing
-                key={x.id}
-                name={`${x.emoji} ${x.name}`}
-                spent={s}
-                limit={limit}
-                onPress={() => edit(x.id, x.name, limit, s)}
-              />
-            ))}
+          <View style={{ marginTop: 12 }}>
+            <BudgetBullets
+              rows={withLimit.map(({ x, limit, spent: s }) => ({
+                key: x.id,
+                name: `${x.emoji} ${x.name}`,
+                spent: s,
+                limit,
+              }))}
+              pace={elapsed > 0 && elapsed < days ? elapsed / days : null}
+              onPick={(r) => {
+                const name = withLimit.find((b) => b.x.id === r.key)?.x.name ?? "Category";
+                edit(r.key, name, r.limit, r.spent);
+              }}
+            />
           </View>
         ) : (
           !isPending && (
