@@ -8,11 +8,9 @@ import {
   PieChart,
   SankeyChart,
   ScatterChart,
-  TreemapChart,
 } from "echarts/charts";
 import {
   GridComponent,
-  LegendComponent,
   MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,
@@ -29,9 +27,7 @@ echarts.use([
   PieChart,
   SankeyChart,
   ScatterChart,
-  TreemapChart,
   GridComponent,
-  LegendComponent,
   MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,

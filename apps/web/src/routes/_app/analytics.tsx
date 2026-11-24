@@ -9,15 +9,12 @@ import {
   dailyExpenses,
   dayStats,
   decisions,
-  isNotable,
   type MoneyFlow as MoneyFlowData,
   type MonthTotals,
   moneyFlow,
   OTHER,
-  type Ranked,
   type SpendCurve as SpendCurveData,
   spendCurve,
-  spendingSplit,
   today,
   weekdayAverages,
   weekdayHeadline,
@@ -25,14 +22,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { CashflowTable } from "../../components/analytics/CashflowTable";
-import { Dumbbell, type DumbbellRow } from "../../components/charts/Dumbbell";
-import {
-  CategoryDonut,
-  ExpenseBubbles,
-  RateGauge,
-  SpendTreemap,
-} from "../../components/charts/Explore";
+import { CategoryDonut, RateGauge } from "../../components/charts/Explore";
 import { alpha, C } from "../../components/charts/echarts";
 import { compactMoney, Key, Legend, Panel, type Tone } from "../../components/charts/kit";
 import { MoneyFlow } from "../../components/charts/MoneyFlow";
@@ -79,23 +69,6 @@ function spendingTakeaway(d: Decisions): Takeaway {
     default:
       return [`Within your usual range${by}`, "info"];
   }
-}
-
-function changesTakeaway(d: Decisions, byId: Map<string, Category>): Takeaway {
-  const m = d.spending.movers[0];
-  if (!m) return ["No big changes", "info"];
-  const name = byId.get(m.key)?.name ?? "A category";
-  return m.diff > 0
-    ? [`${name} up ${compactMoney(m.diff)}`, "warn"]
-    : [`${name} down ${compactMoney(-m.diff)}`, d.logging.thin ? "info" : "good"];
-}
-
-function cashflowTakeaway(all: MonthTotals[]): Takeaway {
-  const rows = all.filter((r) => r.income > 0);
-  if (rows.length === 0) return ["Log income to see what's left", "info"];
-  const short = rows.filter((r) => r.left < 0).length;
-  if (short > 0) return [`Spent more than you earned in ${short} of ${rows.length}`, "warn"];
-  return [rows.length > 1 ? `Within income all ${rows.length} months` : "Within income", "good"];
 }
 
 function investingTakeaway(d: Decisions): Takeaway {
@@ -171,9 +144,8 @@ function Analytics() {
       counted: monthDates.length,
       flow: moneyFlow(rows, dataMonth),
       curve: spendCurve(daily, dataMonth, todayDate),
-      split: spendingSplit(rows, dataMonth, fixedIds),
     };
-  }, [rows, dataMonth, range, todayDate, fixedIds]);
+  }, [rows, dataMonth, range, todayDate]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -263,7 +235,6 @@ interface Extra {
   counted: number;
   flow: MoneyFlowData;
   curve: SpendCurveData;
-  split: { fixed: Ranked[]; flexible: Ranked[] };
 }
 
 function Sections({
@@ -299,7 +270,6 @@ function Sections({
     const soFar = (m: MonthTotals) => (isNow(m) && d.running ? " so far" : "");
     const muted = alpha(C.text, 0.55);
     const faint = alpha(C.text, 0.2);
-    const spentGrey = alpha(C.text, 0.42);
 
     // Spending, month by month: fixed under flexible, this month in lime.
     const spend: Column[] = all.map((m) => {
@@ -329,34 +299,6 @@ function Sections({
       };
     });
 
-    // Income vs outgoings: spent and invested stacked under an income marker.
-    const flow: Column[] = all.map((m) => ({
-      month: m.month,
-      current: isNow(m),
-      parts: [
-        { value: m.spent, color: spentGrey },
-        { value: m.invested, color: C.accent },
-      ],
-      marker: m.income,
-      sub:
-        m.income > 0
-          ? {
-              text: `${m.left < 0 ? "" : "+"}${compactMoney(m.left)}`,
-              tone: m.left < 0 ? ("danger" as const) : undefined,
-            }
-          : { text: "–" },
-      tip: [
-        { color: C.text, value: money(m.income), name: "earned" },
-        { color: spentGrey, value: money(m.spent), name: "spent" },
-        { color: C.accent, value: money(m.invested), name: "invested" },
-        {
-          value: `${m.left < 0 ? "−" : ""}${money(Math.abs(m.left))}`,
-          name: m.left < 0 ? "short" : "left",
-          tone: m.left < 0 ? ("danger" as const) : undefined,
-        },
-      ],
-    }));
-
     // Investing: lime columns, a dashed slot for a missed month.
     const invest: Column[] = all.map((m) => {
       const rate = m.income > 0 ? m.invested / m.income : null;
@@ -377,7 +319,7 @@ function Sections({
         ],
       };
     });
-    return { spend, flow, invest };
+    return { spend, invest };
   }, [all, d, missed, money]);
 
   const usualMonth = d.confidence !== "none" ? d.spending.usualMonth : null;
@@ -388,35 +330,10 @@ function Sections({
   );
   const usualInvest = d.confidence !== "none" ? d.investing.usual : null;
 
-  const dumbbell: DumbbellRow[] = d.spending.byCategory.map((m) => {
-    const c = byId.get(m.key);
-    return {
-      key: m.key,
-      name: c?.name ?? "Unknown",
-      emoji: c?.emoji ?? "?",
-      color: c?.color ?? "slate",
-      now: m.now,
-      usual: m.usual,
-      notable: isNotable(m),
-    };
-  });
-
   const [flowText, flowTone] = moneyFlowTakeaway(extra.flow);
   const [spendText, spendTone] = spendingTakeaway(d);
-  const [changeText, changeTone] = changesTakeaway(d, byId);
-  const [cashText, cashTone] = cashflowTakeaway(all);
   const [investText, investTone] = investingTakeaway(d);
 
-  const monthExpenses = rows.filter((r) => r.type === "expense" && r.date.startsWith(d.month));
-  const biggest = monthExpenses.reduce<AnalyticsRow | null>(
-    (b, r) => (!b || r.amount > b.amount ? r : b),
-    null,
-  );
-  const byAmount = [...extra.split.fixed, ...extra.split.flexible].sort(
-    (a, b) => b.amount - a.amount,
-  );
-  const spentTotal = byAmount.reduce((t, r) => t + r.amount, 0);
-  const topCat = byAmount[0];
   const shareTotal = share.reduce((t, r) => t + r.amount, 0);
   const topShare = share[0];
   const { stats } = extra;
@@ -454,9 +371,7 @@ function Sections({
         </Reveal>
       )}
 
-      <Reveal
-        className={cx("grid gap-14 lg:gap-12", dumbbell.length > 0 && "lg:grid-cols-[3fr_2fr]")}
-      >
+      <Reveal>
         <Panel id="spending" title="Spending by month" takeaway={spendText} tone={spendTone}>
           <MonthColumns
             columns={cols.spend}
@@ -498,58 +413,6 @@ function Sections({
               so they don't count as overspending.
             </p>
           )}
-        </Panel>
-
-        {dumbbell.length > 0 && (
-          <Panel id="changes" title="What changed" takeaway={changeText} tone={changeTone}>
-            <Dumbbell rows={dumbbell} running={d.running} />
-          </Panel>
-        )}
-      </Reveal>
-
-      {monthExpenses.length > 0 && (
-        <Reveal className="grid gap-14 lg:gap-12 lg:grid-cols-[3fr_2fr]">
-          <Panel
-            id="expenses"
-            title="Every expense"
-            takeaway={
-              biggest
-                ? `Biggest: ${compactMoney(biggest.amount)} on ${catName(biggest.categoryId)}`
-                : undefined
-            }
-          >
-            <ExpenseBubbles rows={rows} month={d.month} byId={byId} />
-          </Panel>
-          <Panel
-            id="categories"
-            title="Spending by category"
-            takeaway={
-              topCat && spentTotal > 0
-                ? `${catName(topCat.key)} is ${pct(topCat.amount / spentTotal)} of it`
-                : undefined
-            }
-          >
-            <SpendTreemap split={extra.split} byId={byId} />
-          </Panel>
-        </Reveal>
-      )}
-
-      <Reveal>
-        <Panel id="cashflow" title="Income vs outgoings" takeaway={cashText} tone={cashTone}>
-          <MonthColumns
-            columns={cols.flow}
-            label={`Income against spending and investing by month. ${cashText}.`}
-            onPick={onPick}
-          />
-          <Legend>
-            <Key shape="line" className="h-[3px] bg-ink">
-              Earned
-            </Key>
-            <Key className="bg-ink/45">Spent</Key>
-            <Key className="bg-accent">Invested</Key>
-            <span>Under each month: what was left</span>
-          </Legend>
-          <CashflowTable rows={all} running={d.running} />
         </Panel>
       </Reveal>
 
