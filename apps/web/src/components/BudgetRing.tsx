@@ -210,16 +210,16 @@ export function BudgetBullets({
             <span className={cx(track, "relative row-start-2 h-7 sm:row-start-1")}>
               {/* The limit's worth of track, and a fainter stretch past it. */}
               <span
-                className="absolute inset-y-0 left-0 rounded-l-lg bg-surface-strong"
+                className="absolute inset-y-0 left-0 rounded-l-[3px] bg-surface-strong"
                 style={{ width: at(1) }}
               />
               <span
-                className="absolute inset-y-0 right-0 rounded-r-lg bg-surface"
+                className="absolute inset-y-0 right-0 rounded-r-[6px] bg-surface"
                 style={{ left: at(1) }}
               />
               <span
                 className={cx(
-                  "absolute inset-y-0 left-0 rounded-lg transition-[width] duration-700 ease-out",
+                  "absolute inset-y-0 left-0 rounded-l-[3px] rounded-r-[6px] transition-[width] duration-700 ease-out",
                   FILL[p.state],
                 )}
                 style={{ width }}
