@@ -41,7 +41,7 @@ export function MonthRows({
       return -1;
     });
     const hasGhost = (r: MonthRow) => r.ghost !== undefined && r.ghost > total(r);
-    const bar = { type: "bar", stack: "m", barWidth: 22, emphasis: { disabled: true } } as const;
+    const bar = { type: "bar", stack: "m", barWidth: 10, emphasis: { disabled: true } } as const;
     const outline = {
       color: "transparent",
       borderColor: alpha(C.borderStrong, 0.45),
@@ -158,7 +158,7 @@ export function MonthRows({
   return (
     <EChart
       option={option}
-      height={rows.length * 42 + 36}
+      height={rows.length * 38 + 36}
       label={label}
       onClick={
         onPick

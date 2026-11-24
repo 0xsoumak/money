@@ -19,7 +19,7 @@ export interface MonthRow {
 
 const LABEL_W = 40;
 const AMOUNT_W = 58;
-const BAR_H = 20;
+const BAR_H = 10;
 
 /**
  * Months as horizontal bars, oldest at the top, the amount at the end of each. A shaded
