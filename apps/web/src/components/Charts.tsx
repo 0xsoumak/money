@@ -80,35 +80,3 @@ export function MonthTrend({
     </figure>
   );
 }
-
-export interface Stat {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: "danger" | "accent";
-}
-
-/** A row of small numbers that explain the hero figure. */
-export function StatStrip({ stats }: { stats: Stat[] }) {
-  return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border-2 border-line bg-line md:grid-cols-4">
-      {stats.map((s) => (
-        <div key={s.label} className="flex flex-col gap-1 bg-bg p-4">
-          <dt className="text-[13px] font-bold uppercase tracking-[0.12em] text-muted">
-            {s.label}
-          </dt>
-          <dd
-            className={cx(
-              "text-2xl font-bold tracking-[-0.02em]",
-              s.tone === "danger" && "text-danger",
-              s.tone === "accent" && "text-accent",
-            )}
-          >
-            {s.value}
-          </dd>
-          {s.hint && <dd className="text-sm text-muted">{s.hint}</dd>}
-        </div>
-      ))}
-    </dl>
-  );
-}

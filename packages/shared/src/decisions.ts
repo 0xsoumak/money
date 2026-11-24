@@ -34,6 +34,11 @@ const SETTLE_DAYS = 7;
 /** Below this share of days with any entry, logging looks incomplete. */
 const THIN = 0.3;
 
+/** Whether a category's change against usual is big enough to call out. */
+export function isNotable(m: { diff: number; usual: number }): boolean {
+  return Math.abs(m.diff) >= Math.max(NOTABLE, m.usual * 0.25);
+}
+
 // ── Typical range ───────────────────────────────────────────────────────────
 
 /** A typical value and the range around it. */
@@ -99,6 +104,13 @@ export interface Mover {
   diff: number;
 }
 
+/** One day on the pace chart: the usual running total by then, as a range. */
+export interface PaceDay {
+  low: number;
+  mid: number;
+  high: number;
+}
+
 export type Steadiness = "steady" | "uneven" | "irregular" | "none" | "early";
 /** How much history a comparison rests on. */
 export type Confidence = "none" | "early" | "solid";
@@ -156,6 +168,18 @@ export interface Decisions {
     projected: Range;
     /** Flexible categories that moved most against recent months, largest first. */
     movers: Mover[];
+    /**
+     * Every flexible category with spending now or usually by this day, biggest first (up to
+     * eight). The movers are the notable ones among these.
+     */
+    byCategory: Mover[];
+    /** Running totals of all spending (fixed + flexible), for a chart of the month. */
+    pace: {
+      /** This month, day 1 to `elapsed`. */
+      current: number[];
+      /** The usual running total for every day of the month; null without history. */
+      usual: PaceDay[] | null;
+    };
   };
   investing: {
     /** Invested ÷ income this month; null without income. */
@@ -211,18 +235,20 @@ function totalsFor(
   return { month, income, spent, fixed, flexible, invested, left: income - spent - invested };
 }
 
-/** Date → amount maps: one per category, and one for all flexible spending. */
+/** Date → amount maps: one per category, one for flexible spending and one for all of it. */
 function dailyMaps(rows: AnalyticsRow[], fixedIds: ReadonlySet<string>) {
   const byCategory = new Map<string, Map<string, number>>();
   const flexible = new Map<string, number>();
+  const all = new Map<string, number>();
   for (const r of rows) {
     if (r.type !== "expense") continue;
     let m = byCategory.get(r.categoryId);
     if (!m) byCategory.set(r.categoryId, (m = new Map()));
     m.set(r.date, (m.get(r.date) ?? 0) + r.amount);
+    all.set(r.date, (all.get(r.date) ?? 0) + r.amount);
     if (!fixedIds.has(r.categoryId)) flexible.set(r.date, (flexible.get(r.date) ?? 0) + r.amount);
   }
-  return { byCategory, flexible };
+  return { byCategory, flexible, all };
 }
 
 /** Spent in `month` by `day` (clamped to the month's length). */
@@ -302,7 +328,7 @@ export function decisions(input: {
           })();
 
   const recent = historyMonths.slice(-RECENT);
-  const movers: Mover[] =
+  const compared: Mover[] =
     recent.length === 0
       ? []
       : [...daily.byCategory]
@@ -312,9 +338,27 @@ export function decisions(input: {
             const usual = typicalRange(recent.map((m) => byDay(d, m, elapsed)))?.mid ?? 0;
             return { key, now, usual, diff: now - usual };
           })
-          .filter((m) => Math.abs(m.diff) >= Math.max(NOTABLE, m.usual * 0.25))
-          .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
-          .slice(0, 5);
+          .filter((m) => m.now > 0 || m.usual > 0);
+  const movers = compared
+    .filter((m) => isNotable(m))
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+    .slice(0, 5);
+  const byCategory = [...compared]
+    .sort((a, b) => Math.max(b.now, b.usual) - Math.max(a.now, a.usual))
+    .slice(0, 8);
+
+  // Running totals for the pace chart. Shorter months hold their final total to the end.
+  const runs = historyMonths.map((m) => runningTotals(daily.all, m));
+  const pace = {
+    current: runningTotals(daily.all, month).slice(0, elapsed),
+    usual:
+      runs.length === 0
+        ? null
+        : Array.from({ length: days }, (_, i) => {
+            const r = typicalRange(runs.map((run) => run[Math.min(i, run.length - 1)] ?? 0));
+            return { low: r?.low ?? 0, mid: r?.mid ?? 0, high: r?.high ?? 0 };
+          }),
+  };
 
   // ── Investing ──
   const hIncome = sum(history.map((h) => h.income));
@@ -386,7 +430,16 @@ export function decisions(input: {
     confidence,
     hasFixed: fixedIds.size > 0,
     logging: { loggedDays, logged, thin },
-    spending: { usualByNow, verdict, usualMonth, usualFixed, projected, movers },
+    spending: {
+      usualByNow,
+      verdict,
+      usualMonth,
+      usualFixed,
+      projected,
+      movers,
+      byCategory,
+      pace,
+    },
     investing,
     consistency: { months: consMonths, investedMonths: hits.length, streak, steadiness },
     budget: { overall, suggested, categories },

@@ -1,10 +1,10 @@
 import {
-  addMonths,
+  against,
   analyticsWindow,
   budgetProgress,
+  type Decisions,
   dailyExpenses,
-  monthInsights,
-  overviewStats,
+  decisions,
   today,
   weekdayAverages,
   weekdayHeadline,
@@ -13,7 +13,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { BudgetRing } from "../../components/BudgetRing";
-import { StatStrip } from "../../components/Charts";
+import { compactMoney, Panel, type Tone } from "../../components/charts/kit";
+import { PaceChart } from "../../components/charts/PaceChart";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { CountUp, Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
@@ -26,7 +27,6 @@ import {
   categoriesQuery,
   summaryQuery,
   transactionsQuery,
-  trendQuery,
 } from "../../lib/queries";
 import { useDeleteWithUndo } from "../../lib/useDeleteWithUndo";
 
@@ -35,6 +35,31 @@ export const Route = createFileRoute("/_app/")({
 });
 
 const RECENT = 5;
+
+/** A few words over the pace chart: the budget first, then how this month compares. */
+function paceTakeaway(d: Decisions): [string, Tone] {
+  const now = d.spending.pace.current.at(-1) ?? 0;
+  const p = d.spending.projected;
+  const o = d.budget.overall;
+  if (o && now > o.limit) return [`${compactMoney(now - o.limit)} over budget`, "warn"];
+  if (o && d.running && d.elapsed >= 7 && p.mid > o.limit)
+    return [`Heading ${compactMoney(p.mid - o.limit)} over budget`, "warn"];
+  const u = d.elapsed > 0 ? d.spending.pace.usual?.[d.elapsed - 1] : undefined;
+  if (!u)
+    return d.running
+      ? [`Likely ${compactMoney(p.mid)} by month end`, "info"]
+      : [`${compactMoney(now)} spent`, "info"];
+  const by = d.running ? " for this point in the month" : "";
+  switch (against(now, { ...u, n: 0 })) {
+    case "above":
+      return [`${compactMoney(now - u.high)} above usual${by}`, "warn"];
+    case "below":
+      // Thin logging looks like saving, so it never earns praise.
+      return [`${compactMoney(u.low - now)} below usual${by}`, d.logging.thin ? "info" : "good"];
+    default:
+      return [`In your usual range${by}`, "info"];
+  }
+}
 
 function Overview() {
   const { month } = useMonth();
@@ -45,7 +70,6 @@ function Overview() {
   const { data: categories = [] } = useQuery(categoriesQuery);
   const summary = useQuery({ ...summaryQuery(month), placeholderData: keepPreviousData });
   const txs = useQuery({ ...transactionsQuery(month), placeholderData: keepPreviousData });
-  const trend = useQuery({ ...trendQuery(month), placeholderData: keepPreviousData });
 
   const loading = summary.isPending || txs.isPending;
   const stale = summary.isPlaceholderData || txs.isPlaceholderData;
@@ -83,25 +107,39 @@ function Overview() {
   const budgetCount = (overall !== null ? 1 : 0) + categoryBudgets.length;
   const onTrack = budgetCount - atRisk.length;
 
-  // ── Daily figures for the charts and stat strip ──
+  // ── This month against the usual: the pace chart, and a line from Analytics ──
   const todayDate = today();
-  const ins = monthInsights({
-    month,
-    todayDate,
-    spent,
-    transactions: txs.data ?? [],
-    overallBudget: overall,
-  });
-  const prevSpent = trend.data?.find((t) => t.month === addMonths(month, -1))?.spent ?? 0;
-  const stats = overviewStats(ins, { spent, prevSpent, overallBudget: overall, money });
-
-  // One line from the Analytics page, as a way in.
   const analytics = useQuery({ ...analyticsQuery(month), placeholderData: keepPreviousData });
+  const fixedIds = useMemo(
+    () => new Set(categories.filter((c) => c.fixed).map((c) => c.id)),
+    [categories],
+  );
+  const categoryBudgetMap = budget?.categories;
+  const d = useMemo(
+    () =>
+      analytics.data
+        ? decisions({
+            rows: analytics.data.rows,
+            month: analytics.data.to,
+            range: 6,
+            todayDate,
+            budgets: { overall, byCategory: categoryBudgetMap ?? {} },
+            fixedIds,
+          })
+        : null,
+    [analytics.data, todayDate, overall, categoryBudgetMap, fixedIds],
+  );
+  const [paceText, paceTone] = d ? paceTakeaway(d) : ["", "info" as Tone];
+
+  // The biggest rise from Analytics, or the weekday pattern when nothing stands out.
   const teaser = useMemo(() => {
-    if (!analytics.data) return null;
+    if (!analytics.data || !d) return null;
+    const up = d.spending.movers.find((m) => m.diff > 0);
+    const cat = up && categories.find((c) => c.id === up.key);
+    if (up && cat) return `${cat.name} is ${compactMoney(up.diff)} above usual.`;
     const { dates } = analyticsWindow(analytics.data.to, 3, todayDate);
     return weekdayHeadline(weekdayAverages(dailyExpenses(analytics.data.rows), dates));
-  }, [analytics.data, todayDate]);
+  }, [analytics.data, d, categories, todayDate]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -195,7 +233,24 @@ function Overview() {
         ) : (
           <>
             <Reveal>
-              <StatStrip stats={stats} />
+              {d ? (
+                <Panel
+                  title={d.running ? "This month's pace" : "How the month went"}
+                  takeaway={paceText}
+                  tone={paceTone}
+                >
+                  <PaceChart
+                    month={d.month}
+                    current={d.spending.pace.current}
+                    days={d.days}
+                    usual={d.confidence === "none" ? null : d.spending.pace.usual}
+                    projected={d.running ? d.spending.projected : null}
+                    budget={overall}
+                  />
+                </Panel>
+              ) : (
+                <Skeleton className="h-[380px]" />
+              )}
             </Reveal>
 
             <Reveal>

@@ -216,3 +216,62 @@ describe("decisionActions", () => {
     expect(decisionActions(d, money, name).map((a) => a.id)).toContain("mark-fixed");
   });
 });
+
+describe("decisions: charts", () => {
+  it("gives this month's running total and the usual running total for every day", () => {
+    const rows = [
+      row("2026-09-02", "expense", 100),
+      row("2026-09-20", "expense", 300),
+      row("2026-10-02", "expense", 200),
+      row("2026-10-20", "expense", 500),
+      row("2026-11-01", "expense", 50),
+      row("2026-11-03", "expense", 25),
+    ];
+    const d = decisions({
+      rows,
+      month: "2026-11",
+      range: 6,
+      todayDate: "2026-11-05",
+      budgets: none,
+    });
+    expect(d.spending.pace.current).toEqual([5000, 5000, 7500, 7500, 7500]);
+    const usual = d.spending.pace.usual;
+    expect(usual).toHaveLength(30);
+    // Two months of history: lowest to highest, by the same day.
+    expect(usual?.[1]).toEqual({ low: 10_000, mid: 15_000, high: 20_000 });
+    expect(usual?.[29]).toEqual({ low: 40_000, mid: 55_000, high: 70_000 });
+  });
+
+  it("has no usual pace without history", () => {
+    const d = decisions({
+      rows: [row("2026-11-03", "expense", 500)],
+      month: "2026-11",
+      range: 6,
+      todayDate: "2026-11-04",
+      budgets: none,
+    });
+    expect(d.spending.pace.usual).toBeNull();
+    expect(d.spending.pace.current).toEqual([0, 0, 50_000, 50_000]);
+  });
+
+  it("compares every flexible category, not only the notable ones, biggest first", () => {
+    const rows = [
+      row("2026-10-03", "expense", 1000, "food"),
+      row("2026-10-03", "expense", 100, "fun"),
+      row("2026-10-03", "expense", 20_000, "rent"),
+      row("2026-11-03", "expense", 3000, "food"),
+      row("2026-11-03", "expense", 110, "fun"),
+      row("2026-11-03", "expense", 20_000, "rent"),
+    ];
+    const d = decisions({
+      rows,
+      month: "2026-11",
+      range: 6,
+      todayDate: "2026-11-10",
+      budgets: none,
+      fixedIds: new Set(["rent"]),
+    });
+    expect(d.spending.byCategory.map((c) => c.key)).toEqual(["food", "fun"]);
+    expect(d.spending.movers.map((c) => c.key)).toEqual(["food"]);
+  });
+});
