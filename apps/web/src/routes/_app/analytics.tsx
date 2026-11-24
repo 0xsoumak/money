@@ -187,11 +187,11 @@ function Analytics() {
       <div
         aria-busy={q.isPlaceholderData}
         className={cx(
-          "flex flex-col gap-5 transition-opacity duration-300",
+          "flex flex-col gap-14 transition-opacity duration-300",
           q.isPlaceholderData && "pointer-events-none opacity-35",
         )}
       >
-        <header className="mb-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+        <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
           <div>
             <Label>
               {d
@@ -229,7 +229,7 @@ function Analytics() {
         {q.isPending ? (
           <>
             <Skeleton className="h-[400px]" />
-            <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
+            <div className="grid gap-12 lg:grid-cols-[3fr_2fr]">
               <Skeleton className="h-[380px]" />
               <Skeleton className="h-[380px]" />
             </div>
@@ -461,7 +461,9 @@ function Sections({
         </Reveal>
       )}
 
-      <Reveal className={cx("grid gap-5", dumbbell.length > 0 && "lg:grid-cols-[3fr_2fr]")}>
+      <Reveal
+        className={cx("grid gap-14 lg:gap-12", dumbbell.length > 0 && "lg:grid-cols-[3fr_2fr]")}
+      >
         <Panel id="spending" title="Spending by month" takeaway={spendText} tone={spendTone}>
           <MonthColumns
             columns={cols.spend}
@@ -513,7 +515,7 @@ function Sections({
       </Reveal>
 
       {monthExpenses.length > 0 && (
-        <Reveal className="grid gap-5 lg:grid-cols-[3fr_2fr]">
+        <Reveal className="grid gap-14 lg:gap-12 lg:grid-cols-[3fr_2fr]">
           <Panel
             id="expenses"
             title="Every expense"
@@ -558,7 +560,7 @@ function Sections({
         </Panel>
       </Reveal>
 
-      <Reveal className="grid gap-5 lg:grid-cols-[3fr_2fr]">
+      <Reveal className="grid gap-14 lg:gap-12 lg:grid-cols-[3fr_2fr]">
         <Panel id="investing" title="Investing" takeaway={investText} tone={investTone}>
           <div
             className={cx(
@@ -607,7 +609,7 @@ function Sections({
           takeaway={`Spent on ${stats.spentDays} of ${extra.counted} days`}
         >
           <CalendarHeat month={d.month} daily={extra.daily} todayDate={todayDate} />
-          <div className="flex flex-col gap-3 border-t-2 border-line pt-5">
+          <div className="flex flex-col gap-3 pt-4">
             <p className="text-[15px] font-semibold">
               {extra.headline ?? "Average spend by weekday"}
               <span className="block text-[13px] font-normal text-muted">

@@ -171,14 +171,11 @@ export function Panel({
     <section
       id={id}
       aria-label={title}
-      className={cx(
-        "flex min-w-0 scroll-mt-6 flex-col gap-5 rounded-xl border-2 border-line p-5 sm:p-6",
-        className,
-      )}
+      className={cx("flex min-w-0 scroll-mt-6 flex-col gap-5", className)}
     >
-      <header className="flex flex-col gap-1.5">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-muted">{title}</h2>
+      <header className="flex flex-col gap-4">
+        <div className="flex items-baseline justify-between gap-4 border-b-2 border-line-strong pb-2">
+          <h2 className="text-sm font-bold uppercase tracking-[0.12em]">{title}</h2>
           {note && <span className="text-sm text-muted">{note}</span>}
         </div>
         {takeaway && (
