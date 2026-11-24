@@ -17,6 +17,8 @@ import {
   type MonthTotals,
   moneyFlow,
   type Ranked,
+  type SpendCurve as SpendCurveData,
+  spendCurve,
   spendingSplit,
   today,
   weekdayAverages,
@@ -39,6 +41,7 @@ import { compactMoney, Key, Legend, Panel, type Tone } from "../../components/ch
 import { MoneyFlow } from "../../components/charts/MoneyFlow";
 import { type Column, MonthColumns } from "../../components/charts/MonthColumns";
 import { CalendarHeat, WeekdayBars } from "../../components/charts/Rhythm";
+import { SpendCurve } from "../../components/charts/SpendCurve";
 import { MonthSwitcher } from "../../components/MonthSwitcher";
 import { Reveal } from "../../components/motion";
 import { useQuickAdd } from "../../components/QuickAdd";
@@ -172,6 +175,7 @@ function Analytics() {
       stats: dayStats(daily, monthDates),
       counted: monthDates.length,
       flow: moneyFlow(rows, dataMonth),
+      curve: spendCurve(daily, dataMonth, todayDate),
       split: spendingSplit(rows, dataMonth, fixedIds),
       year: { from: yearFrom, to: yearTo, stats: dayStats(daily, eachDay(yearFrom, yearTo)) },
     };
@@ -264,6 +268,7 @@ interface Extra {
   stats: DayStats;
   counted: number;
   flow: MoneyFlowData;
+  curve: SpendCurveData;
   split: { fixed: Ranked[]; flexible: Ranked[] };
   year: { from: string; to: string; stats: DayStats };
 }
@@ -439,6 +444,19 @@ function Sections({
         <Reveal>
           <Panel id="flow" title="Where the money went" takeaway={flowText} tone={flowTone}>
             <MoneyFlow flow={extra.flow} byId={byId} />
+          </Panel>
+        </Reveal>
+      )}
+
+      {extra.curve.elapsed > 0 && (
+        <Reveal>
+          <Panel
+            id="curve"
+            title="Spend curve"
+            note="Running total"
+            takeaway={`${money(extra.curve.current.at(-1) ?? 0)} spent${d.running ? " so far" : ""}.`}
+          >
+            <SpendCurve month={d.month} curve={extra.curve} budget={limitValue ?? null} />
           </Panel>
         </Reveal>
       )}

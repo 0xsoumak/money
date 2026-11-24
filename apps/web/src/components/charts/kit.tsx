@@ -152,6 +152,7 @@ export type Tone = "warn" | "good" | "info";
 export function Panel({
   id,
   title,
+  note,
   takeaway,
   tone = "info",
   className,
@@ -159,6 +160,8 @@ export function Panel({
 }: {
   id?: string;
   title: string;
+  /** A few muted words on the right of the title, e.g. what the chart measures. */
+  note?: string;
   takeaway?: ReactNode;
   tone?: Tone;
   className?: string;
@@ -174,7 +177,10 @@ export function Panel({
       )}
     >
       <header className="flex flex-col gap-1.5">
-        <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-muted">{title}</h2>
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.12em] text-muted">{title}</h2>
+          {note && <span className="text-sm text-muted">{note}</span>}
+        </div>
         {takeaway && (
           <p
             className={cx(
